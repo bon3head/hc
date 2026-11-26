@@ -1,0 +1,409 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: README.md, src/**/*.rs
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  lib.rs
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/lib.rs">
+//! JSON Canonicalization Scheme ([RFC 8785]) for [Serde].
+//!
+//! ```
+//! use serde_jcs::to_string;
+//! use serde_json::json;
+//!
+//! let value = json!({ "b": [1.50, "\u{20ac}"], "a": null });
+//! assert_eq!(to_string(&value).unwrap(), r#"{"a":null,"b":[1.5,"€"]}"#);
+//! ```
+//!
+//! [RFC 8785]: https://www.rfc-editor.org/rfc/rfc8785
+//! [Serde]: ::serde
+⋮----
+use serde::Serialize;
+⋮----
+use serde::ser::SerializeMap;
+use serde::ser::SerializeSeq;
+use serde::ser::SerializeStruct;
+use serde::ser::SerializeStructVariant;
+use serde::ser::SerializeTuple;
+use serde::ser::SerializeTupleStruct;
+use serde::ser::SerializeTupleVariant;
+use serde::ser::Serializer;
+⋮----
+use serde_json::ser::CharEscape;
+use serde_json::ser::CompactFormatter;
+⋮----
+use serde_transcode::transcode;
+use std::cell::Cell;
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+⋮----
+use std::fmt::Display;
+use std::fmt::Formatter;
+⋮----
+use std::io;
+use std::io::Write;
+use std::mem::take;
+use std::str::from_utf8;
+⋮----
+/// The largest integer magnitude that always serializes, `2^53 - 1`.
+///
+/// Equal to ECMAScript's `Number.MAX_SAFE_INTEGER`.
+⋮----
+// The key serde_json uses for numbers under `arbitrary_precision`.
+⋮----
+/// Serializes `value` as a canonical JSON [`String`].
+///
+/// # Errors
+///
+/// Returns an error if:
+///
+/// - `T`'s implementation of `Serialize` fails or ignores an error.
+/// - `value` contains a non-finite float.
+/// - `value` contains a duplicate object key.
+/// - `value` contains an integer that serializes differently as an [`f64`].
+⋮----
+pub fn to_string<T>(value: &T) -> Result<String, JsonError>
+⋮----
+// SAFETY: We only emit valid UTF-8.
+⋮----
+/// Serializes `value` as canonical JSON bytes.
+///
+/// # Errors
+///
+/// Returns an error if:
+///
+/// - `T`'s implementation of `Serialize` fails or ignores an error.
+/// - `value` contains a non-finite float.
+/// - `value` contains a duplicate object key.
+/// - `value` contains an integer that serializes differently as an [`f64`].
+⋮----
+pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, JsonError>
+⋮----
+/// Serializes `value` as canonical JSON into `writer`.
+///
+/// # Errors
+///
+/// Returns an error if:
+///
+/// - `T`'s implementation of `Serialize` fails or ignores an error.
+/// - `value` contains a non-finite float.
+/// - `value` contains a duplicate object key.
+/// - `value` contains an integer that serializes differently as an [`f64`].
+⋮----
+pub fn to_writer<W, T>(writer: W, value: &T) -> Result<(), JsonError>
+⋮----
+// -----------------------------------------------------------------------------
+// Errors
+// -----------------------------------------------------------------------------
+⋮----
+// serde_json reports every formatter error as an I/O error.
+⋮----
+struct Error(String);
+⋮----
+impl Error {
+⋮----
+fn io(message: impl Into<String>) -> io::Error {
+⋮----
+fn duplicate_key() -> io::Error {
+⋮----
+fn incomplete_entry() -> io::Error {
+⋮----
+fn invalid_float() -> io::Error {
+⋮----
+fn invalid_key() -> io::Error {
+⋮----
+fn missing_object(event: &str) -> io::Error {
+⋮----
+fn unsafe_integer() -> io::Error {
+⋮----
+impl Display for Error {
+fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+⋮----
+impl StdError for Error {}
+⋮----
+fn reclassify(error: JsonError) -> JsonError {
+⋮----
+// -----------------------------------------------------------------------------
+// JCS Formatter
+// -----------------------------------------------------------------------------
+⋮----
+macro_rules! forward_scope {
+⋮----
+struct JcsFormatter {
+entries: Vec<Entry>,
+fragment: bool,
+⋮----
+impl JcsFormatter {
+⋮----
+const fn new(fragment: bool) -> Self {
+⋮----
+fn serializer<W>(writer: W, fragment: bool) -> JsonSerializer<W, Self>
+⋮----
+fn scope<'a, W>(&'a mut self, writer: &'a mut W) -> Scope<'a, W>
+⋮----
+fn entry_mut(&mut self) -> Option<&mut Entry> {
+⋮----
+fn in_key(&self) -> bool {
+⋮----
+fn check_integer(&self, magnitude: u128) -> io::Result<()> {
+⋮----
+impl JsonFormatter for JcsFormatter {
+⋮----
+fn write_number_str<W>(&mut self, writer: &mut W, value: &str) -> io::Result<()>
+⋮----
+fn write_raw_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+⋮----
+fn write_i64<W>(&mut self, writer: &mut W, value: i64) -> io::Result<()>
+⋮----
+fn write_i128<W>(&mut self, writer: &mut W, value: i128) -> io::Result<()>
+⋮----
+fn write_u64<W>(&mut self, writer: &mut W, value: u64) -> io::Result<()>
+⋮----
+fn write_u128<W>(&mut self, writer: &mut W, value: u128) -> io::Result<()>
+⋮----
+fn write_f32<W>(&mut self, writer: &mut W, value: f32) -> io::Result<()>
+⋮----
+fn write_f64<W>(&mut self, writer: &mut W, value: f64) -> io::Result<()>
+⋮----
+fn begin_object<W>(&mut self, _writer: &mut W) -> io::Result<()>
+⋮----
+fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
+⋮----
+fn begin_object_key<W>(&mut self, _writer: &mut W, _first: bool) -> io::Result<()>
+⋮----
+fn end_object_key<W>(&mut self, _writer: &mut W) -> io::Result<()>
+⋮----
+fn begin_object_value<W>(&mut self, _writer: &mut W) -> io::Result<()>
+⋮----
+fn end_object_value<W>(&mut self, _writer: &mut W) -> io::Result<()>
+⋮----
+// -----------------------------------------------------------------------------
+// JCS Formatter - Scope
+// -----------------------------------------------------------------------------
+⋮----
+enum Scope<'a, W>
+⋮----
+impl<W> Write for Scope<'_, W>
+⋮----
+fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+⋮----
+fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+⋮----
+fn flush(&mut self) -> io::Result<()> {
+⋮----
+// -----------------------------------------------------------------------------
+// JCS Formatter - Entry
+// -----------------------------------------------------------------------------
+⋮----
+struct Entry {
+object: BTreeMap<EntryKey, Vec<u8>>,
+next_key: Vec<u8>,
+next_val: Vec<u8>,
+complete: bool,
+⋮----
+impl Entry {
+⋮----
+const fn new() -> Self {
+⋮----
+const fn complete(&mut self, value: bool) {
+⋮----
+fn is_pending(&self) -> bool {
+⋮----
+fn number(&self) -> Option<&str> {
+⋮----
+// -----------------------------------------------------------------------------
+// JCS Formatter - Entry Key
+// -----------------------------------------------------------------------------
+⋮----
+struct EntryKey {
+tag: Vec<u16>,
+key: Vec<u8>,
+⋮----
+impl EntryKey {
+fn new(key: Vec<u8>) -> io::Result<Self> {
+⋮----
+fn unescape(text: &str) -> Option<(u16, &str)> {
+⋮----
+impl PartialEq for EntryKey {
+⋮----
+fn eq(&self, other: &Self) -> bool {
+⋮----
+impl Eq for EntryKey {}
+⋮----
+impl PartialOrd for EntryKey {
+⋮----
+fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+⋮----
+impl Ord for EntryKey {
+⋮----
+fn cmp(&self, other: &Self) -> Ordering {
+⋮----
+// -----------------------------------------------------------------------------
+// JCS Formatter - Misc.
+// -----------------------------------------------------------------------------
+⋮----
+fn round_trips(magnitude: u128) -> bool {
+⋮----
+fn unquote(bytes: &[u8]) -> Option<&str> {
+⋮----
+// -----------------------------------------------------------------------------
+// JCS Value
+// -----------------------------------------------------------------------------
+⋮----
+struct JcsValue<'a, T>(&'a T, &'a Cell<bool>)
+⋮----
+impl<T> Serialize for JcsValue<'_, T>
+⋮----
+fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+⋮----
+// -----------------------------------------------------------------------------
+// JCS Serializer
+// -----------------------------------------------------------------------------
+⋮----
+macro_rules! forward {
+⋮----
+macro_rules! forward_float {
+⋮----
+macro_rules! forward_compound {
+⋮----
+macro_rules! forward_element {
+⋮----
+struct JcsSerializer<'a, S>(S, &'a Cell<bool>);
+⋮----
+impl<'a, S> Serializer for JcsSerializer<'a, S>
+⋮----
+type Ok = S::Ok;
+type Error = S::Error;
+type SerializeSeq = JcsSerializer<'a, S::SerializeSeq>;
+type SerializeTuple = JcsSerializer<'a, S::SerializeTuple>;
+type SerializeTupleStruct = JcsSerializer<'a, S::SerializeTupleStruct>;
+type SerializeTupleVariant = JcsSerializer<'a, S::SerializeTupleVariant>;
+type SerializeMap = JcsSerializer<'a, S::SerializeMap>;
+type SerializeStruct = JcsSerializer<'a, S::SerializeStruct>;
+type SerializeStructVariant = JcsSerializer<'a, S::SerializeStructVariant>;
+⋮----
+fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+⋮----
+fn serialize_newtype_struct<T>(
+⋮----
+fn serialize_newtype_variant<T>(
+⋮----
+fn is_human_readable(&self) -> bool {
+⋮----
+impl<S> SerializeMap for JcsSerializer<'_, S>
+⋮----
+type Ok = S::Ok;
+type Error = S::Error;
+⋮----
+fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
+⋮----
+fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
+⋮----
+fn end(self) -> Result<Self::Ok, Self::Error> {
+</file>
+
+<file path="README.md">
+# Serde JCS
+
+[![github][shield-img-github]][shield-url-github]
+[![crates.io][shield-img-crates]][shield-url-crates]
+[![docs.rs][shield-img-docs]][shield-url-docs]
+[![build status][shield-img-ci]][shield-url-ci]
+
+JSON Canonicalization Scheme (JCS) for Serde.
+
+**serde_jcs** turns [Serde][ref-url-serde] data into the canonical JSON of [RFC 8785][ref-url-rfc8785].
+
+---
+
+## Usage
+
+Add the following to your `Cargo.toml`:
+
+```toml
+[dependencies]
+serde_jcs = "0.3"
+```
+
+<br>
+
+#### License
+
+<sup>
+  Licensed under either of <a href="LICENSE-APACHE">Apache License, Version 2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+</sup>
+
+<br>
+
+<sub>
+  Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this crate by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+</sub>
+
+[//]: # (badges)
+
+[shield-url-github]: https://github.com/l1h3r/serde_jcs
+[shield-img-github]: https://img.shields.io/badge/github-l1h3r/serde_jcs-main?style=flat-square&logo=github
+
+[shield-url-crates]: https://crates.io/crates/serde_jcs
+[shield-img-crates]: https://img.shields.io/crates/v/serde_jcs?style=flat-square&logo=rust
+
+[shield-url-docs]: https://docs.rs/serde_jcs
+[shield-img-docs]: https://img.shields.io/docsrs/serde_jcs?style=flat-square&logo=docs.rs
+
+[shield-url-ci]: https://github.com/l1h3r/serde_jcs/actions/workflows/ci.yml?query=branch:main
+[shield-img-ci]: https://img.shields.io/github/actions/workflow/status/l1h3r/serde_jcs/ci.yml?style=flat-square
+
+[//]: # (refs)
+
+[ref-url-serde]: https://serde.rs
+[ref-url-rfc8785]: https://www.rfc-editor.org/rfc/rfc8785
+</file>
+
+</files>

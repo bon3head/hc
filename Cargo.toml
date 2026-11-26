@@ -1,0 +1,59 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+repository = "https://github.com/bonehead/handoff-compiler"
+
+[workspace.dependencies]
+assay = { path = "crates/assay" }
+bedrock = { path = "crates/bedrock" }
+brief = { path = "crates/brief" }
+cell = { path = "crates/cell" }
+courier = { path = "crates/courier" }
+crossexam = { path = "crates/crossexam" }
+docket = { path = "crates/docket" }
+exhibit = { path = "crates/exhibit" }
+intake = { path = "crates/intake" }
+roster = { path = "crates/roster" }
+seal = { path = "crates/seal" }
+
+anyhow = "1.0.105"
+clap = { version = "4.6.10", features = ["derive", "env"] }
+globset = "0.4.22"
+hex = "0.4.3"
+jiff = "1.0.3"
+jsonschema = { version = "0.63.1", default-features = false }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+serde_jcs = "0.4.0"
+sha2 = "0.11.2"
+shlex = "2.0.1"
+regex = "1.13.2"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+tree-sitter = "0.27.2"
+tree-sitter-python = "0.25.0"
+ureq = { version = "3.5.2", features = ["json"] }
+
+proptest = "1.12.0"
+trybuild = "1.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

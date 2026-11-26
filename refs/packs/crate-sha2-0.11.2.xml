@@ -1,0 +1,1023 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: README.md, src/**/*.rs, examples/**/*.rs, binding_rust/**/*.rs
+- Files matching these patterns are excluded: **/tests/**, **/benches/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  sha256/
+    riscv_zknh/
+      compact.rs
+      unroll.rs
+    soft/
+      compact.rs
+      unroll.rs
+    aarch64_sha2.rs
+    loongarch64_asm.rs
+    riscv_zknh.rs
+    soft.rs
+    wasm32_simd128.rs
+    x86_sha.rs
+  sha512/
+    riscv_zknh/
+      compact.rs
+      unroll.rs
+    soft/
+      compact.rs
+      unroll.rs
+    aarch64_sha3.rs
+    loongarch64_asm.rs
+    riscv_zknh.rs
+    soft.rs
+    wasm32_simd128.rs
+    x86_avx2.rs
+  block_api.rs
+  consts.rs
+  lib.rs
+  sha256.rs
+  sha512.rs
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/sha256/riscv_zknh/compact.rs">
+//! RISC-V backend which uses the Zknh extension and does not perform manual loop unrolling.
+//!
+//! Generated assembly (for `opt-level=s`):
+//! RV32: https://rust.godbolt.org/z/MabKT4ssW
+//! RV64: https://rust.godbolt.org/z/bf7sf1zEe
+⋮----
+pub(crate) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+// Unforuntately, LLVM is unable to remove `memset` for
+// `fn message_schedule(block: &[u8; 64]) -> [u32; ROUNDS] { ... }`
+// See: https://rust.godbolt.org/z/s61sP3GKj
+// So to prevent unnecessary `memset` call for each block we reuse the buffer.
+⋮----
+// Pre-computing the whole message schedule instead of doing it during each round
+// with a ring buffer results in a smaller binary with less branching
+// at the cost of using additional stack space
+⋮----
+fn schedule(block: &[u8; 64], msg: &mut [u32; SHA256_ROUNDS]) {
+⋮----
+fn rounds(state: &mut [u32; 8], msg: &[u32; SHA256_ROUNDS]) {
+</file>
+
+<file path="src/sha256/riscv_zknh/unroll.rs">
+//! RISC-V backend which uses the Zknh extension and fully unrolls round loop.
+//!
+//! Generated assembly:
+//! RV32: https://rust.godbolt.org/z/jv9jxqs9n
+//! RV64: https://rust.godbolt.org/z/E6M7b9zWx
+⋮----
+pub(crate) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+⋮----
+fn compress_block(state: &mut [u32; 8], block: &[u8; 64]) {
+⋮----
+fn load_round<const R: usize>(state: &mut [u32; 8], block: &[u8; 64], msg: &mut [u32; 16]) {
+⋮----
+fn schedule_round<const R: usize>(state: &mut [u32; 8], msg: &mut [u32; 16]) {
+⋮----
+fn round<const R: usize>(state: &mut [u32; 8], w: u32) {
+⋮----
+// We intentionally add round constant instead of simply loading it
+// to prevent the compiler from applying unnecessary optimizations
+⋮----
+fn add_rk<const R: usize>(mut w: u32) -> u32 {
+use crate::consts::SHA256_RK;
+</file>
+
+<file path="src/sha256/soft/compact.rs">
+//! Software backend without manual loop unrolling
+//!
+//! Generated assembly: https://rust.godbolt.org/z/fno5qd6sK
+⋮----
+pub(crate) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+// Unforuntately, LLVM is unable to remove `memset` for
+// `fn message_schedule(block: &[u8; 64]) -> [u32; ROUNDS] { ... }`
+// See: https://rust.godbolt.org/z/s61sP3GKj
+// So to prevent unnecessary `memset` call for each block we reuse the buffer.
+⋮----
+// Pre-computing the whole message schedule instead of doing it during each round
+// with a ring buffer results in a smaller binary with less branching
+// at the cost of using additional stack space
+⋮----
+fn schedule(block: &[u8; 64], msg: &mut [u32; SHA256_ROUNDS]) {
+⋮----
+fn rounds(state: &mut [u32; 8], msg: &[u32; SHA256_ROUNDS]) {
+</file>
+
+<file path="src/sha256/soft/unroll.rs">
+//! Portable software backend.
+//!
+//! Generated assembly: https://rust.godbolt.org/z/GsGc67oYh
+⋮----
+pub(crate) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+⋮----
+fn compress_block(state: &mut [u32; 8], block: &[u8; 64]) {
+⋮----
+fn load_round<const R: usize>(state: &mut [u32; 8], block: &[u8; 64], msg: &mut [u32; 16]) {
+⋮----
+fn schedule_round<const R: usize>(state: &mut [u32; 8], msg: &mut [u32; 16]) {
+⋮----
+fn round<const R: usize>(state: &mut [u32; 8], w: u32) {
+⋮----
+fn load_rk<const R: usize>() -> u32 {
+use crate::consts::SHA256_RK;
+⋮----
+// `read_volatile` forces the compiler to read round constants from the static
+// instead of unnecessarily inlining values or materializaing them on the stack.
+// It generally results in a smaller binary and improves performance.
+⋮----
+// On x86 targets 32-bit constants can be encoded using immediate argument on the `add`
+// instruction, so it's more efficient to inline them.
+</file>
+
+<file path="src/sha256/aarch64_sha2.rs">
+//! SHA-256 `aarch64` backend.
+//!
+//! Implementation adapted from mbedtls.
+⋮----
+pub(super) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+// Load state into vectors.
+⋮----
+// Iterate through the message blocks.
+⋮----
+// Keep original state values.
+⋮----
+// Load the message block into vectors, assuming little endianness.
+⋮----
+// Rounds 0 to 3
+⋮----
+// Rounds 4 to 7
+⋮----
+// Rounds 8 to 11
+⋮----
+// Rounds 12 to 15
+⋮----
+// Rounds t to t + 3
+⋮----
+// Rounds t + 4 to t + 7
+⋮----
+// Rounds t + 8 to t + 11
+⋮----
+// Rounds t + 12 to t + 15
+⋮----
+// Add the block-specific state to the original state.
+⋮----
+// Store vectors into state.
+⋮----
+fn rk(i: usize) -> uint32x4_t {
+⋮----
+fn load_block(block: &[u8; 64]) -> [uint32x4_t; 4] {
+⋮----
+fn load_state(state: &[u32; 8]) -> [uint32x4_t; 2] {
+⋮----
+fn store_state(state_dst: &mut [u32; 8], [abcd, efgh]: [uint32x4_t; 2]) {
+</file>
+
+<file path="src/sha256/loongarch64_asm.rs">
+//! LoongArch64 assembly backend
+⋮----
+macro_rules! c {
+⋮----
+macro_rules! rounda {
+⋮----
+macro_rules! roundb {
+⋮----
+macro_rules! roundtail {
+⋮----
+// Part 0
+⋮----
+// Part 1
+⋮----
+// Part 2
+⋮----
+pub(super) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+⋮----
+// Allocate scratch stack space
+⋮----
+// Load state
+⋮----
+// Do 64 rounds of hashing
+⋮----
+// Update state registers
+"ld.w    $a4, $a0, 0",  // a
+"ld.w    $a5, $a0, 4",  // b
+"ld.w    $a6, $a0, 8",  // c
+"ld.w    $a7, $a0, 12", // d
+⋮----
+"ld.w    $a4, $a0, 16", // e
+"ld.w    $a5, $a0, 20", // f
+"ld.w    $a6, $a0, 24", // g
+"ld.w    $a7, $a0, 28", // h
+⋮----
+// Save updated state
+⋮----
+// Looping over blocks
+⋮----
+// Restore stack register
+⋮----
+// Clobbers
+</file>
+
+<file path="src/sha256/riscv_zknh.rs">
+
+</file>
+
+<file path="src/sha256/soft.rs">
+fn sig0(w: u32) -> u32 {
+⋮----
+fn sig1(w: u32) -> u32 {
+⋮----
+fn sum0(w: u32) -> u32 {
+⋮----
+fn sum1(w: u32) -> u32 {
+⋮----
+fn ch(e: u32, f: u32, g: u32) -> u32 {
+⋮----
+fn maj(a: u32, b: u32, c: u32) -> u32 {
+</file>
+
+<file path="src/sha256/wasm32_simd128.rs">
+pub(super) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+⋮----
+fn load_data(x: &mut [v128; 4], ms: &mut MsgSchedule, block: &[u8; 64]) {
+macro_rules! unrolled_iterations {
+⋮----
+fn rounds_0_47(current_state: &mut State, x: &mut [v128; 4], ms: &mut MsgSchedule) {
+⋮----
+fn rounds_48_63(current_state: &mut State, ms: &MsgSchedule) {
+⋮----
+fn sha_round(s: &mut State, x: u32) {
+macro_rules! big_sigma0 {
+⋮----
+macro_rules! big_sigma1 {
+⋮----
+macro_rules! bool3ary_202 {
+⋮----
+} // Choose, MD5F, SHA1C
+macro_rules! bool3ary_232 {
+⋮----
+} // Majority, SHA1M
+⋮----
+macro_rules! rotate_state {
+⋮----
+fn accumulate_state(dst: &mut State, src: &State) {
+⋮----
+fn sha256_update_x(x: &mut [v128; 4], k32: v128) -> v128 {
+⋮----
+fn rk(i: usize) -> v128 {
+⋮----
+type State = [u32; SHA256_HASH_WORDS_NUM];
+type MsgSchedule = [v128; SHA256_BLOCK_WORDS_NUM / 4];
+</file>
+
+<file path="src/sha256/x86_sha.rs">
+//! SHA-256 `x86`/`x86_64` backend
+⋮----
+fn rounds4(r: usize, abef: &mut __m128i, cdgh: &mut __m128i, rest: __m128i) {
+use crate::consts::SHA256_RK;
+⋮----
+fn schedule_rounds16(r: usize, abef: &mut __m128i, cdgh: &mut __m128i, w: &mut [__m128i; 4]) {
+⋮----
+fn load_block(block: &[u8; 64]) -> [__m128i; 4] {
+⋮----
+fn load_state(state: &[u32; 8]) -> [__m128i; 2] {
+⋮----
+fn store_state(state: &mut [u32; 8], [dcba, hgef]: [__m128i; 2]) {
+⋮----
+pub(super) fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+</file>
+
+<file path="src/sha512/riscv_zknh/compact.rs">
+//! RISC-V backend which uses the Zknh extension and does not perform manual loop unrolling.
+//!
+//! Generated assembly (for `opt-level=s`):
+//! RV32: https://rust.godbolt.org/z/8axxnoYds
+//! RV64: https://rust.godbolt.org/z/T14dovc6s
+⋮----
+pub(crate) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+// Unforuntately, LLVM is unable to remove `memset` for
+// `fn message_schedule(block: &[u8; 128]) -> [u64; ROUNDS] { ... }`
+// See: https://rust.godbolt.org/z/ncxzYrMPh
+// So to prevent unnecessary `memset` call for each block we reuse the buffer.
+⋮----
+// Pre-computing the whole message schedule instead of doing it during each round
+// with a ring buffer results in a smaller binary with less branching
+// at the cost of using additional stack space
+⋮----
+fn schedule(block: &[u8; 128], msg: &mut [u64; SHA512_ROUNDS]) {
+⋮----
+fn rounds(state: &mut [u64; 8], msg: &[u64; SHA512_ROUNDS]) {
+</file>
+
+<file path="src/sha512/riscv_zknh/unroll.rs">
+//! RISC-V backend which uses the Zknh extension and fully unrolls round loop.
+//!
+//! Generated assembly:
+//! RV32: https://rust.godbolt.org/z/cdMbTWanT
+//! RV64: https://rust.godbolt.org/z/q898v4f1K
+⋮----
+pub(crate) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+⋮----
+fn compress_block(state: &mut [u64; 8], block: &[u8; 128]) {
+⋮----
+fn load_round<const R: usize>(state: &mut [u64; 8], block: &[u8; 128], msg: &mut [u64; 16]) {
+⋮----
+fn schedule_round<const R: usize>(state: &mut [u64; 8], msg: &mut [u64; 16]) {
+⋮----
+fn round<const R: usize>(state: &mut [u64; 8], w: u64) {
+⋮----
+// We intentionally add round constant instead of simply loading it
+// to prevent the compiler from applying unnecessary optimizations
+⋮----
+fn add_rk<const R: usize>(mut w: u64) -> u64 {
+use crate::consts::SHA512_RK;
+</file>
+
+<file path="src/sha512/soft/compact.rs">
+//! Software backend without manual loop unrolling
+//!
+//! Generated assembly: https://rust.godbolt.org/z/8E6ME87bh
+⋮----
+pub(crate) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+// Unforuntately, LLVM is unable to remove `memset` for
+// `fn message_schedule(block: &[u8; 128]) -> [u64; ROUNDS] { ... }`
+// See: https://rust.godbolt.org/z/ncxzYrMPh
+// So to prevent unnecessary `memset` call for each block we reuse the buffer.
+⋮----
+// Pre-computing the whole message schedule instead of doing it during each round
+// with a ring buffer results in a smaller binary with less branching
+// at the cost of using additional stack space
+⋮----
+fn schedule(block: &[u8; 128], msg: &mut [u64; SHA512_ROUNDS]) {
+⋮----
+fn rounds(state: &mut [u64; 8], msg: &[u64; SHA512_ROUNDS]) {
+</file>
+
+<file path="src/sha512/soft/unroll.rs">
+//! Portable software backend.
+//!
+//! Generated assembly: https://rust.godbolt.org/z/6vdsq538T
+⋮----
+pub(crate) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+⋮----
+fn compress_block(state: &mut [u64; 8], block: &[u8; 128]) {
+⋮----
+fn load_round<const R: usize>(state: &mut [u64; 8], block: &[u8; 128], msg: &mut [u64; 16]) {
+⋮----
+fn schedule_round<const R: usize>(state: &mut [u64; 8], msg: &mut [u64; 16]) {
+⋮----
+fn round<const R: usize>(state: &mut [u64; 8], w: u64) {
+⋮----
+fn load_rk<const R: usize>() -> u64 {
+use crate::consts::SHA512_RK;
+⋮----
+// `read_volatile` forces the compiler to read round constants from the static
+// instead of unnecessarily inlining values or materializaing them on the stack.
+// It generally results in a smaller binary and improves performance.
+</file>
+
+<file path="src/sha512/aarch64_sha3.rs">
+// Implementation adapted from mbedtls.
+⋮----
+pub(super) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+// Load state into vectors.
+⋮----
+// Iterate through the message blocks.
+⋮----
+// Keep original state values.
+⋮----
+// Load the message block into vectors, assuming little endianness.
+⋮----
+// Rounds 0 and 1
+⋮----
+// Rounds 2 and 3
+⋮----
+// Rounds 4 and 5
+⋮----
+// Rounds 6 and 7
+⋮----
+// Rounds 8 and 9
+⋮----
+// Rounds 10 and 11
+⋮----
+// Rounds 12 and 13
+⋮----
+// Rounds 14 and 15
+⋮----
+// Rounds t and t + 1
+⋮----
+// Rounds t + 2 and t + 3
+⋮----
+// Rounds t + 4 and t + 5
+⋮----
+// Rounds t + 6 and t + 7
+⋮----
+// Rounds t + 8 and t + 9
+⋮----
+// Rounds t + 10 and t + 11
+⋮----
+// Rounds t + 12 and t + 13
+⋮----
+// Rounds t + 14 and t + 15
+⋮----
+// Add the block-specific state to the original state.
+⋮----
+// Store vectors into state.
+⋮----
+fn rk(i: usize) -> uint64x2_t {
+⋮----
+fn load_block(block: &[u8; 128]) -> [uint64x2_t; 8] {
+⋮----
+fn load_state(state: &[u64; 8]) -> [uint64x2_t; 4] {
+⋮----
+fn store_state(state_dst: &mut [u64; 8], state: [uint64x2_t; 4]) {
+</file>
+
+<file path="src/sha512/loongarch64_asm.rs">
+//! LoongArch64 assembly backend
+⋮----
+macro_rules! c {
+⋮----
+macro_rules! rounda {
+⋮----
+macro_rules! roundb {
+⋮----
+macro_rules! roundtail {
+⋮----
+// Part 0
+⋮----
+// Part 1
+⋮----
+// Part 2
+⋮----
+pub(super) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+⋮----
+// Allocate scratch stack space
+⋮----
+// Load state
+⋮----
+// Do 80 rounds of hashing
+⋮----
+// Update state registers
+"ld.d    $a4, $a0, 0",  // a
+"ld.d    $a5, $a0, 8",  // b
+"ld.d    $a6, $a0, 16",  // c
+"ld.d    $a7, $a0, 24", // d
+⋮----
+"ld.d    $a4, $a0, 32", // e
+"ld.d    $a5, $a0, 40", // f
+"ld.d    $a6, $a0, 48", // g
+"ld.d    $a7, $a0, 56", // h
+⋮----
+// Save updated state
+⋮----
+// Looping over blocks
+⋮----
+// Restore stack register
+⋮----
+// Clobbers
+</file>
+
+<file path="src/sha512/riscv_zknh.rs">
+
+</file>
+
+<file path="src/sha512/soft.rs">
+fn sig0(w: u64) -> u64 {
+⋮----
+fn sig1(w: u64) -> u64 {
+⋮----
+fn sum0(w: u64) -> u64 {
+⋮----
+fn sum1(w: u64) -> u64 {
+⋮----
+fn ch(e: u64, f: u64, g: u64) -> u64 {
+⋮----
+fn maj(a: u64, b: u64, c: u64) -> u64 {
+</file>
+
+<file path="src/sha512/wasm32_simd128.rs">
+use core::mem::size_of;
+⋮----
+pub(super) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+⋮----
+fn load_data(x: &mut [v128; 8], ms: &mut MsgSchedule, block: &[u8; 128]) {
+macro_rules! unrolled_iterations {
+⋮----
+fn rounds_0_63(current_state: &mut State, x: &mut [v128; 8], ms: &mut MsgSchedule) {
+⋮----
+fn rounds_64_79(current_state: &mut State, ms: &MsgSchedule) {
+⋮----
+fn sha_round(s: &mut State, x: u64) {
+macro_rules! big_sigma0 {
+⋮----
+macro_rules! big_sigma1 {
+⋮----
+macro_rules! bool3ary_202 {
+⋮----
+} // Choose, MD5F, SHA1C
+macro_rules! bool3ary_232 {
+⋮----
+} // Majority, SHA1M
+⋮----
+macro_rules! rotate_state {
+⋮----
+fn accumulate_state(dst: &mut State, src: &State) {
+⋮----
+fn sha512_update_x(x: &mut [v128; 8], k64: v128) -> v128 {
+⋮----
+fn rk(i: usize) -> v128 {
+⋮----
+type State = [u64; SHA512_HASH_WORDS_NUM];
+type MsgSchedule = [v128; SHA512_BLOCK_WORDS_NUM / 2];
+</file>
+
+<file path="src/sha512/x86_avx2.rs">
+//! SHA-512 `x86`/`x86_64` backend
+⋮----
+pub(super) fn compress(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+⋮----
+// First block
+⋮----
+// Second block
+⋮----
+fn sha512_compress_x86_64_avx(state: &mut [u64; 8], block: &[u8; 128]) {
+⋮----
+// Reduced to single iteration
+⋮----
+fn load_data_avx(x: &mut [__m128i; 8], ms: &mut MsgSchedule, data: *const __m128i) {
+⋮----
+macro_rules! unrolled_iterations {
+⋮----
+fn load_data_avx2(
+⋮----
+macro_rules! unrolled_iterations {
+⋮----
+fn rounds_0_63_avx(current_state: &mut State, x: &mut [__m128i; 8], ms: &mut MsgSchedule) {
+⋮----
+fn rounds_0_63_avx2(
+⋮----
+fn rounds_64_79(current_state: &mut State, ms: &MsgSchedule) {
+⋮----
+fn process_second_block(current_state: &mut State, t2: &RoundStates) {
+⋮----
+// BMI1/2 let the scalar rounds use `andn` and `rorx` (a rotation that leaves the flags alone)
+⋮----
+fn sha_round(s: &mut State, x: u64) {
+macro_rules! big_sigma0 {
+⋮----
+macro_rules! big_sigma1 {
+⋮----
+macro_rules! bool3ary_202 {
+⋮----
+} // Choose, MD5F, SHA1C
+macro_rules! bool3ary_232 {
+⋮----
+} // Majority, SHA1M
+⋮----
+macro_rules! rotate_state {
+⋮----
+fn accumulate_state(dst: &mut State, src: &State) {
+⋮----
+macro_rules! fn_sha512_update_x {
+⋮----
+// q[2:1]
+⋮----
+// q[10:9]
+⋮----
+// q[2:1] >> s0[0]
+⋮----
+// q[1:0] + q[10:9]
+⋮----
+// q[2:1] >> s0[2]
+⋮----
+// q[2:1] << (64 - s0[1])
+⋮----
+// (q[2:1] >> s0[2]) ^
+// (q[2:1] >> s0[0])
+⋮----
+// q[2:1] >> s0[1]
+⋮----
+// (q[2:1] >> s0[2]) ^
+// (q[2:1] >> s0[0]) ^
+// q[2:1] << (64 - s0[1])
+⋮----
+// q[2:1] << (64 - s0[0])
+⋮----
+// sigma1(q[2:1])
+⋮----
+// q[15:14] >> s1[2]
+⋮----
+// q[15:14] >> (64 - s1[1])
+⋮----
+// q[1:0] + sigma0(q[2:1])
+⋮----
+// q[15:14] >> s1[0]
+⋮----
+// q[15:14] >> s1[2] ^
+// q[15:14] >> (64 - s1[1])
+⋮----
+// q[15:14] >> (64 - s1[0])
+⋮----
+// q[15:14] >> s1[2] ^
+// q[15:14] >> (64 - s1[1] ^
+// q[15:14] >> s1[0]
+⋮----
+// q[15:14] >> s1[1]
+⋮----
+// sigma1(q[15:14])
+⋮----
+// q[1:0] + q[10:9] + sigma1(q[15:14]) + sigma0(q[2:1])
+⋮----
+// rotate
+⋮----
+fn extract_u64(a: __m128i) -> [u64; 2] {
+⋮----
+fn rk(i: usize) -> __m128i {
+⋮----
+type State = [u64; SHA512_HASH_WORDS_NUM];
+type MsgSchedule = [__m128i; SHA512_BLOCK_WORDS_NUM / 2];
+type RoundStates = [__m128i; SHA512_ROUNDS_NUM / 2];
+</file>
+
+<file path="src/block_api.rs">
+use crate::consts;
+use core::fmt;
+⋮----
+/// Core block-level SHA-256 hasher with variable output size.
+///
+/// Supports initialization only for 28 and 32 byte output sizes,
+/// i.e. 224 and 256 bits respectively.
+⋮----
+pub struct Sha256VarCore {
+state: consts::State256,
+block_len: u64,
+⋮----
+impl HashMarker for Sha256VarCore {}
+⋮----
+impl BlockSizeUser for Sha256VarCore {
+type BlockSize = U64;
+⋮----
+impl BufferKindUser for Sha256VarCore {
+type BufferKind = Eager;
+⋮----
+impl UpdateCore for Sha256VarCore {
+⋮----
+fn update_blocks(&mut self, blocks: &[Block<Self>]) {
+⋮----
+impl OutputSizeUser for Sha256VarCore {
+type OutputSize = U32;
+⋮----
+impl VariableOutputCore for Sha256VarCore {
+⋮----
+fn new(output_size: usize) -> Result<Self, InvalidOutputSize> {
+⋮----
+fn finalize_variable_core(&mut self, buffer: &mut Buffer<Self>, out: &mut Output<Self>) {
+⋮----
+impl AlgorithmName for Sha256VarCore {
+⋮----
+fn write_alg_name(f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+impl Drop for Sha256VarCore {
+fn drop(&mut self) {
+⋮----
+use digest::zeroize::Zeroize;
+⋮----
+impl SerializableState for Sha256VarCore {
+type SerializedStateSize = U40;
+⋮----
+fn serialize(&self) -> SerializedState<Self> {
+⋮----
+fn deserialize(
+⋮----
+/// Core block-level SHA-512 hasher with variable output size.
+///
+/// Supports initialization only for 28, 32, 48, and 64 byte output sizes,
+/// i.e. 224, 256, 384, and 512 bits respectively.
+⋮----
+pub struct Sha512VarCore {
+state: consts::State512,
+block_len: u128,
+⋮----
+impl HashMarker for Sha512VarCore {}
+⋮----
+impl BlockSizeUser for Sha512VarCore {
+type BlockSize = U128;
+⋮----
+impl BufferKindUser for Sha512VarCore {
+type BufferKind = Eager;
+⋮----
+impl UpdateCore for Sha512VarCore {
+⋮----
+fn update_blocks(&mut self, blocks: &[Block<Self>]) {
+⋮----
+impl OutputSizeUser for Sha512VarCore {
+type OutputSize = U64;
+⋮----
+impl VariableOutputCore for Sha512VarCore {
+⋮----
+fn new(output_size: usize) -> Result<Self, InvalidOutputSize> {
+⋮----
+fn finalize_variable_core(&mut self, buffer: &mut Buffer<Self>, out: &mut Output<Self>) {
+⋮----
+impl AlgorithmName for Sha512VarCore {
+⋮----
+fn write_alg_name(f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+impl Drop for Sha512VarCore {
+fn drop(&mut self) {
+⋮----
+use digest::zeroize::Zeroize;
+⋮----
+impl SerializableState for Sha512VarCore {
+type SerializedStateSize = U80;
+⋮----
+fn serialize(&self) -> SerializedState<Self> {
+⋮----
+fn deserialize(
+</file>
+
+<file path="src/consts.rs">
+pub(crate) type State256 = [u32; 8];
+pub(crate) type State512 = [u64; 8];
+⋮----
+/// Initial hash values for SHA-224
+⋮----
+/// Initial hash values for SHA-256
+⋮----
+/// Initial hash values for SHA-512/224
+⋮----
+/// Initial hash values for SHA-512/256
+⋮----
+/// Initial hash values for SHA-384
+⋮----
+/// Initial hash values for SHA-512
+⋮----
+/// Number of SHA-256 rounds
+⋮----
+/// SHA-256 round constants
+⋮----
+/// Number of SHA-512 rounds
+⋮----
+/// SHA-512 round constants
+</file>
+
+<file path="src/lib.rs">
+/// Block-level types
+pub mod block_api;
+⋮----
+mod consts;
+mod sha256;
+mod sha512;
+⋮----
+/// SHA-256 hasher.
+⋮----
+/// SHA-384 hasher.
+⋮----
+/// SHA-512 hasher.
+⋮----
+/// SHA-224 hasher.
+⋮----
+/// SHA-512/224 hasher.
+⋮----
+/// SHA-512/256 hasher.
+</file>
+
+<file path="src/sha256.rs">
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked that required target features are available
+⋮----
+// SAFETY: we checked that `sha2` target feature is available
+⋮----
+/// Raw SHA-256 compression function.
+///
+/// This is a low-level "hazmat" API which provides direct access to the core
+/// functionality of SHA-256.
+pub fn compress256(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+</file>
+
+<file path="src/sha512.rs">
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked above that the required target features are enabled
+⋮----
+// SAFETY: we checked that required target features are available
+⋮----
+// SAFETY: we checked that `sha3` target feature is available
+⋮----
+/// Raw SHA-512 compression function.
+///
+/// This is a low-level "hazmat" API which provides direct access to the core
+/// functionality of SHA-512.
+pub fn compress512(state: &mut [u64; 8], blocks: &[[u8; 128]]) {
+</file>
+
+<file path="README.md">
+# RustCrypto: SHA-2
+
+[![crate][crate-image]][crate-link]
+[![Docs][docs-image]][docs-link]
+![Apache2/MIT licensed][license-image]
+![Rust Version][rustc-image]
+[![Project Chat][chat-image]][chat-link]
+[![Build Status][build-image]][build-link]
+
+Pure Rust implementation of the [SHA-2] cryptographic hash algorithms.
+
+There are 6 standard algorithms specified in the SHA-2 standard: 
+`Sha224`, `Sha256`, `Sha512_224`, `Sha512_256`, `Sha384`, and `Sha512`.
+
+Algorithmically, there are only 2 core algorithms: SHA-256 and SHA-512.
+All other algorithms are just applications of these with different initial
+hash values, and truncated to different digest bit lengths. The first two
+algorithms in the list are based on SHA-256, while the last four are based
+on SHA-512.
+
+## Examples
+
+### One-shot API
+
+```rust
+use sha2::{Sha256, Digest};
+use hex_literal::hex;
+
+let hash = Sha256::digest(b"hello world");
+assert_eq!(hash, hex!("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"));
+```
+
+### Incremental API
+
+```rust
+use sha2::{Sha256, Sha512, Digest};
+use hex_literal::hex;
+
+let mut hasher = Sha256::new();
+hasher.update(b"hello ");
+hasher.update(b"world");
+let hash256 = hasher.finalize();
+
+assert_eq!(hash256, hex!("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"));
+
+let mut hasher = Sha512::new();
+hasher.update(b"hello world");
+let hash512 = hasher.finalize();
+
+assert_eq!(hash512, hex!(
+    "309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f"
+    "989dd35bc5ff499670da34255b45b0cfd830e81f605dcf7dc5542e93ae9cd76f"
+));
+```
+
+See the [`digest`] crate docs for additional examples.
+
+## Backends
+
+This crate supports a number of different backends.
+
+SHA-256 and SHA-512 backends:
+- `soft`: portable software implementation
+- `loongarch64-asm`: `asm!`-based implementation for LoongArch64 targets
+- `riscv-zknh`: uses the RISC-V `Zknh` scalar crypto extension. Experimental,
+  see the [section below](#about-riscv-zknh) for more information.
+- `wasm32-simd128`: uses the WASM `simd128` extension.
+
+SHA-256 only backends:
+- `aarch64-sha2`: uses the AArch64 `sha2` extension.
+- `x86-sha`: uses the x86 SHA-NI extension.
+
+SHA-512 only backends:
+- `aarch64-sha3`: uses the AArch64 `sha3` extension.
+- `x86-avx2`: uses the x86 AVX2, BMI1 and BMI2 extensions.
+
+By default the following backends are used:
+- `target_arch = "aarch64"`: use `aarch64-sha2` and `aarch64-sha3` when the required
+  target features are detected at runtime; otherwise fall back to `soft`.
+- `any(target_arch = "x86", target_arch = "x86_64")`: use `x86-sha` and `x86-avx` when
+  the required target features are detected at runtime; otherwise fall back to `soft`.
+- `target_arch = "loongarch64"`: use `loongarch64-asm`.
+- `all(target_arch = "wasm32", target_feature = "simd128")`: use `wasm32-simd128`.
+- All other targets: use `soft`.
+
+You can force backend selection using the following configuration flags:
+- `sha2_backend`: select SHA-256 and SHA-512 backends. Supported values: `soft`, `riscv-zknh`.
+- `sha2_256_backend`: select SHA-256 backend. Supported values: `aarch64-sha2`, `soft`,
+  `riscv-zknh`, `x86-sha`.
+- `sha2_512_backend`: select SHA-512 backend. Supported values: `aarch64-sha3`, `soft`,
+  `riscv-zknh`, `x86-avx2`.
+
+They can be enabled using either a `RUSTFLAGS` environment variable
+(e.g. `RUSTFLAGS='--cfg sha2_backend="soft"'`), or by modifying your `.cargo/config.toml` file.
+
+Note that `sha2_backend` has a higher priority than `sha2_256_backend` and `sha2_512_backend`.
+In other words, using `--cfg sha2_backend="soft" --cfg sha2_256_backend="x86_sha"` will result
+in selection of the software backend for SHA-256.
+
+By default `soft` and `riscv-zknh` backends unroll round loops, which results in a better
+performance at the cost of a bigger resulting binary. You can disable unrolling in the backends
+by using `sha2_backend_soft = "compact"` and `sha2_backend_riscv_zknh = "compact"` configuration
+flags respectively.
+
+### About `riscv-zknh`
+
+This is an experimental RISC-V-only backend which requires a Nightly compiler and
+to enable the `Zknh` target feature at compile time. For a more efficient code generation,
+it's recommended to enable the `Zbkb` (or `Zbb`) and `unaligned-scalar-mem` target features
+(see [this LLVM issue][Zicclsm] for more information). For example, you can do it by using
+`RUSTFLAGS="-C target-feature=+zknh,+zbkb,+unaligned-scalar-mem"`.
+
+[Zicclsm]: https://github.com/llvm/llvm-project/issues/110454
+
+## License
+
+The crate is licensed under either of:
+
+* [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+* [MIT license](http://opensource.org/licenses/MIT)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
+
+[//]: # (badges)
+
+[crate-image]: https://img.shields.io/crates/v/sha2.svg
+[crate-link]: https://crates.io/crates/sha2
+[docs-image]: https://docs.rs/sha2/badge.svg
+[docs-link]: https://docs.rs/sha2/
+[license-image]: https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg
+[rustc-image]: https://img.shields.io/badge/rustc-1.88+-blue.svg
+[chat-image]: https://img.shields.io/badge/zulip-join_chat-blue.svg
+[chat-link]: https://rustcrypto.zulipchat.com/#narrow/stream/260041-hashes
+[build-image]: https://github.com/RustCrypto/hashes/actions/workflows/sha2.yml/badge.svg?branch=master
+[build-link]: https://github.com/RustCrypto/hashes/actions/workflows/sha2.yml?query=branch:master
+
+[//]: # (general links)
+
+[SHA-2]: https://en.wikipedia.org/wiki/SHA-2
+[`digest`]: https://docs.rs/digest
+</file>
+
+</files>

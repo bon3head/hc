@@ -1,0 +1,5022 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: crates/globset/**/*.rs, crates/ignore/src/**/*.rs, crates/globset/README.md, crates/ignore/README.md
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+crates/
+  globset/
+    benches/
+      bench.rs
+    src/
+      fnv.rs
+      glob.rs
+      lib.rs
+      pathutil.rs
+      serde_impl.rs
+    README.md
+  ignore/
+    src/
+      default_types.rs
+      dir.rs
+      gitignore.rs
+      incremental.rs
+      lib.rs
+      overrides.rs
+      pathutil.rs
+      types.rs
+      walk.rs
+    README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="crates/globset/benches/bench.rs">
+/*!
+This module benchmarks the glob implementation. For benchmarks on the ripgrep
+tool itself, see the benchsuite directory.
+*/
+⋮----
+extern crate test;
+⋮----
+fn new_glob(pat: &str) -> glob::Pattern {
+⋮----
+fn new_reglob(pat: &str) -> GlobMatcher {
+⋮----
+fn new_reglob_many(pats: &[&str]) -> GlobSet {
+⋮----
+fn ext_glob(b: &mut test::Bencher) {
+⋮----
+fn ext_regex(b: &mut test::Bencher) {
+⋮----
+fn short_glob(b: &mut test::Bencher) {
+⋮----
+fn short_regex(b: &mut test::Bencher) {
+⋮----
+fn long_glob(b: &mut test::Bencher) {
+⋮----
+fn long_regex(b: &mut test::Bencher) {
+⋮----
+// Taken from a random .gitignore on my system.
+⋮----
+fn many_short_glob(b: &mut test::Bencher) {
+⋮----
+fn many_short_regex_set(b: &mut test::Bencher) {
+</file>
+
+<file path="crates/globset/src/fnv.rs">
+/// A convenience alias for creating a hash map with an FNV hasher.
+pub(crate) type HashMap<K, V> =
+⋮----
+/// A hasher that implements the Fowler–Noll–Vo (FNV) hash.
+pub(crate) struct Hasher(u64);
+⋮----
+impl Hasher {
+⋮----
+impl Default for Hasher {
+fn default() -> Hasher {
+⋮----
+fn finish(&self) -> u64 {
+⋮----
+fn write(&mut self, bytes: &[u8]) {
+</file>
+
+<file path="crates/globset/src/glob.rs">
+use std::fmt::Write;
+⋮----
+use regex_automata::meta::Regex;
+⋮----
+/// Describes a matching strategy for a particular pattern.
+///
+/// This provides a way to more quickly determine whether a pattern matches
+/// a particular file path in a way that scales with a large number of
+/// patterns. For example, if many patterns are of the form `*.ext`, then it's
+/// possible to test whether any of those patterns matches by looking up a
+/// file path's extension in a hash table.
+⋮----
+pub(crate) enum MatchStrategy {
+/// A pattern matches if and only if the entire file path matches this
+/// literal string.
+⋮----
+/// A pattern matches if and only if the file path's basename matches this
+/// literal string.
+⋮----
+/// A pattern matches if and only if the file path's extension matches this
+/// literal string.
+⋮----
+/// A pattern matches if and only if this prefix literal is a prefix of the
+/// candidate file path.
+⋮----
+/// A pattern matches if and only if this prefix literal is a prefix of the
+/// candidate file path.
+///
+/// An exception: if `component` is true, then `suffix` must appear at the
+/// beginning of a file path or immediately following a `/`.
+⋮----
+/// The actual suffix.
+suffix: String,
+/// Whether this must start at the beginning of a path component.
+component: bool,
+⋮----
+/// A pattern matches only if the given extension matches the file path's
+/// extension. Note that this is a necessary but NOT sufficient criterion.
+/// Namely, if the extension matches, then a full regex search is still
+/// required.
+⋮----
+/// A regex that only needs to inspect the final path component.
+⋮----
+/// A regex needs to be used for matching.
+⋮----
+impl MatchStrategy {
+/// Returns a matching strategy for the given pattern.
+pub(crate) fn new(pat: &Glob) -> MatchStrategy {
+⋮----
+/// Glob represents a successfully parsed shell glob pattern.
+///
+/// It cannot be used directly to match file paths, but it can be converted
+/// to a regular expression string or a matcher.
+⋮----
+pub struct Glob {
+glob: String,
+re: String,
+opts: GlobOptions,
+tokens: Tokens,
+⋮----
+fn as_ref(&self) -> &Glob {
+⋮----
+impl PartialEq for Glob {
+fn eq(&self, other: &Glob) -> bool {
+⋮----
+fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+type Err = Error;
+⋮----
+fn from_str(glob: &str) -> Result<Self, Self::Err> {
+⋮----
+/// A matcher for a single pattern.
+⋮----
+pub struct GlobMatcher {
+/// The underlying pattern.
+pat: Glob,
+/// The pattern, as a compiled regex.
+re: Regex,
+⋮----
+impl GlobMatcher {
+/// Tests whether the given path matches this pattern or not.
+pub fn is_match<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Tests whether the given path matches this pattern or not.
+pub fn is_match_candidate(&self, path: &Candidate<'_>) -> bool {
+⋮----
+/// Returns the `Glob` used to compile this matcher.
+pub fn glob(&self) -> &Glob {
+⋮----
+/// A strategic matcher for a single pattern.
+⋮----
+struct GlobStrategic {
+/// The match strategy to use.
+strategy: MatchStrategy,
+/// The pattern, as a compiled regex.
+re: Regex,
+⋮----
+impl GlobStrategic {
+/// Tests whether the given path matches this pattern or not.
+fn is_match<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Tests whether the given path matches this pattern or not.
+fn is_match_candidate(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+/// A builder for a pattern.
+///
+/// This builder enables configuring the match semantics of a pattern. For
+/// example, one can make matching case insensitive.
+///
+/// The lifetime `'a` refers to the lifetime of the pattern string.
+⋮----
+pub struct GlobBuilder<'a> {
+/// The glob pattern to compile.
+glob: &'a str,
+/// Options for the pattern.
+opts: GlobOptions,
+⋮----
+struct GlobOptions {
+/// Whether to match case insensitively.
+case_insensitive: bool,
+/// Whether to require a literal separator to match a separator in a file
+/// path. e.g., when enabled, `*` won't match `/`.
+literal_separator: bool,
+/// Whether or not to use `\` to escape special characters.
+/// e.g., when enabled, `\*` will match a literal `*`.
+backslash_escape: bool,
+/// Whether or not an empty case in an alternate will be removed.
+/// e.g., when enabled, `{,a}` will match "" and "a".
+empty_alternates: bool,
+/// Whether or not an unclosed character class is allowed. When an unclosed
+/// character class is found, the opening `[` is treated as a literal `[`.
+/// When this isn't enabled, an opening `[` without a corresponding `]` is
+/// treated as an error.
+allow_unclosed_class: bool,
+⋮----
+impl GlobOptions {
+fn default() -> GlobOptions {
+⋮----
+struct Tokens(Vec<Token>);
+⋮----
+type Target = Vec<Token>;
+fn deref(&self) -> &Vec<Token> {
+⋮----
+fn deref_mut(&mut self) -> &mut Vec<Token> {
+⋮----
+enum Token {
+⋮----
+Class { negated: bool, ranges: Vec<(char, char)> },
+⋮----
+impl Glob {
+/// Builds a new pattern with default options.
+pub fn new(glob: &str) -> Result<Glob, Error> {
+⋮----
+/// Returns a matcher for this pattern.
+pub fn compile_matcher(&self) -> GlobMatcher {
+⋮----
+/// Returns a strategic matcher.
+///
+/// This isn't exposed because it's not clear whether it's actually
+/// faster than just running a regex for a *single* pattern. If it
+/// is faster, then GlobMatcher should do it automatically.
+⋮----
+fn compile_strategic_matcher(&self) -> GlobStrategic {
+⋮----
+/// Returns the original glob pattern used to build this pattern.
+pub fn glob(&self) -> &str {
+⋮----
+/// Returns the regular expression string for this glob.
+///
+/// Note that regular expressions for globs are intended to be matched on
+/// arbitrary bytes (`&[u8]`) instead of Unicode strings (`&str`). In
+/// particular, globs are frequently used on file paths, where there is no
+/// general guarantee that file paths are themselves valid UTF-8. As a
+/// result, callers will need to ensure that they are using a regex API
+/// that can match on arbitrary bytes. For example, the
+/// [`regex`](https://crates.io/regex)
+/// crate's
+/// [`Regex`](https://docs.rs/regex/*/regex/struct.Regex.html)
+/// API is not suitable for this since it matches on `&str`, but its
+/// [`bytes::Regex`](https://docs.rs/regex/*/regex/bytes/struct.Regex.html)
+/// API is suitable for this.
+pub fn regex(&self) -> &str {
+⋮----
+/// Returns the pattern as a literal if and only if the pattern must match
+/// an entire path exactly.
+///
+/// The basic format of these patterns is `{literal}`.
+fn literal(&self) -> Option<String> {
+⋮----
+/// Returns an extension if this pattern matches a file path if and only
+/// if the file path has the extension returned.
+///
+/// Note that this extension returned differs from the extension that
+/// std::path::Path::extension returns. Namely, this extension includes
+/// the '.'. Also, paths like `.rs` are considered to have an extension
+/// of `.rs`.
+fn ext(&self) -> Option<String> {
+⋮----
+// If there was no recursive prefix, then we only permit
+// `*` if `*` can match a `/`. For example, if `*` can't
+// match `/`, then `*.c` doesn't match `foo/bar.c`.
+⋮----
+/// This is like `ext`, but returns an extension even if it isn't sufficient
+/// to imply a match. Namely, if an extension is returned, then it is
+/// necessary but not sufficient for a match.
+fn required_ext(&self) -> Option<String> {
+⋮----
+// We don't care at all about the beginning of this pattern. All we
+// need to check for is if it ends with a literal of the form `.ext`.
+let mut ext: Vec<char> = vec![]; // built in reverse
+⋮----
+/// Returns a literal prefix of this pattern if the entire pattern matches
+/// if the literal prefix matches.
+fn prefix(&self) -> Option<String> {
+⋮----
+// If a trailing `*` can't match a `/`, then we can't
+// assume a match of the prefix corresponds to a match
+// of the overall pattern. e.g., `foo/*` with
+// `literal_separator` enabled matches `foo/bar` but not
+// `foo/bar/baz`, even though `foo/bar/baz` has a `foo/`
+// literal prefix.
+⋮----
+/// Returns a literal suffix of this pattern if the entire pattern matches
+/// if the literal suffix matches.
+///
+/// If a literal suffix is returned and it must match either the entire
+/// file path or be preceded by a `/`, then also return true. This happens
+/// with a pattern like `**/foo/bar`. Namely, this pattern matches
+/// `foo/bar` and `baz/foo/bar`, but not `foofoo/bar`. In this case, the
+/// suffix returned is `/foo/bar` (but should match the entire path
+/// `foo/bar`).
+///
+/// When this returns true, the suffix literal is guaranteed to start with
+/// a `/`.
+fn suffix(&self) -> Option<(String, bool)> {
+⋮----
+// We only care if this follows a path component if the next
+// token is a literal.
+⋮----
+// If literal_separator is enabled, then a `*` can't
+// necessarily match everything, so reporting a suffix match
+// as a match of the pattern would be a false positive.
+⋮----
+/// If this pattern only needs to inspect the basename of a file path,
+/// then the tokens corresponding to only the basename match are returned.
+///
+/// For example, given a pattern of `**/*.foo`, only the tokens
+/// corresponding to `*.foo` are returned.
+///
+/// Note that this will return None if any match of the basename tokens
+/// doesn't correspond to a match of the entire pattern. For example, the
+/// glob `foo` only matches when a file path has a basename of `foo`, but
+/// doesn't *always* match when a file path has a basename of `foo`. e.g.,
+/// `foo` doesn't match `abc/foo`.
+fn basename_tokens(&self) -> Option<&[Token]> {
+⋮----
+// With nothing to gobble up the parent portion of a path,
+// we can't assume that matching on only the basename is
+// correct.
+⋮----
+Token::Literal(_) => {} // OK
+⋮----
+// In this case, `*` and `?` can match a path
+// separator, which means this could reach outside
+// the basename.
+⋮----
+/// Returns the pattern as a literal if and only if the pattern exclusively
+/// matches the basename of a file path *and* is a literal.
+///
+/// The basic format of these patterns is `**/{literal}`, where `{literal}`
+/// does not contain a path separator.
+fn basename_literal(&self) -> Option<String> {
+⋮----
+/// Returns a regex for the basename when it determines the whole match.
+fn basename_regex(&self) -> Option<String> {
+⋮----
+/// Create a new builder for the pattern given.
+///
+/// The pattern is not compiled until `build` is called.
+pub fn new(glob: &'a str) -> GlobBuilder<'a> {
+⋮----
+/// Parses and builds the pattern.
+pub fn build(&self) -> Result<Glob, Error> {
+⋮----
+// OK because of how the branches/alternate_stack are managed.
+// If we end up here, then there *must* be a bug in the parser
+// somewhere.
+⋮----
+/// Toggle whether the pattern matches case insensitively or not.
+///
+/// This is disabled by default.
+pub fn case_insensitive(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// Toggle whether a literal `/` is required to match a path separator.
+///
+/// By default this is false: `*` and `?` will match `/`.
+pub fn literal_separator(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// When enabled, a back slash (`\`) may be used to escape
+/// special characters in a glob pattern. Additionally, this will
+/// prevent `\` from being interpreted as a path separator on all
+/// platforms.
+///
+/// This is enabled by default on platforms where `\` is not a
+/// path separator and disabled by default on platforms where `\`
+/// is a path separator.
+pub fn backslash_escape(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// Toggle whether an empty pattern in a list of alternates is accepted.
+///
+/// For example, if this is set then the glob `foo{,.txt}` will match both
+/// `foo` and `foo.txt`.
+///
+/// By default this is false.
+pub fn empty_alternates(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// Toggle whether unclosed character classes are allowed. When allowed,
+/// a `[` without a matching `]` is treated literally instead of resulting
+/// in a parse error.
+///
+/// For example, if this is set then the glob `[abc` will be treated as the
+/// literal string `[abc` instead of returning an error.
+///
+/// By default, this is false. Generally speaking, enabling this leads to
+/// worse failure modes since the glob parser becomes more permissive. You
+/// might want to enable this when compatibility (e.g., with POSIX glob
+/// implementations) is more important than good error messages.
+pub fn allow_unclosed_class(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+impl Tokens {
+/// Convert this pattern to a string that is guaranteed to be a valid
+/// regular expression and will represent the matching semantics of this
+/// glob pattern and the options given.
+fn to_regex_with(options: &GlobOptions, tokens: &[Token]) -> String {
+⋮----
+// Special case. If the entire glob is just `**`, then it should match
+// everything.
+⋮----
+fn tokens_to_regex(
+⋮----
+// Exclude '/'
+⋮----
+// A non-negated class that only contained '/' cannot match anything
+// when literal_separator is enabled.
+⋮----
+// Not strictly necessary, but nicer to look at.
+⋮----
+// It is possible to have an empty set in which case the
+// resulting alternation '()' would be an error.
+⋮----
+/// Convert a Unicode scalar value to an escaped string suitable for use as
+/// a literal in a non-Unicode regex.
+fn char_to_escaped_literal(c: char) -> String {
+⋮----
+/// Converts an arbitrary sequence of bytes to a UTF-8 string. All non-ASCII
+/// code units are converted to their escaped form.
+fn bytes_to_escaped_literal(bs: &[u8]) -> String {
+⋮----
+struct Parser<'a> {
+/// The glob to parse.
+glob: &'a str,
+/// Marks the index in `stack` where the alternation started.
+alternates_stack: Vec<usize>,
+/// The set of active alternation branches being parsed.
+/// Tokens are added to the end of the last one.
+branches: Vec<Tokens>,
+/// A character iterator over the glob pattern to parse.
+chars: std::iter::Peekable<std::str::Chars<'a>>,
+/// The previous character seen.
+prev: Option<char>,
+/// The current character.
+cur: Option<char>,
+/// Whether we failed to find a closing `]` for a character
+/// class. This can only be true when `GlobOptions::allow_unclosed_class`
+/// is enabled. When enabled, it is impossible to ever parse another
+/// character class with this glob. That's because classes cannot be
+/// nested *and* the only way this happens is when there is never a `]`.
+///
+/// We track this state so that we don't end up spending quadratic time
+/// trying to parse something like `[[[[[[[[[[[[[[[[[[[[[[[...`.
+found_unclosed_class: bool,
+/// Glob options, which may influence parsing.
+opts: &'a GlobOptions,
+⋮----
+fn error(&self, kind: ErrorKind) -> Error {
+⋮----
+fn parse(&mut self) -> Result<(), Error> {
+⋮----
+fn push_alternate(&mut self) -> Result<(), Error> {
+// Bound alternate nesting so recursive token-to-regex compilation and
+// token tree drop cannot overflow the stack, while staying well within
+// regex-syntax's default group nesting limit (250).
+⋮----
+fn pop_alternate(&mut self) -> Result<(), Error> {
+⋮----
+fn push_token(&mut self, tok: Token) -> Result<(), Error> {
+⋮----
+fn pop_token(&mut self) -> Result<Token, Error> {
+⋮----
+fn have_tokens(&self) -> Result<bool, Error> {
+⋮----
+fn parse_comma(&mut self) -> Result<(), Error> {
+// If we aren't inside a group alternation, then don't
+// treat commas specially. Otherwise, we need to start
+// a new alternate branch.
+⋮----
+fn parse_backslash(&mut self) -> Result<(), Error> {
+⋮----
+// Normalize all patterns to use / as a separator.
+⋮----
+fn parse_star(&mut self) -> Result<(), Error> {
+⋮----
+fn parse_class(&mut self) -> Result<(), Error> {
+// Save parser state for potential rollback to literal '[' parsing.
+⋮----
+fn add_to_last_range(
+⋮----
+// invariant: in_range is only set when there is
+// already at least one character seen.
+⋮----
+// Check for POSIX character class syntax: [[:name:]]
+// We expand these directly into char ranges at parse
+// time so that Token::Class remains unchanged.
+⋮----
+// Not a valid POSIX class, treat '[' as literal
+⋮----
+// invariant: in_range is only set when there is
+// already at least one character seen.
+⋮----
+// Means that the last character in the class was a '-', so add
+// it as a literal.
+⋮----
+/// Try to parse a POSIX character class like `[:space:]` inside a
+/// bracket expression. Called when we've just consumed `[` and peeked
+/// `:`. Returns the equivalent ASCII char ranges on success, or `None`
+/// if this isn't a valid POSIX class (in which case the parser state
+/// is restored).
+fn try_parse_posix_class(&mut self) -> Option<&'static [(char, char)]> {
+⋮----
+// Consume the ':'
+⋮----
+// Collect the class name (only lowercase ascii)
+⋮----
+self.bump(); // consume ']'
+⋮----
+// Not a valid POSIX class, restore state
+⋮----
+fn bump(&mut self) -> Option<char> {
+⋮----
+fn peek(&mut self) -> Option<char> {
+⋮----
+/// Returns the ASCII char ranges for a POSIX character class name.
+/// All definitions are ASCII-only to avoid locale-dependent behavior.
+fn posix_class_ranges(name: &str) -> Option<&'static [(char, char)]> {
+⋮----
+fn starts_with(needle: &[u8], haystack: &[u8]) -> bool {
+⋮----
+fn ends_with(needle: &[u8], haystack: &[u8]) -> bool {
+⋮----
+mod tests {
+⋮----
+struct Options {
+casei: Option<bool>,
+litsep: Option<bool>,
+bsesc: Option<bool>,
+ealtre: Option<bool>,
+unccls: Option<bool>,
+⋮----
+macro_rules! syntax {
+⋮----
+macro_rules! syntaxerr {
+⋮----
+macro_rules! toregex {
+⋮----
+macro_rules! matches {
+⋮----
+macro_rules! nmatches {
+⋮----
+fn s(string: &str) -> String {
+⋮----
+fn class(s: char, e: char) -> Token {
+⋮----
+fn classn(s: char, e: char) -> Token {
+⋮----
+fn rclass(ranges: &[(char, char)]) -> Token {
+⋮----
+fn rclassn(ranges: &[(char, char)]) -> Token {
+⋮----
+// POSIX character classes expand into ranges
+⋮----
+// Negated POSIX class
+⋮----
+// Mixed: range + POSIX class
+⋮----
+// Multiple POSIX classes
+⋮----
+// Invalid POSIX class name: consumed up to ':]', '[' pushed as
+// literal in the bracket expression, the bracket closes at next ']'.
+⋮----
+fn nested_alternates_depth_limit() {
+⋮----
+// POSIX character class matching
+⋮----
+// Negated
+⋮----
+// Mixed with ranges
+⋮----
+// In filenames (the original issue's use case)
+⋮----
+// Multiple POSIX classes
+⋮----
+// Edge: dash with POSIX class
+⋮----
+macro_rules! extract {
+⋮----
+macro_rules! literal {
+⋮----
+macro_rules! basetokens {
+⋮----
+macro_rules! ext {
+⋮----
+macro_rules! required_ext {
+⋮----
+macro_rules! prefix {
+⋮----
+macro_rules! suffix {
+⋮----
+macro_rules! baseliteral {
+⋮----
+fn class_literal_separator() {
+</file>
+
+<file path="crates/globset/src/lib.rs">
+/*!
+The globset crate provides cross platform single glob and glob set matching.
+
+Glob set matching is the process of matching one or more glob patterns against
+a single candidate path simultaneously, and returning all of the globs that
+matched. For example, given this set of globs:
+
+* `*.rs`
+* `src/lib.rs`
+* `src/**/foo.rs`
+
+and a path `src/bar/baz/foo.rs`, then the set would report the first and third
+globs as matching.
+
+# Example: one glob
+
+This example shows how to match a single glob against a single file path.
+
+```
+use globset::Glob;
+
+let glob = Glob::new("*.rs")?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(glob.is_match("foo/bar.rs"));
+assert!(!glob.is_match("Cargo.toml"));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+# Example: configuring a glob matcher
+
+This example shows how to use a `GlobBuilder` to configure aspects of match
+semantics. In this example, we prevent wildcards from matching path separators.
+
+```
+use globset::GlobBuilder;
+
+let glob = GlobBuilder::new("*.rs")
+    .literal_separator(true).build()?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(!glob.is_match("foo/bar.rs")); // no longer matches
+assert!(!glob.is_match("Cargo.toml"));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+# Example: match multiple globs at once
+
+This example shows how to match multiple glob patterns at once.
+
+```
+use globset::{Glob, GlobSetBuilder};
+
+let mut builder = GlobSetBuilder::new();
+// A GlobBuilder can be used to configure each glob's match semantics
+// independently.
+builder.add(Glob::new("*.rs")?);
+builder.add(Glob::new("src/lib.rs")?);
+builder.add(Glob::new("src/**/foo.rs")?);
+let set = builder.build()?;
+
+assert_eq!(set.matches("src/bar/baz/foo.rs"), vec![0, 2]);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+# Syntax
+
+Standard Unix-style glob syntax is supported:
+
+* `?` matches any single character. (If the `literal_separator` option is
+  enabled, then `?` can never match a path separator.)
+* `*` matches zero or more characters. (If the `literal_separator` option is
+  enabled, then `*` can never match a path separator.)
+* `**` recursively matches directories but are only legal in three situations.
+  First, if the glob starts with <code>\*\*&#x2F;</code>, then it matches
+  all directories. For example, <code>\*\*&#x2F;foo</code> matches `foo`
+  and `bar/foo` but not `foo/bar`. Secondly, if the glob ends with
+  <code>&#x2F;\*\*</code>, then it matches all sub-entries. For example,
+  <code>foo&#x2F;\*\*</code> matches `foo/a` and `foo/a/b`, but not `foo`.
+  Thirdly, if the glob contains <code>&#x2F;\*\*&#x2F;</code> anywhere within
+  the pattern, then it matches zero or more directories. Using `**` anywhere
+  else is illegal (N.B. the glob `**` is allowed and means "match everything").
+* `{a,b}` matches `a` or `b` where `a` and `b` are arbitrary glob patterns.
+  (N.B. Nesting `{...}` is allowed.)
+* `[ab]` matches `a` or `b` where `a` and `b` are characters. Use
+  `[!ab]` to match any character except for `a` and `b`.
+* `[[:alpha:]]`, `[[:digit:]]`, `[[:space:]]` etc. match POSIX character
+  classes using ASCII-only definitions. Supported classes: `alnum`, `alpha`,
+  `blank`, `cntrl`, `digit`, `graph`, `lower`, `print`, `punct`, `space`,
+  `upper`, `xdigit`. These can be combined with regular ranges, e.g.,
+  `[[:digit:]a-f]` matches hexadecimal digits.
+* Metacharacters such as `*` and `?` can be escaped with character class
+  notation. e.g., `[*]` matches `*`.
+* When backslash escapes are enabled, a backslash (`\`) will escape all meta
+  characters in a glob. If it precedes a non-meta character, then the slash is
+  ignored. A `\\` will match a literal `\\`. Note that this mode is only
+  enabled on Unix platforms by default, but can be enabled on any platform
+  via the `backslash_escape` setting on `Glob`.
+
+A `GlobBuilder` can be used to prevent wildcards from matching path separators,
+or to enable case insensitive matching.
+
+# Crate Features
+
+This crate includes optional features that can be enabled if necessary.
+These features are not required but may be useful depending on the use case.
+
+The following features are available:
+
+* **arbitrary** -
+  Enabling this feature introduces a public dependency on the
+  [`arbitrary`](https://crates.io/crates/arbitrary)
+  crate. Namely, it implements the `Arbitrary` trait from that crate for the
+  [`Glob`] type. This feature is disabled by default.
+*/
+⋮----
+mod fnv;
+mod glob;
+mod pathutil;
+⋮----
+mod serde_impl;
+⋮----
+macro_rules! debug {
+⋮----
+macro_rules! debug {
+⋮----
+/// Represents an error that can occur when parsing a glob pattern.
+⋮----
+pub struct Error {
+/// The original glob provided by the caller.
+glob: Option<String>,
+/// The kind of error.
+kind: ErrorKind,
+⋮----
+/// The kind of error that can occur when parsing a glob pattern.
+⋮----
+pub enum ErrorKind {
+/// **DEPRECATED**.
+///
+/// This error used to occur for consistency with git's glob specification,
+/// but the specification now accepts all uses of `**`. When `**` does not
+/// appear adjacent to a path separator or at the beginning/end of a glob,
+/// it is now treated as two consecutive `*` patterns. As such, this error
+/// is no longer used.
+⋮----
+/// Occurs when a character class (e.g., `[abc]`) is not closed.
+⋮----
+/// Occurs when a range in a character (e.g., `[a-z]`) is invalid. For
+/// example, if the range starts with a lexicographically larger character
+/// than it ends with.
+⋮----
+/// Occurs when a `}` is found without a matching `{`.
+⋮----
+/// Occurs when a `{` is found without a matching `}`.
+⋮----
+/// **DEPRECATED**.
+///
+/// This error used to occur when an alternating group was nested inside
+/// another alternating group, e.g., `{{a,b},{c,d}}`. However, this is now
+/// supported and as such this error cannot occur.
+⋮----
+/// Occurs when alternating groups are nested too deeply.
+⋮----
+/// Occurs when an unescaped '\' is found at the end of a glob.
+⋮----
+/// An error associated with parsing or compiling a regex.
+⋮----
+fn description(&self) -> &str {
+⋮----
+impl Error {
+/// Return the glob that caused this error, if one exists.
+pub fn glob(&self) -> Option<&str> {
+⋮----
+/// Return the kind of this error.
+pub fn kind(&self) -> &ErrorKind {
+⋮----
+impl ErrorKind {
+fn description(&self) -> &str {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn new_regex(pat: &str) -> Result<Regex, Error> {
+⋮----
+fn new_regex_set(pats: Vec<String>) -> Result<Regex, Error> {
+⋮----
+/// GlobSet represents a group of globs that can be matched together in a
+/// single pass.
+⋮----
+pub struct GlobSet {
+len: usize,
+strats: Vec<GlobSetMatchStrategy>,
+pats: Vec<Glob>,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl GlobSet {
+/// Create a new [`GlobSetBuilder`]. A `GlobSetBuilder` can be used to add
+/// new patterns. Once all patterns have been added, `build` should be
+/// called to produce a `GlobSet`, which can then be used for matching.
+⋮----
+pub fn builder() -> GlobSetBuilder {
+⋮----
+/// Create an empty `GlobSet`. An empty set matches nothing.
+⋮----
+pub const fn empty() -> GlobSet {
+⋮----
+/// Returns true if this set is empty, and therefore matches nothing.
+⋮----
+pub fn is_empty(&self) -> bool {
+⋮----
+/// Returns the number of globs in this set.
+⋮----
+pub fn len(&self) -> usize {
+⋮----
+/// Returns true if any glob in this set matches the path given.
+pub fn is_match<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Returns true if any glob in this set matches the path given.
+///
+/// This takes a Candidate as input, which can be used to amortize the
+/// cost of preparing a path for matching.
+pub fn is_match_candidate(&self, path: &Candidate<'_>) -> bool {
+⋮----
+/// Returns true if all globs in this set match the path given.
+///
+/// This will return true if the set of globs is empty, as in that case all
+/// `0` of the globs will match.
+///
+/// ```
+/// use globset::{Glob, GlobSetBuilder};
+///
+/// let mut builder = GlobSetBuilder::new();
+/// builder.add(Glob::new("src/*").unwrap());
+/// builder.add(Glob::new("**/*.rs").unwrap());
+/// let set = builder.build().unwrap();
+///
+/// assert!(set.matches_all("src/foo.rs"));
+/// assert!(!set.matches_all("src/bar.c"));
+/// assert!(!set.matches_all("test.rs"));
+/// ```
+pub fn matches_all<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Returns true if all globs in this set match the path given.
+///
+/// This takes a Candidate as input, which can be used to amortize the cost
+/// of preparing a path for matching.
+///
+/// This will return true if the set of globs is empty, as in that case all
+/// `0` of the globs will match.
+pub fn matches_all_candidate(&self, path: &Candidate<'_>) -> bool {
+⋮----
+/// Returns the sequence number of every glob pattern that matches the
+/// given path.
+pub fn matches<P: AsRef<Path>>(&self, path: P) -> Vec<usize> {
+⋮----
+/// Returns the sequence number of every glob pattern that matches the
+/// given path.
+///
+/// This takes a Candidate as input, which can be used to amortize the
+/// cost of preparing a path for matching.
+pub fn matches_candidate(&self, path: &Candidate<'_>) -> Vec<usize> {
+⋮----
+/// Adds the sequence number of every glob pattern that matches the given
+/// path to the vec given.
+///
+/// `into` is cleared before matching begins, and contains the set of
+/// sequence numbers (in ascending order) after matching ends. If no globs
+/// were matched, then `into` will be empty.
+pub fn matches_into<P: AsRef<Path>>(
+⋮----
+/// Adds the sequence number of every glob pattern that matches the given
+/// path to the vec given.
+///
+/// `into` is cleared before matching begins, and contains the set of
+/// sequence numbers (in ascending order) after matching ends. If no globs
+/// were matched, then `into` will be empty.
+///
+/// This takes a Candidate as input, which can be used to amortize the
+/// cost of preparing a path for matching.
+pub fn matches_candidate_into(
+⋮----
+/// Builds a new matcher from a collection of Glob patterns.
+///
+/// Once a matcher is built, no new patterns can be added to it.
+pub fn new<I, G>(globs: I) -> Result<GlobSet, Error>
+⋮----
+// Only add strategies that are populated
+⋮----
+impl Default for GlobSet {
+/// Create a default empty GlobSet.
+fn default() -> Self {
+⋮----
+/// GlobSetBuilder builds a group of patterns that can be used to
+/// simultaneously match a file path.
+⋮----
+pub struct GlobSetBuilder {
+pats: Vec<Glob>,
+⋮----
+impl GlobSetBuilder {
+/// Create a new `GlobSetBuilder`. A `GlobSetBuilder` can be used to add new
+/// patterns. Once all patterns have been added, `build` should be called
+/// to produce a [`GlobSet`], which can then be used for matching.
+pub fn new() -> GlobSetBuilder {
+⋮----
+/// Builds a new matcher from all of the glob patterns added so far.
+///
+/// Once a matcher is built, no new patterns can be added to it.
+pub fn build(&self) -> Result<GlobSet, Error> {
+⋮----
+/// Add a new pattern to this set.
+pub fn add(&mut self, pat: Glob) -> &mut GlobSetBuilder {
+⋮----
+/// A candidate path for matching.
+///
+/// All glob matching in this crate operates on `Candidate` values.
+/// Constructing candidates has a very small cost associated with it, so
+/// callers may find it beneficial to amortize that cost when matching a single
+/// path against multiple globs or sets of globs.
+⋮----
+pub struct Candidate<'a> {
+path: Cow<'a, [u8]>,
+basename: Cow<'a, [u8]>,
+ext: Cow<'a, [u8]>,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+⋮----
+/// Create a new candidate for matching from the given path.
+pub fn new<P: AsRef<Path> + ?Sized>(path: &'a P) -> Candidate<'a> {
+⋮----
+/// Create a new candidate for matching from the given path as a sequence
+/// of bytes.
+///
+/// Generally speaking, this routine expects the bytes to be
+/// _conventionally_ UTF-8. It is legal for the byte sequence to contain
+/// invalid UTF-8. However, if the bytes are in some other encoding that
+/// isn't ASCII compatible (for example, UTF-16), then the results of
+/// matching are unspecified.
+pub fn from_bytes<P: AsRef<[u8]> + ?Sized>(path: &'a P) -> Candidate<'a> {
+⋮----
+fn from_cow(path: Cow<'a, [u8]>) -> Candidate<'a> {
+⋮----
+fn path_prefix(&self, max: usize) -> &[u8] {
+⋮----
+/// Returns the final component, including `..` for regex matching.
+fn basename_for_regex(&self) -> &[u8] {
+// Literal basename strategies skip `..`, but a regex can match it.
+⋮----
+fn path_suffix(&self, max: usize) -> &[u8] {
+⋮----
+enum GlobSetMatchStrategy {
+⋮----
+impl GlobSetMatchStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+struct LiteralStrategy {
+literals: fnv::HashMap<Vec<u8>, Vec<usize>>,
+// Literal byte lengths modulo 64, checked before hashing the path.
+lengths: u64,
+⋮----
+impl LiteralStrategy {
+fn new() -> LiteralStrategy {
+⋮----
+fn add(&mut self, global_index: usize, lit: String) {
+⋮----
+fn is_match(&self, path: &[u8]) -> bool {
+⋮----
+fn matches_all(&self, path: &[u8]) -> bool {
+⋮----
+fn matches_into(&self, path: &[u8], matches: &mut Vec<usize>) {
+⋮----
+/// Returns whether a length could match, allowing collisions modulo 64.
+fn may_match_length(&self, len: usize) -> bool {
+⋮----
+struct ExtensionStrategy(fnv::HashMap<Vec<u8>, Vec<usize>>);
+⋮----
+impl ExtensionStrategy {
+fn new() -> ExtensionStrategy {
+⋮----
+fn add(&mut self, global_index: usize, ext: String) {
+⋮----
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+struct PrefixStrategy {
+matcher: AhoCorasick,
+map: Vec<usize>,
+longest: usize,
+⋮----
+impl PrefixStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+// If all the prefixes match, we should get exactly one match for each
+// prefix at the beginning.
+⋮----
+fn matches_into(
+⋮----
+struct SuffixStrategy {
+matcher: AhoCorasick,
+map: Vec<usize>,
+longest: usize,
+⋮----
+impl SuffixStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+// If all the suffixes match, we should get exactly one match
+// for each suffix at the end.
+⋮----
+fn matches_into(
+⋮----
+struct RequiredExtensionStrategy(fnv::HashMap<Vec<u8>, Vec<(usize, Regex)>>);
+⋮----
+impl RequiredExtensionStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+struct RegexSetStrategy {
+matcher: Regex,
+map: Vec<usize>,
+basename: bool,
+// We use a pool of PatternSets to hopefully allocating a fresh one on each
+// call.
+//
+// TODO: In the next semver breaking release, we should drop this pool and
+// expose an opaque type that wraps PatternSet. Then callers can provide
+// it to `matches_into` directly. Callers might still want to use a pool
+// or similar to amortize allocation, but that matches the status quo and
+// absolves us of needing to do it here.
+patset: Arc<Pool<PatternSet, PatternSetPoolFn>>,
+⋮----
+type PatternSetPoolFn =
+⋮----
+impl RegexSetStrategy {
+/// Returns the part of the path matched by these regexes.
+fn haystack<'a>(&self, candidate: &'a Candidate<'_>) -> &'a [u8] {
+⋮----
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn find_matches(
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+struct MultiStrategyBuilder {
+literals: Vec<String>,
+map: Vec<usize>,
+longest: usize,
+⋮----
+impl MultiStrategyBuilder {
+fn new() -> MultiStrategyBuilder {
+⋮----
+fn add(&mut self, global_index: usize, literal: String) {
+⋮----
+fn prefix(self) -> PrefixStrategy {
+⋮----
+fn suffix(self) -> SuffixStrategy {
+⋮----
+fn regex_set(self) -> Result<RegexSetStrategy, Error> {
+⋮----
+fn is_empty(&self) -> bool {
+⋮----
+struct RequiredExtensionStrategyBuilder(
+⋮----
+impl RequiredExtensionStrategyBuilder {
+fn new() -> RequiredExtensionStrategyBuilder {
+⋮----
+fn add(&mut self, global_index: usize, ext: String, regex: String) {
+⋮----
+fn build(self) -> Result<RequiredExtensionStrategy, Error> {
+⋮----
+/// Escape meta-characters within the given glob pattern.
+///
+/// The escaping works by surrounding meta-characters with brackets. For
+/// example, `*` becomes `[*]`.
+///
+/// # Example
+///
+/// ```
+/// use globset::escape;
+///
+/// assert_eq!(escape("foo*bar"), "foo[*]bar");
+/// assert_eq!(escape("foo?bar"), "foo[?]bar");
+/// assert_eq!(escape("foo[bar"), "foo[[]bar");
+/// assert_eq!(escape("foo]bar"), "foo[]]bar");
+/// assert_eq!(escape("foo{bar"), "foo[{]bar");
+/// assert_eq!(escape("foo}bar"), "foo[}]bar");
+/// ```
+pub fn escape(s: &str) -> String {
+⋮----
+// note that ! does not need escaping because it is only special
+// inside brackets
+⋮----
+mod tests {
+⋮----
+fn build_glob_set(globs: &[&str]) -> GlobSet {
+⋮----
+fn debug_impl_is_concise() {
+⋮----
+fn set_works() {
+⋮----
+fn empty_set_works() {
+⋮----
+fn matches_all_literals() {
+⋮----
+fn matches_all_basename_literals() {
+⋮----
+fn matches_all_extensions() {
+⋮----
+fn matches_all_required_extensions() {
+⋮----
+fn matches_all_prefix() {
+⋮----
+fn matches_all_suffix() {
+⋮----
+fn matches_all_regex() {
+⋮----
+fn basename_regex_with_path_rules() {
+⋮----
+fn basename_regex_parent_component() {
+⋮----
+fn default_set_is_empty_works() {
+⋮----
+fn escape() {
+use super::escape;
+⋮----
+// This tests that regex matching doesn't "remember" the results of
+// previous searches. That is, if any memory is reused from a previous
+// search, then it should be cleared first.
+⋮----
+fn set_does_not_remember() {
+⋮----
+fn debug() {
+⋮----
+fn literal_length_filter() {
+⋮----
+fn basename_literal_length_filter() {
+</file>
+
+<file path="crates/globset/src/pathutil.rs">
+use std::borrow::Cow;
+⋮----
+use bstr::ByteSlice;
+⋮----
+/// The final component of the path, if it is a normal file.
+///
+/// If the path terminates in `..`, or consists solely of a root of prefix,
+/// file_name will return `None`.
+pub(crate) fn file_name<'a>(path: &Cow<'a, [u8]>) -> Option<Cow<'a, [u8]>> {
+⋮----
+/// Return a file extension given a path's file name.
+///
+/// Note that this does NOT match the semantics of std::path::Path::extension.
+/// Namely, the extension includes the `.` and matching is otherwise more
+/// liberal. Specifically, the extension is:
+///
+/// * None, if the file name given is empty;
+/// * None, if there is no embedded `.`;
+/// * Otherwise, the portion of the file name starting with the final `.`.
+///
+/// e.g., A file name of `.rs` has an extension `.rs`.
+///
+/// N.B. This is done to make certain glob match optimizations easier. Namely,
+/// a pattern like `*.rs` is obviously trying to match files with a `rs`
+/// extension, but it also matches files like `.rs`, which doesn't have an
+/// extension according to std::path::Path::extension.
+pub(crate) fn file_name_ext<'a>(
+⋮----
+/// Normalizes a path to use `/` as a separator everywhere, even on platforms
+/// that recognize other characters as separators.
+⋮----
+pub(crate) fn normalize_path(path: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
+// UNIX only uses /, so we're good.
+⋮----
+/// Normalizes a path to use `/` as a separator everywhere, even on platforms
+/// that recognize other characters as separators.
+⋮----
+pub(crate) fn normalize_path(mut path: Cow<[u8]>) -> Cow<[u8]> {
+use std::path::is_separator;
+⋮----
+mod tests {
+use std::borrow::Cow;
+⋮----
+macro_rules! name {
+⋮----
+macro_rules! ext {
+⋮----
+macro_rules! normalize {
+</file>
+
+<file path="crates/globset/src/serde_impl.rs">
+impl Serialize for Glob {
+fn serialize<S: Serializer>(
+⋮----
+struct GlobVisitor;
+⋮----
+type Value = Glob;
+⋮----
+fn expecting(
+⋮----
+fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+struct GlobSetVisitor;
+⋮----
+type Value = GlobSet;
+⋮----
+fn expecting(
+⋮----
+fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+mod tests {
+use std::collections::HashMap;
+⋮----
+fn glob_deserialize_borrowed() {
+⋮----
+fn glob_deserialize_owned() {
+⋮----
+fn glob_deserialize_error() {
+⋮----
+fn glob_json_works() {
+⋮----
+fn glob_set_deserialize() {
+</file>
+
+<file path="crates/globset/README.md">
+globset
+=======
+Cross platform single glob and glob set matching. Glob set matching is the
+process of matching one or more glob patterns against a single candidate path
+simultaneously, and returning all of the globs that matched.
+
+[![Build status](https://github.com/BurntSushi/ripgrep/workflows/ci/badge.svg)](https://github.com/BurntSushi/ripgrep/actions)
+[![](https://img.shields.io/crates/v/globset.svg)](https://crates.io/crates/globset)
+
+Dual-licensed under MIT or the [UNLICENSE](https://unlicense.org/).
+
+### Documentation
+
+[https://docs.rs/globset](https://docs.rs/globset)
+
+### Usage
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+globset = "0.4"
+```
+
+### Features
+
+* `serde1`: Enables implementing Serde traits on the `Glob` type.
+
+### Example: one glob
+
+This example shows how to match a single glob against a single file path.
+
+```rust
+use globset::Glob;
+
+let glob = Glob::new("*.rs")?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(glob.is_match("foo/bar.rs"));
+assert!(!glob.is_match("Cargo.toml"));
+```
+
+### Example: configuring a glob matcher
+
+This example shows how to use a `GlobBuilder` to configure aspects of match
+semantics. In this example, we prevent wildcards from matching path separators.
+
+```rust
+use globset::GlobBuilder;
+
+let glob = GlobBuilder::new("*.rs")
+    .literal_separator(true).build()?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(!glob.is_match("foo/bar.rs")); // no longer matches
+assert!(!glob.is_match("Cargo.toml"));
+```
+
+### Example: match multiple globs at once
+
+This example shows how to match multiple glob patterns at once.
+
+```rust
+use globset::{Glob, GlobSetBuilder};
+
+let mut builder = GlobSetBuilder::new();
+// A GlobBuilder can be used to configure each glob's match semantics
+// independently.
+builder.add(Glob::new("*.rs")?);
+builder.add(Glob::new("src/lib.rs")?);
+builder.add(Glob::new("src/**/foo.rs")?);
+let set = builder.build()?;
+
+assert_eq!(set.matches("src/bar/baz/foo.rs"), vec![0, 2]);
+```
+
+### Performance
+
+This crate implements globs by converting them to regular expressions, and
+executing them with the
+[`regex`](https://github.com/rust-lang/regex)
+crate.
+
+For single glob matching, performance of this crate should be roughly on par
+with the performance of the
+[`glob`](https://github.com/rust-lang/glob)
+crate. (`*_regex` correspond to benchmarks for this library while `*_glob`
+correspond to benchmarks for the `glob` library.)
+Optimizations in the `regex` crate may propel this library past `glob`,
+particularly when matching longer paths.
+
+```
+test ext_glob             ... bench:         425 ns/iter (+/- 21)
+test ext_regex            ... bench:         175 ns/iter (+/- 10)
+test long_glob            ... bench:         182 ns/iter (+/- 11)
+test long_regex           ... bench:         173 ns/iter (+/- 10)
+test short_glob           ... bench:          69 ns/iter (+/- 4)
+test short_regex          ... bench:          83 ns/iter (+/- 2)
+```
+
+The primary performance advantage of this crate is when matching multiple
+globs against a single path. With the `glob` crate, one must match each glob
+synchronously, one after the other. In this crate, many can be matched
+simultaneously. For example:
+
+```
+test many_short_glob      ... bench:       1,063 ns/iter (+/- 47)
+test many_short_regex_set ... bench:         186 ns/iter (+/- 11)
+```
+
+### Comparison with the [`glob`](https://github.com/rust-lang/glob) crate
+
+* Supports alternate "or" globs, e.g., `*.{foo,bar}`.
+* Can match non-UTF-8 file paths correctly.
+* Supports matching multiple globs at once.
+* Doesn't provide a recursive directory iterator of matching file paths,
+  although I believe this crate should grow one eventually.
+* Supports case insensitive and require-literal-separator match options, but
+  **doesn't** support the require-literal-leading-dot option.
+</file>
+
+<file path="crates/ignore/src/default_types.rs">
+/// This list represents the default file types that ripgrep ships with. In
+/// general, any file format is fair game, although it should generally be
+/// limited to reasonably popular open formats. For other cases, you can add
+/// types to each invocation of ripgrep with the '--type-add' flag.
+///
+/// If you would like to add or improve this list, please file a PR:
+/// <https://github.com/BurntSushi/ripgrep>.
+///
+/// Please try to keep this list sorted lexicographically and wrapped to 79
+/// columns (inclusive).
+⋮----
+// General
+⋮----
+// GPL (gpl.txt, etc.)
+⋮----
+// Other license-specific (APACHE-2.0.txt, etc.)
+⋮----
+// note that PHP 6 doesn't exist
+// See: https://wiki.php.net/rfc/php6
+⋮----
+// Idiomatic files
+⋮----
+// Extensions
+⋮----
+// Portable/misc. init files
+⋮----
+// bash-specific init files
+⋮----
+// csh-specific init files
+⋮----
+// ksh-specific init files
+⋮----
+// tcsh-specific init files
+⋮----
+// zsh-specific init files
+⋮----
+// Extensions
+⋮----
+mod tests {
+use super::DEFAULT_TYPES;
+⋮----
+fn default_types_are_sorted() {
+⋮----
+fn default_types_aliases_are_sorted() {
+</file>
+
+<file path="crates/ignore/src/dir.rs">
+// This module provides a data structure, `Ignore`, that connects "directory
+// traversal" with "ignore matchers." Specifically, it knows about gitignore
+// semantics and precedence, and is organized based on directory hierarchy.
+// Namely, every matcher logically corresponds to ignore rules from a single
+// directory, and points to the matcher for its corresponding parent directory.
+// In this sense, `Ignore` is a *persistent* data structure.
+//
+// This design was specifically chosen to make it possible to use this data
+// structure in a parallel directory iterator.
+//
+// My initial intention was to expose this module as part of this crate's
+// public API, but I think the data structure's public API is too complicated
+// with non-obvious failure modes. Alas, such things haven't been documented
+// well.
+⋮----
+/// IgnoreMatch represents information about where a match came from when using
+/// the `Ignore` matcher.
+⋮----
+pub(crate) struct IgnoreMatch<'a>(IgnoreMatchInner<'a>);
+⋮----
+/// IgnoreMatchInner describes precisely where the match information came from.
+/// This is private to allow expansion to more matchers in the future.
+⋮----
+enum IgnoreMatchInner<'a> {
+⋮----
+fn overrides(x: overrides::Glob<'a>) -> IgnoreMatch<'a> {
+⋮----
+fn gitignore(x: &'a gitignore::Glob) -> IgnoreMatch<'a> {
+⋮----
+fn types(x: types::Glob<'a>) -> IgnoreMatch<'a> {
+⋮----
+fn hidden() -> IgnoreMatch<'static> {
+⋮----
+/// Options for the ignore matcher, shared between the matcher itself and the
+/// builder.
+⋮----
+struct IgnoreOptions {
+/// Whether to ignore hidden file paths or not.
+hidden: bool,
+/// Whether to read .ignore files.
+ignore: bool,
+/// Whether to respect any ignore files in parent directories.
+parents: bool,
+/// Whether to read git's global gitignore file.
+git_global: bool,
+/// Whether to read .gitignore files.
+git_ignore: bool,
+/// Whether to read .git/info/exclude files.
+git_exclude: bool,
+/// Whether to ignore files case insensitively
+ignore_case_insensitive: bool,
+/// Whether a git repository must be present in order to apply any
+/// git-related ignore rules.
+require_git: bool,
+/// Whether symbolic links are followed.
+///
+/// This has no bearing on matching. It is here because safely following
+/// symlinks requires knowing the directories above the root of the
+/// traversal, so that a symlink resolving to one of them can be reported
+/// as a loop. Those are the same directories `add_parents` builds matchers
+/// for, so enabling this keeps that chain complete even when every
+/// ignore-related option is disabled.
+follow_links: bool,
+⋮----
+/// Ignore is a matcher useful for recursively walking one or more directories.
+⋮----
+pub(crate) struct Ignore {
+inner: Arc<IgnoreInner>,
+// Parent matchers are cached independently of the path being walked, but
+// matching them still needs the canonicalized path originally passed to
+// `add_parents`. For example, when walking `/tmp/project/src`, parent
+// matchers use `/tmp/project/src` to rewrite `/tmp/project/src/foo.py`
+// before matching it against ignore files from `/tmp/project` and its
+// ancestors.
+//
+// For ripgrep itself, this means that `rg pat src tests` must rewrite
+// `src/foo` relative to `.../src`, and not whatever root was prepared
+// first.
+//
+// See: https://github.com/BurntSushi/ripgrep/pull/3420
+// See: https://github.com/BurntSushi/ripgrep/issues/3376
+// See: https://github.com/BurntSushi/ripgrep/issues/3419
+// See: https://github.com/BurntSushi/ripgrep/issues/3320
+absolute_base: Option<Arc<PathBuf>>,
+⋮----
+struct IgnoreInner {
+/// A map of all existing directories that have already been
+/// compiled into matchers.
+///
+/// Note that this is never used during matching, only when adding new
+/// parent directory matchers. This avoids needing to rebuild glob sets for
+/// parent directories if many paths are being searched.
+compiled: Arc<RwLock<HashMap<OsString, Weak<IgnoreInner>>>>,
+/// The path to the directory that this matcher was built from.
+dir: PathBuf,
+/// An override matcher (default is empty).
+overrides: Arc<Override>,
+/// A file type matcher.
+types: Arc<Types>,
+/// The parent directory to match next.
+///
+/// If this is the root directory or there are otherwise no more
+/// directories to match, then `parent` is `None`.
+parent: Option<Arc<IgnoreInner>>,
+/// Whether this is an absolute parent matcher, as added by add_parent.
+is_absolute_parent: bool,
+/// Whether any absolute parent has ignore rules. When none do, matching
+/// can skip rewriting the candidate path for those parents.
+has_absolute_parent_rules: bool,
+/// The directory that gitignores should be interpreted relative to.
+///
+/// Usually this is the directory containing the gitignore file. But in
+/// some cases, like for global gitignores or for gitignores specified
+/// explicitly, this should generally be set to the current working
+/// directory. This is only used for global gitignores or "explicit"
+/// gitignores.
+///
+/// When `None`, this means the CWD could not be determined or is unknown.
+/// In this case, global gitignore files are ignored because they otherwise
+/// cannot be matched correctly.
+global_gitignores_relative_to: Option<PathBuf>,
+/// Explicit global ignore matchers specified by the caller.
+explicit_ignores: Arc<Vec<Gitignore>>,
+/// Ignore files used in addition to `.ignore`
+custom_ignore_filenames: Arc<Vec<OsString>>,
+/// The matcher for custom ignore files
+custom_ignore_matcher: Gitignore,
+/// The matcher for .ignore files.
+ignore_matcher: Gitignore,
+/// A global gitignore matcher, usually from $XDG_CONFIG_HOME/git/ignore.
+git_global_matcher: Arc<Gitignore>,
+/// The matcher for .gitignore files.
+git_ignore_matcher: Gitignore,
+/// Special matcher for `.git/info/exclude` files.
+git_exclude_matcher: Gitignore,
+/// Whether this directory contains a .git sub-directory.
+has_git: bool,
+/// Ignore config.
+opts: IgnoreOptions,
+⋮----
+impl Ignore {
+/// Return the directory path of this matcher.
+⋮----
+pub(crate) fn path(&self) -> &Path {
+⋮----
+/// Return true if this matcher has no parent.
+pub(crate) fn is_root(&self) -> bool {
+⋮----
+/// Return this matcher's parent, if one exists.
+pub(crate) fn parent(&self) -> Option<Ignore> {
+⋮----
+/// Create a new `Ignore` matcher with the parent directories of `dir`.
+///
+/// Note that this can only be called on an `Ignore` matcher with no
+/// parents (i.e., `is_root` returns `true`). This will panic otherwise.
+pub(crate) fn add_parents<P: AsRef<Path>>(
+⋮----
+// If we never need info from parent directories, then don't do
+// anything. Note that safely following symlinks needs this chain
+// for loop detection even though it needs nothing from ignore
+// files.
+⋮----
+// There's not much we can do here, so just return our
+// existing matcher. We drop the error to be consistent
+// with our general pattern of ignoring I/O errors when
+// processing ignore files.
+⋮----
+// List of parents, from child to root.
+⋮----
+// `add_child_path` already checked repository markers when needed.
+⋮----
+/// Create a new `Ignore` matcher for the given child directory.
+///
+/// Since building the matcher may require reading from multiple
+/// files, it's possible that this method partially succeeds. Therefore,
+/// a matcher is always returned (which may match nothing) and an error is
+/// returned if it exists.
+///
+/// Note that all I/O errors are completely ignored.
+pub(crate) fn add_child<P: AsRef<Path>>(
+⋮----
+/// Like `add_child`, but reuse this matcher when the child adds no rules
+/// or repository boundary. Incremental matching tracks directory paths
+/// separately, so it doesn't need empty nodes in the matcher chain.
+pub(crate) fn add_child_with_possible_reuse(
+⋮----
+/// Like add_child, but uses successful read_dir entries to reduce
+/// probing when discovering ignore files.
+pub(crate) fn add_child_with_entries<P: AsRef<Path>>(
+⋮----
+/// Like add_child, but takes a full path and returns an IgnoreInner.
+fn add_child_path(&self, dir: &Path) -> (IgnoreInner, Option<Error>) {
+⋮----
+fn collect_ignore_files(
+⋮----
+fn add_child_path_with_found_ignore_files(
+⋮----
+/// Returns true if at least one type of ignore rule should be matched.
+fn has_any_ignore_rules(&self) -> bool {
+⋮----
+/// Like `matched`, but works with a directory entry instead.
+pub(crate) fn matched_dir_entry<'a>(
+⋮----
+/// Returns a match indicating whether the given file path should be
+/// ignored or not.
+///
+/// The match contains information about its origin.
+pub(crate) fn matched<'a, P: AsRef<Path>>(
+⋮----
+// We need to be careful with our path. If it has a leading ./, then
+// strip it because it causes nothing but trouble.
+⋮----
+// Match against the override patterns. If an override matches
+// regardless of whether it's whitelist/ignore, then we quit and
+// return that result immediately. Overrides have the highest
+// precedence.
+⋮----
+/// Performs matching only on the ignore files for this directory and
+/// all parent directories.
+pub(crate) fn matched_ignore<'a>(
+⋮----
+// What we want to do here is take the absolute base path of
+// this directory and join it with the path we're searching.
+// The main issue we want to avoid is accidentally duplicating
+// directory components, so we try to strip any common prefix
+// off of `path`. Overall, this seems a little ham-fisted, but
+// it does fix a nasty bug. It should do fine until we overhaul
+// this crate.
+⋮----
+// This is a weird special case when ripgrep users
+// search with just a `.`, as some tools do
+// automatically (like consult). In this case, if
+// we don't bail out now, the code below will strip
+// a leading `.` from `path`, which might mangle
+// a hidden file name!
+⋮----
+/// Returns an iterator over parent ignore matchers, including this one.
+pub(crate) fn parents(&self) -> Parents<'_> {
+⋮----
+/// Returns the first absolute path of the first absolute parent, if
+/// one exists.
+fn absolute_base(&self) -> Option<&Path> {
+⋮----
+/// State for tracking what kinds of files ripgrep is interested in for a
+/// given directory.
+///
+/// This is computed over the entire set of files in a directory instead of
+/// trying to stat each file individually. If a file is present, it's only then
+/// that we stat it for more information, instead of relying on the stat to
+/// determine its existence.
+⋮----
+struct IgnoreFilesFound {
+has_ignore: bool,
+has_git_ignore: bool,
+has_git_dir: bool,
+has_jj_dir: bool,
+custom_ignore_files: Vec<bool>,
+⋮----
+pub(crate) struct IgnoreRef<'a> {
+inner: &'a IgnoreInner,
+⋮----
+pub(crate) fn path(&self) -> &Path {
+⋮----
+/// Returns true if this is the base matcher, which has no parent.
+///
+/// The base matcher is not a directory in the traversal. It carries
+/// global configuration and its path may be empty, so callers walking the
+/// chain for real directories must stop before it.
+pub(crate) fn is_root(&self) -> bool {
+⋮----
+/// An iterator over all parents of an ignore matcher, including itself.
+pub(crate) struct Parents<'a>(Option<IgnoreRef<'a>>);
+⋮----
+impl<'a> Iterator for Parents<'a> {
+type Item = IgnoreRef<'a>;
+⋮----
+fn next(&mut self) -> Option<IgnoreRef<'a>> {
+⋮----
+/// A builder for creating an Ignore matcher.
+⋮----
+pub(crate) struct IgnoreBuilder {
+/// The root directory path for this ignore matcher.
+dir: PathBuf,
+/// An override matcher (default is empty).
+overrides: Arc<Override>,
+/// A type matcher (default is empty).
+types: Arc<Types>,
+/// Explicit global ignore matchers.
+explicit_ignores: Vec<Gitignore>,
+/// Ignore files in addition to .ignore.
+custom_ignore_filenames: Vec<OsString>,
+/// The directory that gitignores should be interpreted relative to.
+///
+/// Usually this is the directory containing the gitignore file. But in
+/// some cases, like for global gitignores or for gitignores specified
+/// explicitly, this should generally be set to the current working
+/// directory. This is only used for global gitignores or "explicit"
+/// gitignores.
+///
+/// When `None`, global gitignores are ignored.
+global_gitignores_relative_to: Option<PathBuf>,
+/// Ignore config.
+opts: IgnoreOptions,
+⋮----
+impl IgnoreBuilder {
+/// Create a new builder for an `Ignore` matcher.
+///
+/// It is likely a bug to use this without also calling `current_dir()`
+/// outside of tests. This isn't made mandatory because this is an internal
+/// abstraction and it's annoying to update tests.
+pub(crate) fn new() -> IgnoreBuilder {
+⋮----
+/// Builds a new `Ignore` matcher.
+///
+/// The matcher returned won't match anything until ignore rules from
+/// directories are added to it.
+pub(crate) fn build(&self) -> Ignore {
+⋮----
+/// Builds a new `Ignore` matcher using the given CWD directory.
+///
+/// The matcher returned won't match anything until ignore rules from
+/// directories are added to it.
+pub(crate) fn build_with_cwd(&self, cwd: Option<PathBuf>) -> Ignore {
+⋮----
+/// Set the current directory used for matching global gitignores.
+pub(crate) fn current_dir(
+⋮----
+/// Add an override matcher.
+///
+/// By default, no override matcher is used.
+///
+/// This overrides any previous setting.
+pub(crate) fn overrides(
+⋮----
+/// Add a file type matcher.
+///
+/// By default, no file type matcher is used.
+///
+/// This overrides any previous setting.
+pub(crate) fn types(&mut self, types: Types) -> &mut IgnoreBuilder {
+⋮----
+/// Adds a new global ignore matcher from the ignore file path given.
+pub(crate) fn add_ignore(&mut self, ig: Gitignore) -> &mut IgnoreBuilder {
+⋮----
+/// Add a custom ignore file name
+///
+/// These ignore files have higher precedence than all other ignore files.
+///
+/// When specifying multiple names, earlier names have lower precedence than
+/// later names.
+pub(crate) fn add_custom_ignore_filename<S: AsRef<OsStr>>(
+⋮----
+/// Enables ignoring hidden files.
+///
+/// This is enabled by default.
+pub(crate) fn hidden(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Whether ignoring hidden files is enabled or not.
+pub(crate) fn is_hidden(&self) -> bool {
+⋮----
+/// Enables reading `.ignore` files.
+///
+/// `.ignore` files have the same semantics as `gitignore` files and are
+/// supported by search tools such as ripgrep and The Silver Searcher.
+///
+/// This is enabled by default.
+pub(crate) fn ignore(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Enables reading ignore files from parent directories.
+///
+/// If this is enabled, then .gitignore files in parent directories of each
+/// file path given are respected. Otherwise, they are ignored.
+///
+/// This is enabled by default.
+pub(crate) fn parents(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Tell the matcher whether symbolic links are followed.
+///
+/// This does not affect matching. See `IgnoreOptions::follow_links`.
+pub(crate) fn follow_links(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Add a global gitignore matcher.
+///
+/// Its precedence is lower than both normal `.gitignore` files and
+/// `.git/info/exclude` files.
+///
+/// This overwrites any previous global gitignore setting.
+///
+/// This is enabled by default.
+pub(crate) fn git_global(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Enables reading `.gitignore` files.
+///
+/// `.gitignore` files have match semantics as described in the `gitignore`
+/// man page.
+///
+/// This is enabled by default.
+pub(crate) fn git_ignore(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Enables reading `.git/info/exclude` files.
+///
+/// `.git/info/exclude` files have match semantics as described in the
+/// `gitignore` man page.
+///
+/// This is enabled by default.
+pub(crate) fn git_exclude(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Whether a git repository is required to apply git-related ignore
+/// rules (global rules, .gitignore and local exclude rules).
+///
+/// When disabled, git-related ignore rules are applied even when searching
+/// outside a git repository.
+pub(crate) fn require_git(&mut self, yes: bool) -> &mut IgnoreBuilder {
+⋮----
+/// Process ignore files case insensitively
+///
+/// This is disabled by default.
+pub(crate) fn ignore_case_insensitive(
+⋮----
+/// Creates a new gitignore matcher for the directory given.
+///
+/// The matcher is meant to match files below `dir`.
+/// Ignore globs are extracted from each of the file names relative to
+/// `dir_for_ignorefile` in the order given (earlier names have lower
+/// precedence than later names).
+///
+/// I/O errors are ignored.
+pub(crate) fn create_gitignore<T: AsRef<OsStr>>(
+⋮----
+// This check is not necessary, but is added for performance. Namely,
+// a simple stat call checking for existence can often be just a bit
+// quicker than actually trying to open a file. Since the number of
+// directories without ignore files likely greatly exceeds the number
+// with ignore files, this check generally makes sense.
+//
+// However, until demonstrated otherwise, we speculatively do not do
+// this on Windows since Windows is notorious for having slow file
+// system operations. Namely, it's not clear whether this analysis
+// makes sense on Windows.
+//
+// For more details: https://github.com/BurntSushi/ripgrep/pull/1381
+⋮----
+/// Find the GIT_COMMON_DIR for the given git worktree.
+///
+/// This is the directory that may contain a private ignore file
+/// "info/exclude". Unlike git, this function does *not* read environment
+/// variables GIT_DIR and GIT_COMMON_DIR, because it is not clear how to use
+/// them when multiple repositories are searched.
+///
+/// Some I/O errors are ignored.
+fn resolve_git_commondir(
+⋮----
+real_git_dir.join(commondir_line) // relative commondir
+⋮----
+/// Strips `prefix` from `path` if it's a prefix, otherwise returns `path`
+/// unchanged.
+fn strip_if_is_prefix<'a, P: AsRef<Path> + ?Sized>(
+⋮----
+mod tests {
+⋮----
+fn wfile<P: AsRef<Path>>(path: P, contents: &str) {
+⋮----
+fn mkdirp<P: AsRef<Path>>(path: P) {
+⋮----
+fn partial(err: Error) -> Vec<Error> {
+⋮----
+fn tmpdir() -> TempDir {
+⋮----
+fn explicit_ignore() {
+⋮----
+fn git_exclude() {
+⋮----
+fn gitignore() {
+⋮----
+fn gitignore_with_jj() {
+⋮----
+fn gitignore_no_git() {
+⋮----
+fn gitignore_allowed_no_git() {
+⋮----
+fn ignore() {
+⋮----
+fn custom_ignore() {
+⋮----
+// Tests that a custom ignore file will override an .ignore.
+⋮----
+fn custom_ignore_over_ignore() {
+⋮----
+// Tests that earlier custom ignore files have lower precedence than later.
+⋮----
+fn custom_ignore_precedence() {
+⋮----
+// Tests that an .ignore will override a .gitignore.
+⋮----
+fn ignore_over_gitignore() {
+⋮----
+// Tests that exclude has lower precedent than both .ignore and .gitignore.
+⋮----
+fn exclude_lowest() {
+⋮----
+fn errored() {
+⋮----
+fn errored_both() {
+⋮----
+fn errored_partial() {
+⋮----
+fn errored_partial_and_ignore() {
+⋮----
+fn not_present_empty() {
+⋮----
+fn stops_at_git_dir() {
+// This tests that .gitignore files beyond a .git barrier aren't
+// matched, but .ignore files are.
+⋮----
+fn absolute_parent() {
+⋮----
+// First, check that the parent gitignore file isn't detected if the
+// parent isn't added. This establishes a baseline.
+⋮----
+// Second, check that adding a parent directory actually works.
+⋮----
+fn absolute_parent_anchored() {
+⋮----
+fn absolute_parent_rules_through_empty_directories() {
+⋮----
+fn absolute_parent_repository_without_rules() {
+⋮----
+fn absolute_parent_matchers_are_cached_across_roots() {
+⋮----
+/// Parent matchers are shared across search roots, but path rewriting for
+/// absolute parents must use each root's own base path. Otherwise a rule
+/// like `src/invalid` is matched against the wrong absolute path when
+/// `src` is searched before a sibling root (e.g. `tests`).
+///
+/// Paths passed to `matched` use the same relative layout as `Walk` when
+/// roots are given as relative directory names.
+///
+/// Regression for: https://github.com/BurntSushi/ripgrep/issues/3376
+/// and https://github.com/BurntSushi/ripgrep/issues/3419
+⋮----
+fn multi_root_gitignore_order_independent() {
+⋮----
+// Use paths relative to CWD like the CLI walk does for `rg pat src tests`.
+⋮----
+// Historically buggy order: search `src` first, then `tests`.
+⋮----
+// Each root must carry its own absolute_base even though inners are shared.
+⋮----
+// Reverse order should behave the same way.
+⋮----
+/// Same multi-root / order issue for non-git ignore files (e.g. `.rgignore`
+/// via custom ignore names).
+///
+/// Regression for: https://github.com/BurntSushi/ripgrep/issues/3320
+⋮----
+fn multi_root_custom_ignore_order_independent() {
+⋮----
+fn git_info_exclude_in_linked_worktree() {
+⋮----
+// relative commondir
+⋮----
+// absolute commondir
+⋮----
+// missing commondir file
+⋮----
+// We squash the error in this case, because it occurs in repositories
+// that are not linked worktrees but have submodules.
+</file>
+
+<file path="crates/ignore/src/gitignore.rs">
+/*!
+The gitignore module provides a way to match globs from a gitignore file
+against file paths.
+
+Note that this module implements the specification as described in the
+`gitignore` man page from scratch. That is, this module does *not* shell out to
+the `git` command line tool.
+*/
+⋮----
+/// Glob represents a single glob in a gitignore file.
+///
+/// This is used to report information about the highest precedent glob that
+/// matched in one or more gitignore files.
+⋮----
+pub struct Glob {
+/// The file path that this glob was extracted from.
+from: Option<PathBuf>,
+/// The original glob string.
+original: String,
+/// The actual glob string used to convert to a regex.
+actual: String,
+/// Whether this is a whitelisted glob or not.
+is_whitelist: bool,
+/// Whether this glob should only match directories or not.
+is_only_dir: bool,
+⋮----
+impl Glob {
+/// Returns the file path that defined this glob.
+pub fn from(&self) -> Option<&Path> {
+⋮----
+/// The original glob as it was defined in a gitignore file.
+pub fn original(&self) -> &str {
+⋮----
+/// The actual glob that was compiled to respect gitignore
+/// semantics.
+pub fn actual(&self) -> &str {
+⋮----
+/// Whether this was a whitelisted glob or not.
+pub fn is_whitelist(&self) -> bool {
+⋮----
+/// Whether this glob must match a directory or not.
+pub fn is_only_dir(&self) -> bool {
+⋮----
+/// Returns true if and only if this glob has a `**/` prefix.
+fn has_doublestar_prefix(&self) -> bool {
+⋮----
+/// Gitignore is a matcher for the globs in one or more gitignore files
+/// in the same directory.
+⋮----
+pub struct Gitignore {
+set: GlobSet,
+root: PathBuf,
+globs: Vec<Glob>,
+num_ignores: u64,
+num_whitelists: u64,
+matches: Option<Arc<Pool<Vec<usize>>>>,
+⋮----
+impl Gitignore {
+/// Creates a new gitignore matcher from the gitignore file path given.
+///
+/// If it's desirable to include multiple gitignore files in a single
+/// matcher, or read gitignore globs from a different source, then
+/// use `GitignoreBuilder`.
+///
+/// This always returns a valid matcher, even if it's empty. In particular,
+/// a Gitignore file can be partially valid, e.g., when one glob is invalid
+/// but the rest aren't.
+///
+/// Note that I/O errors are ignored. For more granular control over
+/// errors, use `GitignoreBuilder`.
+pub fn new<P: AsRef<Path>>(
+⋮----
+/// Creates a new gitignore matcher from the global ignore file, if one
+/// exists.
+///
+/// The global config file path is specified by git's `core.excludesFile`
+/// config option.
+///
+/// # Behavior
+///
+/// This routine does its best to discover any global git exclude files.
+/// This will try to parse out the `excludesFile` config option in your
+/// global git configuration, if necessary.
+///
+/// The specific things this routine tries (which are subject to change
+/// based on how git behaves) are:
+///
+///
+///
+/// Git's config file location is `$HOME/.gitconfig`. If `$HOME/.gitconfig`
+/// does not exist or does not specify `core.excludesFile`, then
+/// `$XDG_CONFIG_HOME/git/ignore` is read. If `$XDG_CONFIG_HOME` is not
+/// set or is empty, then `$HOME/.config/git/ignore` is used instead.
+pub fn global() -> (Gitignore, Option<Error>) {
+⋮----
+/// Creates a new empty gitignore matcher that never matches anything.
+///
+/// Its path is empty.
+pub fn empty() -> Gitignore {
+⋮----
+/// Creates a new empty gitignore matcher with the given root that never
+/// matches anything.
+fn empty_with_root(root: PathBuf) -> Gitignore {
+⋮----
+/// Returns the directory containing this gitignore matcher.
+///
+/// All matches are done relative to this path.
+pub fn path(&self) -> &Path {
+⋮----
+/// Returns true if and only if this gitignore has zero globs, and
+/// therefore never matches any file path.
+pub fn is_empty(&self) -> bool {
+⋮----
+/// Returns the total number of globs, which should be equivalent to
+/// `num_ignores + num_whitelists`.
+pub fn len(&self) -> usize {
+⋮----
+/// Returns the total number of ignore globs.
+pub fn num_ignores(&self) -> u64 {
+⋮----
+/// Returns the total number of whitelisted globs.
+pub fn num_whitelists(&self) -> u64 {
+⋮----
+/// Returns whether the given path (file or directory) matched a pattern in
+/// this gitignore matcher.
+///
+/// `is_dir` should be true if the path refers to a directory and false
+/// otherwise.
+///
+/// The given path is matched relative to the path given when building
+/// the matcher. Specifically, before matching `path`, its prefix (as
+/// determined by a common suffix of the directory containing this
+/// gitignore) is stripped. If there is no common suffix/prefix overlap,
+/// then `path` is assumed to be relative to this matcher.
+pub fn matched<P: AsRef<Path>>(
+⋮----
+// Keep the directory name when stripping would consume the entire
+// path. Otherwise an unanchored glob cannot match the root itself.
+⋮----
+/// Returns whether the given path (file or directory, and expected to be
+/// under the root) or any of its parent directories (up to the root)
+/// matched a pattern in this gitignore matcher.
+///
+/// NOTE: This method is more expensive than walking the directory hierarchy
+/// top-to-bottom and matching the entries. But, is easier to use in cases
+/// when a list of paths are available without a hierarchy.
+///
+/// NOTE: Unlike `git check-ignore`, a whitelist (negation) match on the
+/// path itself is returned immediately, even when an ancestor directory is
+/// ignored by the same matcher. Git never re-includes a path under an
+/// excluded directory that way, so callers that need git's directory-skip
+/// semantics should walk top-to-bottom instead of relying on this method.
+///
+/// `is_dir` should be true if the path refers to a directory and false
+/// otherwise.
+///
+/// The given path is matched relative to the path given when building
+/// the matcher. Specifically, before matching `path`, its prefix (as
+/// determined by a common suffix of the directory containing this
+/// gitignore) is stripped. If there is no common suffix/prefix overlap,
+/// then `path` is assumed to be relative to this matcher.
+///
+/// # Panics
+///
+/// This method panics if the given file path is not under the root path
+/// of this matcher.
+pub fn matched_path_or_any_parents<P: AsRef<Path>>(
+⋮----
+Match::None => (), // walk up
+⋮----
+match self.matched_stripped(parent, /* is_dir */ true) {
+Match::None => path = parent, // walk up
+⋮----
+/// Like matched, but takes a path that has already been stripped.
+fn matched_stripped<P: AsRef<Path>>(
+⋮----
+/// Strips the given path such that it's suitable for matching with this
+/// gitignore matcher.
+fn strip<'a, P: 'a + AsRef<Path> + ?Sized>(
+⋮----
+// A leading ./ is completely superfluous. We also strip it from
+// our gitignore root path, so we need to strip it from our candidate
+// path too.
+⋮----
+// Strip any common prefix between the candidate path and the root
+// of the gitignore, to make sure we get relative matching right.
+// BUT, a file name might not have any directory components to it,
+// in which case, we don't want to accidentally strip any part of the
+// file name.
+//
+// As an additional special case, if the root is just `.`, then we
+// shouldn't try to strip anything, e.g., when path begins with a `.`.
+⋮----
+// If we're left with a leading slash, get rid of it.
+⋮----
+fn trim_trailing_unescaped_spaces(line: &str) -> &str {
+⋮----
+/// Builds a matcher for a single set of globs from a .gitignore file.
+⋮----
+pub struct GitignoreBuilder {
+builder: GlobSetBuilder,
+root: PathBuf,
+globs: Vec<Glob>,
+case_insensitive: bool,
+allow_unclosed_class: bool,
+⋮----
+impl GitignoreBuilder {
+/// Create a new builder for a gitignore file.
+///
+/// The path given should be the path at which the globs for this gitignore
+/// file should be matched. Note that paths are always matched relative
+/// to the root path given here. Generally, the root path should correspond
+/// to the *directory* containing a `.gitignore` file.
+pub fn new<P: AsRef<Path>>(root: P) -> GitignoreBuilder {
+⋮----
+/// Builds a new matcher from the globs added so far.
+///
+/// Once a matcher is built, no new globs can be added to it.
+pub fn build(&self) -> Result<Gitignore, Error> {
+⋮----
+/// Build a global gitignore matcher using the configuration in this
+/// builder.
+///
+/// This consumes ownership of the builder unlike `build` because it
+/// must mutate the builder to add the global gitignore globs.
+///
+/// Note that this ignores the path given to this builder's constructor
+/// and instead derives the path automatically from git's global
+/// configuration.
+pub fn build_global(mut self) -> (Gitignore, Option<Error>) {
+⋮----
+/// Add each glob from the file path given.
+///
+/// The file given should be formatted as a `gitignore` file.
+///
+/// Note that partial errors can be returned. For example, if there was
+/// a problem adding one glob, an error for that will be returned, but
+/// all other valid globs will still be added.
+pub fn add<P: AsRef<Path>>(&mut self, path: P) -> Option<Error> {
+⋮----
+// Match Git's handling of .gitignore files that begin with the Unicode BOM
+⋮----
+/// Add each glob line from the string given.
+///
+/// If this string came from a particular `gitignore` file, then its path
+/// should be provided here.
+///
+/// The string given should be formatted as a `gitignore` file.
+⋮----
+fn add_str(
+⋮----
+/// Add a line from a gitignore file to this builder.
+///
+/// If this line came from a particular `gitignore` file, then its path
+/// should be provided here.
+///
+/// If the line could not be parsed as a glob, then an error is returned.
+pub fn add_line(
+⋮----
+// `man gitignore` says that if a glob starts with a slash,
+// then the glob can only match the beginning of a path
+// (relative to the location of gitignore). We achieve this by
+// simply banning wildcards from matching /.
+⋮----
+// A negation marker (or slash) with nothing after it leaves no pattern
+// behind. Git treats such a line as a no-op (gitignore(5)); if we keep
+// it, it compiles to a glob matching everything (e.g., "**/" for a
+// bare "!"), which re-includes the entire subtree.
+⋮----
+// If it ends with a slash, then this should only match directories,
+// but the slash should otherwise not be used while globbing.
+⋮----
+// If the slash was escaped, then remove the escape.
+// See: https://github.com/BurntSushi/ripgrep/issues/2236
+⋮----
+// If there is a literal slash, then this is a glob that must match the
+// entire path name. Otherwise, we should let it match anywhere, so use
+// a **/ prefix.
+⋮----
+// ... but only if we don't already have a **/ prefix.
+⋮----
+// If the glob ends with `/**`, then we should only match everything
+// inside a directory, but not the directory itself. Standard globs
+// will match the directory. So we add `/*` to force the issue.
+⋮----
+/// Toggle whether the globs should be matched case insensitively or not.
+///
+/// When this option is changed, only globs added after the change will be
+/// affected.
+///
+/// This is disabled by default.
+pub fn case_insensitive(
+⋮----
+// TODO: This should not return a `Result`. Fix this in the next semver
+// release.
+⋮----
+/// Toggle whether unclosed character classes are allowed. When allowed,
+/// a `[` without a matching `]` is treated literally instead of resulting
+/// in a parse error.
+///
+/// For example, if this is set then the glob `[abc` will be treated as the
+/// literal string `[abc` instead of returning an error.
+///
+/// By default, this is true in order to match established `gitignore`
+/// semantics. Generally speaking, enabling this leads to worse failure
+/// modes since the glob parser becomes more permissive. You might want to
+/// enable this when compatibility (e.g., with POSIX glob implementations)
+/// is more important than good error messages.
+pub fn allow_unclosed_class(
+⋮----
+/// Return the file path of the current environment's global gitignore file.
+///
+/// Note that the file path returned may not exist.
+pub fn gitconfig_excludes_path() -> Option<PathBuf> {
+// When GIT_CONFIG_GLOBAL is set, it replaces both $HOME/.gitconfig and
+// $XDG_CONFIG_HOME/git/config (per git 2.32+). Otherwise, git supports
+// $HOME/.gitconfig and $XDG_CONFIG_HOME/git/config simultaneously, where
+// $HOME/.gitconfig takes precedent.
+⋮----
+// System-level config has the lowest priority for core.excludesFile.
+// GIT_CONFIG_SYSTEM overrides the default /etc/gitconfig path.
+⋮----
+/// Returns the file contents of git's global config file from the path
+/// specified by the `GIT_CONFIG_GLOBAL` environment variable.
+fn gitconfig_global_env_contents() -> Option<Vec<u8>> {
+⋮----
+/// Returns the file contents of git's system-level config file.
+///
+/// Checks `GIT_CONFIG_SYSTEM` first, then falls back to `/etc/gitconfig`.
+fn gitconfig_system_contents() -> Option<Vec<u8>> {
+⋮----
+/// Returns the file contents of git's global config file, if one exists, in
+/// the user's home directory.
+fn gitconfig_home_contents() -> Option<Vec<u8>> {
+⋮----
+/// Returns the file contents of git's global config file, if one exists, in
+/// the user's XDG_CONFIG_HOME directory.
+fn gitconfig_xdg_contents() -> Option<Vec<u8>> {
+⋮----
+/// Returns the default file path for a global .gitignore file.
+///
+/// Specifically, this respects XDG_CONFIG_HOME.
+fn excludes_file_default() -> Option<PathBuf> {
+⋮----
+/// Extract git's `core.excludesfile` config setting from the raw file contents
+/// given.
+fn parse_excludes_file(data: &[u8]) -> Option<PathBuf> {
+use std::sync::OnceLock;
+⋮----
+// N.B. This is the lazy approach, and isn't technically correct, but
+// probably works in more circumstances. I guess we would ideally have
+// a full INI parser. Yuck.
+⋮----
+// We don't care about amortizing allocs here I think. This should only
+// be called ~once per traversal or so? (Although it's not guaranteed...)
+⋮----
+/// Expands a leading ~ in file paths to the value of $HOME.
+///
+/// Like git, only a ~ at the start of the path is expanded, so paths like
+/// `C:/PROGRA~1/foo` are kept as is. The `~user` form is not supported.
+fn expand_tilde(path: &str) -> String {
+⋮----
+/// Returns the location of the user's home directory.
+fn home_dir() -> Option<PathBuf> {
+// We're fine with using std::env::home_dir for now. Its bugs are, IMO,
+// pretty minor corner cases.
+⋮----
+mod tests {
+⋮----
+use crate::tests::TempDir;
+⋮----
+fn gi_from_str<P: AsRef<Path>>(root: P, s: &str) -> Gitignore {
+⋮----
+fn invalid_utf8_preserves_later_patterns() {
+⋮----
+macro_rules! ignored {
+⋮----
+macro_rules! not_ignored {
+⋮----
+// See: https://github.com/BurntSushi/ripgrep/issues/1764
+⋮----
+fn root_directory() {
+⋮----
+// Parent matching only considers paths below the root. The root
+// itself must still strip to an empty path without panicking.
+⋮----
+// A bare "!" leaves no pattern behind, the way git treats it. Git allows
+// a negation marker with nothing after it, but that means the line is a
+// no-op (gitignore(5)): it neither ignores nor re-includes anything.
+// Previously, ripgrep compiled a bare "!" into a "**/" whitelist that
+// matched everything, re-including the whole subtree.
+⋮----
+fn test_issue_2745() {
+⋮----
+fn bytes(s: &str) -> Vec<u8> {
+⋮----
+fn path_string<P: AsRef<Path>>(path: P) -> String {
+⋮----
+fn trailing_spaces_after_escaped_space() {
+⋮----
+fn trailing_unescaped_spaces() {
+⋮----
+fn trailing_escaped_space() {
+⋮----
+fn parse_excludes_file1() {
+⋮----
+fn parse_excludes_file2() {
+⋮----
+fn parse_excludes_file3() {
+⋮----
+fn parse_excludes_file4() {
+⋮----
+fn parse_excludes_file5() {
+⋮----
+fn parse_excludes_file6() {
+⋮----
+fn expand_tilde_leading() {
+⋮----
+fn expand_tilde_not_leading() {
+⋮----
+// %TEMP% on GitHub Actions Windows runners, as an 8.3 short name:
+⋮----
+// See: https://github.com/BurntSushi/ripgrep/issues/106
+⋮----
+fn regression_106() {
+⋮----
+fn case_insensitive() {
+⋮----
+// An empty builder must still retain the root it was created with.
+// Callers that build a matcher per directory use `path()` to walk
+// relative to it, so dropping the root breaks them.
+//
+// See: https://github.com/BurntSushi/ripgrep/issues/3584
+⋮----
+fn empty_builder_preserves_root() {
+</file>
+
+<file path="crates/ignore/src/incremental.rs">
+/// A cached matcher for checking paths against hierarchical ignore files.
+///
+/// An `IncrementalIgnore` is built from a [`crate::WalkBuilder`]. Unlike a
+/// recursive walk, it can check individual paths while still respecting the
+/// ignore files in every relevant parent directory. Matchers for directories
+/// are compiled on first use and then retained for later queries.
+/// Each matcher corresponds to exactly one root configured on the builder,
+/// and paths passed to it are interpreted relative to that root.
+/// A matcher for the special `-` root representing standard input is inert
+/// and always returns a non-match.
+///
+/// The matcher checks path-based filters in the same precedence order as
+/// a traversal. This includes glob overrides, `.ignore`, `.gitignore`,
+/// `.git/info/exclude`, global and explicitly added ignore files, custom
+/// ignore file names and file type selections. It does not apply filters that
+/// require a directory entry or other traversal state, such as custom entry
+/// predicates. Hidden-file detection, minimum and maximum depth limits and the
+/// maximum file size are applied.
+///
+/// A matcher is a snapshot at directory granularity. Once the ignore files in
+/// a directory have been loaded, edits to those files are not observed. Build
+/// a new matcher to reload them.
+///
+/// # Warning
+///
+/// The incremental path checking here necessarily needs to do a lot more work
+/// per path matched. Callers should _not_ use this to run directory traversal.
+/// This is intended to avoid the work of re-traversing an entire directory
+/// tree when only a few changes are detected. (For example, in response to
+/// file additions or deletions.)
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use ignore::WalkBuilder;
+///
+/// let mut builder = WalkBuilder::new(".");
+/// builder.add_custom_ignore_filename(".rgignore");
+/// let mut matchers = builder.build_matchers();
+/// let matcher = &mut matchers[0];
+///
+/// if matcher.matched("src/generated.rs", false).is_ignore() {
+///     println!("ignored");
+/// }
+/// ```
+⋮----
+pub struct IncrementalIgnore {
+/// The root exactly as it was given to `WalkBuilder`.
+root: PathBuf,
+/// The normalized root used only by the opt-in normalization routine.
+normalized_root: OnceLock<Option<PathBuf>>,
+/// The matcher for the configured root directory, loaded on first use.
+ignore: RootIgnore,
+/// Directory paths relative to `root`, excluding the root itself.
+/// Keys are assembled from components, so hashing need not normalize them.
+dirs: HashMap<OsString, CachedDir>,
+/// Options for additional filtering beyond gitignore.
+options: IncrementalIgnoreOptions,
+⋮----
+/// The options for a matcher, mostly meant to duplicate as much as we can from
+/// `WalkParallel`.
+⋮----
+pub(crate) struct IncrementalIgnoreOptions {
+pub(crate) min_depth: Option<usize>,
+pub(crate) max_depth: Option<usize>,
+pub(crate) max_filesize: Option<u64>,
+pub(crate) hidden: bool,
+pub(crate) follow_links: bool,
+⋮----
+enum RootIgnore {
+⋮----
+/// Cached traversal state for a directory relative to the configured root.
+///
+/// The presence of an entry means that the directory and every ancestor
+/// between it and the root have already been checked.
+⋮----
+enum CachedDir {
+/// The directory may be descended into. The matcher includes the ignore
+/// rules loaded through this directory and is therefore the matcher to use
+/// for its children.
+⋮----
+/// The directory may not be descended into because it was ignored by a
+/// path rule or hidden-file filtering. Every descendant is consequently
+/// ignored, and ignore files inside this directory are not loaded.
+⋮----
+/// Returns a parent key for the directory cache, provided the final component
+/// is normal. On Unix, a byte-wise lookup avoids parsing path components.
+/// Cache keys contain only normal components, so a hit also validates the
+/// parent. Other spellings are handled by the component walk after a miss.
+⋮----
+fn parent_key(relative: &Path) -> Option<&OsStr> {
+⋮----
+use std::os::unix::ffi::OsStrExt;
+⋮----
+// As with `Components::as_path`, trim trailing separators and `.`
+// components so these spellings can still hit the cache directly.
+⋮----
+impl IncrementalIgnore {
+pub(crate) fn new(
+⋮----
+// File traversal special cases `-` to search stdin, so we recognize
+// it here for completeness too. In particular, we really want
+// `WalkBuilder::build_matchers` to return a matcher for every root,
+// even when it's a simple file (handled automatically) or when it's
+// stdin (necessarily special cased).
+//
+// If callers need to search a file or directory named `-`, then they
+// can use `./-`. As is the case for file traversal too.
+⋮----
+/// Return the root that paths matched by this matcher are relative to.
+pub fn root(&self) -> &Path {
+⋮----
+/// Normalize `path` and return it relative to this matcher's root.
+///
+/// This returns `None` when `path` cannot be made absolute or
+/// when it is known to be outside this matcher's root. Unlike
+/// [`IncrementalIgnore::matched`], this performs absolute path conversion,
+/// lexical normalization and allocation. It is intended as an opt-in
+/// convenience for callers that do not already have root-relative paths.
+///
+/// Note that `.` is interpreted relative to the process level current
+/// working directory. It is _not_ interpreted relative to the root of
+/// this matcher.
+///
+/// Note also that this may reject paths that only differ in casing. For
+/// example, if the root path for this matcher is `/FOO` but the provided
+/// path is `/foo/bar`, then this may return `None`. Callers must ensure
+/// casing is consistent between the path provided and the root path for
+/// this matcher.
+pub fn normalize<P: AsRef<Path>>(&self, path: P) -> Option<PathBuf> {
+⋮----
+/// Match a root-relative path against ignore files in its directory and
+/// all relevant parent directories.
+///
+/// `is_dir` should be true when `path` should be matched as a directory.
+///
+/// For the return value, use [`IncrementalMatch::is_ignore`],
+/// [`IncrementalMatch::is_whitelist`] or [`IncrementalMatch::is_none`] to
+/// inspect it.
+///
+/// Matchers for previously unseen directories are loaded and cached during
+/// this call. Errors encountered while loading ignore files are logged. To
+/// receive those errors, use [`IncrementalIgnore::matched_with_errors`].
+///
+/// `path` must be relative to this matcher's root and must not contain a
+/// parent directory (`..`) component. Behavior is unspecified when these
+/// preconditions are violated. Callers with an absolute path or with a
+/// path containing `.` or `..` may use [`IncrementalIgnore::normalize`]
+/// to get a path satisfying these preconditions. In all cases, a relative
+/// path is *assumed* to be relative to the root of this ignore matcher.
+///
+/// In general, it is intended that callers doing recursive directory
+/// traversal on the root of this matcher may provide relative paths to
+/// this routine *without* calling [`IncrementalIgnore::normalize`].
+///
+/// The empty path represents the explicitly configured root and also
+/// returns non-match, consistent with recursive traversal where a root is
+/// always treated as being at depth zero.
+pub fn matched<P: AsRef<Path>>(
+⋮----
+/// Match a root-relative path and return errors encountered while loading
+/// ignore files.
+///
+/// This is equivalent to [`IncrementalIgnore::matched`], except that
+/// it returns any errors from newly loaded ignore files. Loading can
+/// partially succeed, so valid rules are always applied to the returned
+/// match even when an error is present.
+pub fn matched_with_errors<P: AsRef<Path>>(
+⋮----
+fn matched_with_errors_impl(
+⋮----
+// We short-circuit here when our matcher corresponds to `Stdin` in
+// order to always return a non-match. This is somewhat redundant with
+// `root_ignore()` which does this too, but we do it here so that it
+// always happens, e.g., before depth filtering.
+⋮----
+// When we have a file that isn't past our min depth, we can give
+// up right away.
+⋮----
+// Same for *anything* that exceeds our max depth.
+⋮----
+// When the path is invalid in some way, we bail out early to avoid
+// potentially doing a stat call below.
+⋮----
+// Record the error but otherwise fall through
+⋮----
+// We still need to tag our `mat` if it doesn't pass the depth filter,
+// or if it's a directory on the edge of a depth filter. This can only
+// happen when the path is reported as a directory. Otherwise regular
+// files are always handled above.
+⋮----
+fn matched_with_errors_ignore(
+⋮----
+// If the exact parent is cached, then all of its ancestors have
+// already been checked. An allowed cache entry is the matcher to use
+// for children of that directory, while an ignored cache entry is
+// terminal for every descendant. In the usual case, this avoids both
+// walking every component and allocating a relative directory path.
+//
+// Only try the fast path when the final component is a normal path
+// component. Invalid paths are handled by the component walk below.
+// Non-normalized parent paths can miss this byte-wise lookup; the
+// component walk below still finds their normalized cache entries.
+⋮----
+fn match_path(
+⋮----
+// Whether a file is hidden or not has low precedence in filtering. We
+// only check it if we haven't matched anything above. This permits
+// callers to whitelist hidden files or directories.
+⋮----
+fn root_ignore(
+⋮----
+/// The result of an incremental match.
+///
+/// This is similar to [`Match`] in that it reports whether a file path should
+/// be ignored, whitelisted or didn't match anything at all. It also has extra
+/// data, such as whether a directory matched but should not be descended into.
+///
+/// Generally speaking, callers that only care about specific files can stick
+/// to the `is_none()`, `is_ignore()` or `is_whitelist()` predicates. Directory
+/// entries are more complicated because we sometimes want to yield directories
+/// to descend into, but not actually visit (e.g., for the minimum depth
+/// filter). Or, we may want to yield a directory to visit but not descend into
+/// (e.g., for the maximum depth filter).
+⋮----
+pub struct IncrementalMatch {
+mat: Match<()>,
+should_descend: bool,
+is_within_depth: bool,
+⋮----
+impl IncrementalMatch {
+fn none(is_dir: bool) -> IncrementalMatch {
+⋮----
+fn ignore() -> IncrementalMatch {
+⋮----
+fn from_match(mat: Match<()>, is_dir: bool) -> IncrementalMatch {
+⋮----
+fn no_descent(self) -> IncrementalMatch {
+⋮----
+fn not_within_depth(self) -> IncrementalMatch {
+⋮----
+/// Returns true if the match result didn't match anything.
+pub fn is_none(&self) -> bool {
+⋮----
+/// Returns true if the match result implies the path should be ignored.
+pub fn is_ignore(&self) -> bool {
+⋮----
+/// Returns true if the match result implies the path should be
+/// whitelisted.
+pub fn is_whitelist(&self) -> bool {
+⋮----
+/// Returns true only when this match corresponds to a directory *and*
+/// whether the caller should look inside this directory for additional
+/// results.
+///
+/// It is possible for a match to report `false` for
+/// [`IncrementalMatch::is_ignore`] _and_ `false` for
+/// [`IncrementalMatch::should_descend`]. This can occur, for example, when
+/// a maximum depth setting allows a directory through, but where none of
+/// its children entries should be visited.
+///
+/// This is always `false` for a file path that does *not* correspond to a
+/// directory.
+pub fn should_descend(&self) -> bool {
+⋮----
+/// Returns true only when this result corresponds to an entry that is
+/// within the depth filter.
+///
+/// This is `false` when a path corresponds to a directory and is less than
+/// the minimum depth. In this case, callers should continue looking inside
+/// that directory.
+///
+/// This is always `true` for a match corresponding to a file path that
+/// isn't a directory.
+pub fn is_within_depth(&self) -> bool {
+⋮----
+/// Inverts the match so that `Ignore` becomes `Whitelist` and
+/// `Whitelist` becomes `Ignore`. A non-match remains the same.
+pub fn invert(self) -> IncrementalMatch {
+⋮----
+/// Return a lexically normalized absolute representation of `path`.
+///
+/// This collapses `.` and `..`, but intentionally does not canonicalize or
+/// resolve symlinks. Ignore rules apply to the lexical path, and resolving a
+/// symlink below a root could move the result outside of that root.
+fn normalize_absolute(path: &Path) -> Option<PathBuf> {
+⋮----
+mod tests {
+⋮----
+use super::CachedDir;
+⋮----
+fn wfile<P: AsRef<Path>>(path: P, contents: &str) {
+⋮----
+fn mkdirp<P: AsRef<Path>>(path: P) {
+⋮----
+fn tmpdir() -> TempDir {
+⋮----
+fn builder<P: AsRef<Path>>(path: P) -> WalkBuilder {
+⋮----
+fn one_matcher(builder: &WalkBuilder) -> IncrementalIgnore {
+⋮----
+fn builders<I: IntoIterator<Item = P>, P: AsRef<Path>>(
+⋮----
+fn matchers(builder: &WalkBuilder) -> Vec<IncrementalIgnore> {
+⋮----
+fn matchedf<P: AsRef<Path>>(
+⋮----
+fn matchedd<P: AsRef<Path>>(
+⋮----
+// Test that multiple parent ignore files, when nested, are respected.
+⋮----
+fn nested_parent_gitignores() {
+⋮----
+// Test that an anchored rule in a child directory is matched relative to
+// that directory, not relative to the configured root.
+⋮----
+fn anchored_child_rule_uses_child_root() {
+⋮----
+// Test that a leading `./` impacts how the rules are matched.
+⋮----
+fn leading_dot_slash_impacts_matching() {
+⋮----
+// Test that custom ignore files are respected.
+⋮----
+fn parent_ignore_and_custom_ignore() {
+⋮----
+// Test that glob overrides take precedence over ignore files.
+⋮----
+fn glob_overrides_are_applied() {
+⋮----
+// Test that an override-ignored directory prevents matching rules below
+// it, just as it prevents a traversal from descending into the directory.
+⋮----
+fn glob_overrides_apply_to_ancestors() {
+⋮----
+// Test that file type selections are applied to files, but not
+// directories.
+⋮----
+fn file_types_are_applied() {
+⋮----
+fn directly_ignored_directory_is_not_descended() {
+⋮----
+// Test that when a directory is ignored, anything below it always ignored
+// even when there are explicit whitelist rules. This matches directory
+// traversal semantics.
+⋮----
+fn ignored_ancestor_wins() {
+⋮----
+// This is the key line: since the entire `blocked` directory is
+// ignored, a proper file traversal won't ever descend into it. So
+// `blocked/keep.rs` should be ignored even if there are ignore rules
+// "beneath" it that whitelist it.
+⋮----
+// Test that we respect git boundaries. And that we don't respect git
+// boundaries when not configured to do so.
+⋮----
+fn respects_git_repository_boundaries() {
+⋮----
+// Test that when a gitignore matcher in a parent directory is created, we
+// reuse that matcher from memory even if it's changed on disk.
+⋮----
+fn compiled_matchers_are_reused() {
+⋮----
+// Below demonstrates that this new ignore file contents
+// aren't actually picked up because it was already loaded.
+⋮----
+// To get the new ignore file, we need to rebuild the matcher.
+⋮----
+fn cached_allowed_parent_matches_children() {
+⋮----
+// Equivalent spellings still use the cached snapshot when the
+// direct parent lookup misses.
+⋮----
+fn cached_ignored_parent_matches_children() {
+⋮----
+fn cached_parent_matcher_is_used_for_directory() {
+⋮----
+// Like `compiled_matchers_are_reused`, but with multiple roots.
+⋮----
+fn compiled_multi_matchers_are_reused() {
+⋮----
+// Even though we haven't used the second matcher, it should still
+// reuse the `a/.ignore` above. If it didn't, then `a/b/c/first.tmp`
+// below would be whitelisted.
+⋮----
+fn compiled_multi_child_matchers_are_not_reused() {
+⋮----
+// Some sanity checking first.
+⋮----
+// Now write a new ignore file at the same location as above
+// and check that the other matcher still uses the "stale" data.
+⋮----
+// This is the punch line: because we didn't load `mats[1]` before
+// changing the ignore file, it loads it here and thus this path gets
+// whitelisted.
+⋮----
+// ... but `mats[0]` still uses the stale gitignore matcher cached in
+// memory!
+⋮----
+// If we rebuilder the matcher... then we force reloading and they're
+// now consistent with one another.
+⋮----
+// Tests that even when there is an error with a glob pattern, we still
+// respect other glob patterns that are valid.
+⋮----
+fn partial_errors_keep_valid_rules() {
+⋮----
+// Tests that parent rules are not respected if the matcher is configured
+// not to do so.
+⋮----
+fn parent_loading_can_be_disabled() {
+⋮----
+// Sanity check that without `parents(false)`, the parent rule is
+// respected.
+⋮----
+// Tests that we can normalize a file path that isn't already in "normal"
+// relative form, and then use that to match on ignore files.
+⋮----
+fn paths_are_relative_to_the_root() {
+⋮----
+// Doesn't work because it isn't relative to the root. It's absolute.
+⋮----
+// Also doesn't work because while it's relative, it contains `..`.
+⋮----
+// Doesn't normalize because its an absolute path outside of our root.
+⋮----
+// Tests that two matchers in two different directories correctly interpret
+// the same parent gitignore file.
+⋮----
+fn multiple_roots_keep_their_own_context() {
+⋮----
+// Tests that only the exact `-` root represents standard input.
+⋮----
+fn dot_dash_root_is_not_stdin() {
+⋮----
+fn stdin_is_inert_with_depth_limits() {
+⋮----
+// Tests that ignore matching works lexically, and doesn't accidentally
+// resolve symbolic links.
+⋮----
+fn symlink_path_stays_under_lexical_root() {
+use std::os::unix::fs::symlink;
+⋮----
+fn depth_limits() {
+⋮----
+fn depth_limits_apply_to_root() {
+⋮----
+fn max_filesize() {
+⋮----
+fn max_filesize_does_not_stat_ignored_file() {
+⋮----
+fn max_filesize_respects_follow_links() {
+use std::os::unix::fs::symlink;
+⋮----
+fn hidden_files_and_directories() {
+⋮----
+fn gitignore_whitelist_overrides_hidden_filter() {
+⋮----
+fn descendants_of_hidden_directories_are_ignored() {
+⋮----
+fn whitelisted_hidden_directory_allows_descendants() {
+⋮----
+fn hidden_directories_outside_depth_limits() {
+⋮----
+fn empty_directories_preserve_repository_boundaries() {
+</file>
+
+<file path="crates/ignore/src/lib.rs">
+/*!
+The ignore crate provides a fast recursive directory iterator that respects
+various filters such as globs, file types and `.gitignore` files. The precise
+matching rules and precedence is explained in the documentation for
+`WalkBuilder`.
+
+Secondarily, this crate exposes gitignore and file type matchers for use cases
+that demand more fine-grained control.
+
+# Example
+
+This example shows the most basic usage of this crate. This code will
+recursively traverse the current directory while automatically filtering out
+files and directories according to ignore globs found in files like
+`.ignore` and `.gitignore`:
+
+
+```rust,no_run
+use ignore::Walk;
+
+for result in Walk::new("./") {
+    // Each item yielded by the iterator is either a directory entry or an
+    // error, so either print the path or the error.
+    match result {
+        Ok(entry) => println!("{}", entry.path().display()),
+        Err(err) => println!("ERROR: {}", err),
+    }
+}
+```
+
+# Example: advanced
+
+By default, the recursive directory iterator will ignore hidden files and
+directories. This can be disabled by building the iterator with `WalkBuilder`:
+
+```rust,no_run
+use ignore::WalkBuilder;
+
+for result in WalkBuilder::new("./").hidden(false).build() {
+    println!("{:?}", result);
+}
+```
+
+See the documentation for `WalkBuilder` for many other options.
+*/
+⋮----
+mod default_types;
+mod dir;
+pub mod gitignore;
+mod incremental;
+pub mod overrides;
+mod pathutil;
+pub mod types;
+mod walk;
+⋮----
+/// Represents an error that can occur when parsing a gitignore file.
+⋮----
+pub enum Error {
+/// A collection of "soft" errors. These occur when adding an ignore
+/// file partially succeeded.
+⋮----
+/// An error associated with a specific line number.
+⋮----
+/// The line number.
+line: u64,
+/// The underlying error.
+err: Box<Error>,
+⋮----
+/// An error associated with a particular file path.
+⋮----
+/// The file path.
+path: PathBuf,
+/// The underlying error.
+err: Box<Error>,
+⋮----
+/// An error associated with a particular directory depth when recursively
+/// walking a directory.
+⋮----
+/// The directory depth.
+depth: usize,
+/// The underlying error.
+err: Box<Error>,
+⋮----
+/// An error that occurs when a file loop is detected when traversing
+/// symbolic links.
+⋮----
+/// The ancestor file path in the loop.
+ancestor: PathBuf,
+/// The child file path in the loop.
+child: PathBuf,
+⋮----
+/// An error that occurs when doing I/O, such as reading an ignore file.
+⋮----
+/// An error that occurs when trying to parse a glob.
+⋮----
+/// The original glob that caused this error. This glob, when
+/// available, always corresponds to the glob provided by an end user.
+/// e.g., It is the glob as written in a `.gitignore` file.
+///
+/// (This glob may be distinct from the glob that is actually
+/// compiled, after accounting for `gitignore` semantics.)
+glob: Option<String>,
+/// The underlying glob error as a string.
+err: String,
+⋮----
+/// A type selection for a file type that is not defined.
+⋮----
+/// A user specified file type definition could not be parsed.
+⋮----
+impl Clone for Error {
+fn clone(&self) -> Error {
+⋮----
+impl Error {
+/// Returns true if this is a partial error.
+///
+/// A partial error occurs when only some operations failed while others
+/// may have succeeded. For example, an ignore file may contain an invalid
+/// glob among otherwise valid globs.
+pub fn is_partial(&self) -> bool {
+⋮----
+/// Returns true if this error is exclusively an I/O error.
+pub fn is_io(&self) -> bool {
+⋮----
+/// Inspect the original [`std::io::Error`] if there is one.
+///
+/// [`None`] is returned if the [`Error`] doesn't correspond to an
+/// [`std::io::Error`]. This might happen, for example, when the error was
+/// produced because a cycle was found in the directory tree while
+/// following symbolic links.
+///
+/// This method returns a borrowed value that is bound to the lifetime of the [`Error`]. To
+/// obtain an owned value, [`Error::into_io_error`] can be used instead.
+///
+/// [`None`]: https://doc.rust-lang.org/stable/std/option/enum.Option.html#variant.None
+/// [`std::io::Error`]: https://doc.rust-lang.org/stable/std/io/struct.Error.html
+pub fn io_error(&self) -> Option<&std::io::Error> {
+⋮----
+/// Similar to [`io_error`] except consumes self to convert to the original
+/// [`std::io::Error`] if one exists.
+///
+/// [`io_error`]: struct.Error.html#method.io_error
+/// [`std::io::Error`]: https://doc.rust-lang.org/stable/std/io/struct.Error.html
+pub fn into_io_error(self) -> Option<std::io::Error> {
+⋮----
+/// Returns a depth associated with recursively walking a directory (if
+/// this error was generated from a recursive directory iterator).
+pub fn depth(&self) -> Option<usize> {
+⋮----
+/// Turn an error into a tagged error with the given file path.
+fn with_path<P: AsRef<Path>>(self, path: P) -> Error {
+⋮----
+/// Turn an error into a tagged error with the given depth.
+fn with_depth(self, depth: usize) -> Error {
+⋮----
+/// Turn an error into a tagged error with the given file path and line
+/// number. If path is empty, then it is omitted from the error.
+fn tagged<P: AsRef<Path>>(self, path: P, lineno: u64) -> Error {
+⋮----
+/// Build an error from a walkdir error.
+fn from_walkdir(err: walkdir::Error) -> Error {
+⋮----
+fn description(&self) -> &str {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn from(err: std::io::Error) -> Error {
+⋮----
+struct PartialErrorBuilder(Vec<Error>);
+⋮----
+impl PartialErrorBuilder {
+fn push(&mut self, err: Error) {
+⋮----
+fn push_ignore_io(&mut self, err: Error) {
+⋮----
+fn maybe_push(&mut self, err: Option<Error>) {
+⋮----
+fn maybe_push_ignore_io(&mut self, err: Option<Error>) {
+⋮----
+fn into_error_option(mut self) -> Option<Error> {
+⋮----
+/// The result of a glob match.
+///
+/// The type parameter `T` typically refers to a type that provides more
+/// information about a particular match. For example, it might identify
+/// the specific gitignore file and the specific glob pattern that caused
+/// the match.
+⋮----
+pub enum Match<T> {
+/// The path didn't match any glob.
+⋮----
+/// The highest precedent glob matched indicates the path should be
+/// ignored.
+⋮----
+/// The highest precedent glob matched indicates the path should be
+/// whitelisted.
+⋮----
+/// Returns true if the match result didn't match any globs.
+pub fn is_none(&self) -> bool {
+⋮----
+/// Returns true if the match result implies the path should be ignored.
+pub fn is_ignore(&self) -> bool {
+⋮----
+/// Returns true if the match result implies the path should be
+/// whitelisted.
+pub fn is_whitelist(&self) -> bool {
+⋮----
+/// Inverts the match so that `Ignore` becomes `Whitelist` and
+/// `Whitelist` becomes `Ignore`. A non-match remains the same.
+pub fn invert(self) -> Match<T> {
+⋮----
+/// Return the value inside this match if it exists.
+pub fn inner(&self) -> Option<&T> {
+⋮----
+/// Apply the given function to the value inside this match.
+///
+/// If the match has no value, then return the match unchanged.
+pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Match<U> {
+⋮----
+/// Return the match if it is not none. Otherwise, return other.
+pub fn or(self, other: Self) -> Self {
+⋮----
+mod tests {
+⋮----
+/// A convenient result type alias.
+pub(crate) type Result<T> =
+⋮----
+macro_rules! err {
+⋮----
+/// A simple wrapper for creating a temporary directory that is
+/// automatically deleted when it's dropped.
+///
+/// We use this in lieu of tempfile because tempfile brings in too many
+/// dependencies.
+⋮----
+pub struct TempDir(PathBuf);
+⋮----
+impl Drop for TempDir {
+fn drop(&mut self) {
+⋮----
+impl TempDir {
+/// Create a new empty temporary directory under the system's configured
+/// temporary directory.
+pub fn new() -> Result<TempDir> {
+⋮----
+/// Return the underlying path to this temporary directory.
+pub fn path(&self) -> &Path {
+</file>
+
+<file path="crates/ignore/src/overrides.rs">
+/*!
+The overrides module provides a way to specify a set of override globs.
+
+This provides functionality similar to `--include` or `--exclude` in command
+line tools.
+*/
+⋮----
+use std::path::Path;
+⋮----
+/// Glob represents a single glob in an override matcher.
+///
+/// This is used to report information about the highest precedent glob
+/// that matched.
+///
+/// Note that not all matches necessarily correspond to a specific glob. For
+/// example, if there are one or more whitelist globs and a file path doesn't
+/// match any glob in the set, then the file path is considered to be ignored.
+///
+/// The lifetime `'a` refers to the lifetime of the matcher that produced
+/// this glob.
+⋮----
+pub struct Glob<'a>(GlobInner<'a>);
+⋮----
+enum GlobInner<'a> {
+/// No glob matched, but the file path should still be ignored.
+⋮----
+/// A glob matched.
+⋮----
+fn unmatched() -> Glob<'a> {
+⋮----
+/// Manages a set of overrides provided explicitly by the end user.
+⋮----
+pub struct Override(Gitignore);
+⋮----
+impl Override {
+/// Returns an empty matcher that never matches any file path.
+pub fn empty() -> Override {
+⋮----
+/// Returns the directory of this override set.
+///
+/// All matches are done relative to this path.
+pub fn path(&self) -> &Path {
+⋮----
+/// Returns true if and only if this matcher is empty.
+///
+/// When a matcher is empty, it will never match any file path.
+pub fn is_empty(&self) -> bool {
+⋮----
+/// Returns the total number of ignore globs.
+pub fn num_ignores(&self) -> u64 {
+⋮----
+/// Returns the total number of whitelisted globs.
+pub fn num_whitelists(&self) -> u64 {
+⋮----
+/// Returns whether the given file path matched a pattern in this override
+/// matcher.
+///
+/// `is_dir` should be true if the path refers to a directory and false
+/// otherwise.
+///
+/// If there are no overrides, then this always returns `Match::None`.
+///
+/// If there is at least one whitelist override and `is_dir` is false, then
+/// this never returns `Match::None`, since non-matches are interpreted as
+/// ignored.
+///
+/// The given path is matched to the globs relative to the path given
+/// when building the override matcher. Specifically, before matching
+/// `path`, its prefix (as determined by a common suffix of the directory
+/// given) is stripped. If there is no common suffix/prefix overlap, then
+/// `path` is assumed to reside in the same directory as the root path for
+/// this set of overrides.
+pub fn matched<'a, P: AsRef<Path>>(
+⋮----
+/// Builds a matcher for a set of glob overrides.
+⋮----
+pub struct OverrideBuilder {
+builder: GitignoreBuilder,
+⋮----
+impl OverrideBuilder {
+/// Create a new override builder.
+///
+/// Matching is done relative to the directory path provided.
+pub fn new<P: AsRef<Path>>(path: P) -> OverrideBuilder {
+⋮----
+/// Builds a new override matcher from the globs added so far.
+///
+/// Once a matcher is built, no new globs can be added to it.
+pub fn build(&self) -> Result<Override, Error> {
+⋮----
+/// Add a glob to the set of overrides.
+///
+/// Globs provided here have precisely the same semantics as a single
+/// line in a `gitignore` file, where the meaning of `!` is inverted:
+/// namely, `!` at the beginning of a glob will ignore a file. Without `!`,
+/// all matches of the glob provided are treated as whitelist matches.
+pub fn add(&mut self, glob: &str) -> Result<&mut OverrideBuilder, Error> {
+⋮----
+/// Toggle whether the globs should be matched case insensitively or not.
+///
+/// When this option is changed, only globs added after the change will be
+/// affected.
+///
+/// This is disabled by default.
+pub fn case_insensitive(
+⋮----
+// TODO: This should not return a `Result`. Fix this in the next semver
+// release.
+⋮----
+/// Toggle whether unclosed character classes are allowed. When allowed,
+/// a `[` without a matching `]` is treated literally instead of resulting
+/// in a parse error.
+///
+/// For example, if this is set then the glob `[abc` will be treated as the
+/// literal string `[abc` instead of returning an error.
+///
+/// By default, this is false. Generally speaking, enabling this leads to
+/// worse failure modes since the glob parser becomes more permissive. You
+/// might want to enable this when compatibility (e.g., with POSIX glob
+/// implementations) is more important than good error messages.
+///
+/// This default is different from the default for [`Gitignore`]. Namely,
+/// [`Gitignore`] is intended to match git's behavior as-is. But this
+/// abstraction for "override" globs does not necessarily conform to any
+/// other known specification and instead prioritizes better error
+/// messages.
+pub fn allow_unclosed_class(&mut self, yes: bool) -> &mut OverrideBuilder {
+⋮----
+mod tests {
+⋮----
+fn ov(globs: &[&str]) -> Override {
+⋮----
+fn empty() {
+⋮----
+fn simple() {
+⋮----
+fn only_ignores() {
+⋮----
+fn precedence() {
+⋮----
+fn gitignore() {
+⋮----
+fn allow_directories() {
+// This tests that directories are NOT ignored when they are unmatched.
+⋮----
+fn absolute_path() {
+⋮----
+// See: https://github.com/BurntSushi/ripgrep/issues/1764
+⋮----
+fn root_directory() {
+⋮----
+fn case_insensitive() {
+⋮----
+fn default_case_sensitive() {
+</file>
+
+<file path="crates/ignore/src/pathutil.rs">
+use crate::walk::DirEntry;
+⋮----
+/// Returns true if and only if this path is considered to be hidden.
+///
+/// # Platform behavior
+///
+/// ## Windows
+///
+/// This returns true if one of the following is true:
+///
+/// * The base name of the path starts with a `.`.
+/// * The file attributes have the `HIDDEN` property set.
+///
+/// ## All other platforms
+///
+/// This only returns true if the base name of the path starts with a `.`.
+pub(crate) fn is_hidden_path(dent: &Path) -> bool {
+⋮----
+fn imp(path: &Path) -> bool {
+⋮----
+fn imp(path: &Path) -> bool {
+use std::os::windows::fs::MetadataExt;
+use winapi_util::file;
+⋮----
+/// Returns true if and only if this directory entry is considered to be
+/// hidden.
+///
+/// # Platform behavior
+///
+/// ## Windows
+///
+/// This returns true if one of the following is true:
+///
+/// * The base name of the path starts with a `.`.
+/// * The file attributes have the `HIDDEN` property set.
+///
+/// ## All other platforms
+///
+/// This only returns true if the base name of the path starts with a `.`.
+pub(crate) fn is_hidden_entry(dent: &DirEntry) -> bool {
+⋮----
+fn imp(dent: &DirEntry) -> bool {
+⋮----
+fn imp(dent: &DirEntry) -> bool {
+use std::os::windows::fs::MetadataExt;
+use winapi_util::file;
+⋮----
+// This looks like we're doing an extra stat call, but on Windows, the
+// directory traverser reuses the metadata retrieved from each directory
+// entry and stores it on the DirEntry itself. So this is "free."
+⋮----
+/// Returns true if and only if this path is considered to be hidden from only
+/// the path itself.
+///
+/// This has the same behavior on all platforms.
+fn is_hidden_path_only(path: &Path) -> bool {
+⋮----
+/// Strip `prefix` from the `path` and return the remainder.
+///
+/// If `path` doesn't have a prefix `prefix`, then return `None`.
+pub(crate) fn strip_prefix<'a, P: AsRef<Path> + ?Sized>(
+⋮----
+fn imp<'a>(prefix: &'a Path, path: &'a Path) -> Option<&'a Path> {
+use std::os::unix::ffi::OsStrExt;
+⋮----
+// Don't strip a partial component, e.g., "/foo" from "/foobar".
+⋮----
+fn imp<'a>(prefix: &'a Path, path: &'a Path) -> Option<&'a Path> {
+⋮----
+/// Returns true if this file path is just a file name. i.e., Its parent is
+/// the empty string.
+pub(crate) fn is_file_name<P: AsRef<Path>>(path: P) -> bool {
+⋮----
+/// The final component of the path, if it is a normal file.
+///
+/// If the path terminates in `.`, `..`, or consists solely of a root of
+/// prefix, this will return `None`.
+pub(crate) fn file_name<'a, P: AsRef<Path> + ?Sized>(
+⋮----
+fn imp(path: &Path) -> Option<&OsStr> {
+use std::os::unix::ffi::OsStrExt;
+⋮----
+use memchr::memrchr;
+⋮----
+// Only a final component that is exactly `.` or `..` has no file
+// name. A real name that merely ends in a `.`, like `.foo.`, does.
+⋮----
+fn imp(path: &Path) -> Option<&OsStr> {
+⋮----
+mod tests {
+use std::ffi::OsStr;
+use std::path::Path;
+⋮----
+fn strip_prefix_component_boundary() {
+⋮----
+fn file_name_basic() {
+⋮----
+// On Windows, `file_name` defers to `std`, which normalizes a trailing
+// `.` component away, so these only apply to the Unix implementation.
+⋮----
+fn file_name_dot_components() {
+⋮----
+fn file_name_trailing_dot() {
+⋮----
+fn hidden_trailing_dot() {
+</file>
+
+<file path="crates/ignore/src/types.rs">
+/*!
+The types module provides a way of associating globs on file names to file
+types.
+
+This can be used to match specific types of files. For example, among
+the default file types provided, the Rust file type is defined to be `*.rs`
+with name `rust`. Similarly, the C file type is defined to be `*.{c,h}` with
+name `c`.
+
+Note that the set of default types may change over time.
+
+# Example
+
+This shows how to create and use a simple file type matcher using the default
+file types defined in this crate.
+
+```
+use ignore::types::TypesBuilder;
+
+let mut builder = TypesBuilder::new();
+builder.add_defaults();
+builder.select("rust");
+let matcher = builder.build().unwrap();
+
+assert!(matcher.matched("foo.rs", false).is_whitelist());
+assert!(matcher.matched("foo.c", false).is_ignore());
+```
+
+# Example: negation
+
+This is like the previous example, but shows how negating a file type works.
+That is, this will let us match file paths that *don't* correspond to a
+particular file type.
+
+```
+use ignore::types::TypesBuilder;
+
+let mut builder = TypesBuilder::new();
+builder.add_defaults();
+builder.negate("c");
+let matcher = builder.build().unwrap();
+
+assert!(matcher.matched("foo.rs", false).is_none());
+assert!(matcher.matched("foo.c", false).is_ignore());
+```
+
+# Example: custom file type definitions
+
+This shows how to extend this library default file type definitions with
+your own.
+
+```
+use ignore::types::TypesBuilder;
+
+let mut builder = TypesBuilder::new();
+builder.add_defaults();
+builder.add("foo", "*.foo");
+// Another way of adding a file type definition.
+// This is useful when accepting input from an end user.
+builder.add_def("bar:*.bar");
+// Note: we only select `foo`, not `bar`.
+builder.select("foo");
+let matcher = builder.build().unwrap();
+
+assert!(matcher.matched("x.foo", false).is_whitelist());
+// This is ignored because we only selected the `foo` file type.
+assert!(matcher.matched("x.bar", false).is_ignore());
+```
+
+We can also add file type definitions based on other definitions.
+
+```
+use ignore::types::TypesBuilder;
+
+let mut builder = TypesBuilder::new();
+builder.add_defaults();
+builder.add("foo", "*.foo");
+builder.add_def("bar:include:foo,cpp");
+builder.select("bar");
+let matcher = builder.build().unwrap();
+
+assert!(matcher.matched("x.foo", false).is_whitelist());
+assert!(matcher.matched("y.cpp", false).is_whitelist());
+```
+*/
+⋮----
+/// Glob represents a single glob in a set of file type definitions.
+///
+/// There may be more than one glob for a particular file type.
+///
+/// This is used to report information about the highest precedent glob
+/// that matched.
+///
+/// Note that not all matches necessarily correspond to a specific glob.
+/// For example, if there are one or more selections and a file path doesn't
+/// match any of those selections, then the file path is considered to be
+/// ignored.
+///
+/// The lifetime `'a` refers to the lifetime of the underlying file type
+/// definition, which corresponds to the lifetime of the file type matcher.
+⋮----
+pub struct Glob<'a>(GlobInner<'a>);
+⋮----
+enum GlobInner<'a> {
+/// No glob matched, but the file path should still be ignored.
+⋮----
+/// A glob matched.
+⋮----
+/// The file type definition which provided the glob.
+def: &'a FileTypeDef,
+⋮----
+fn unmatched() -> Glob<'a> {
+⋮----
+/// Return the file type definition that matched, if one exists. A file type
+/// definition always exists when a specific definition matches a file
+/// path.
+pub fn file_type_def(&self) -> Option<&FileTypeDef> {
+⋮----
+/// A single file type definition.
+///
+/// File type definitions can be retrieved in aggregate from a file type
+/// matcher. File type definitions are also reported when its responsible
+/// for a match.
+⋮----
+pub struct FileTypeDef {
+name: String,
+globs: Vec<String>,
+⋮----
+impl FileTypeDef {
+/// Return the name of this file type.
+pub fn name(&self) -> &str {
+⋮----
+/// Return the globs used to recognize this file type.
+pub fn globs(&self) -> &[String] {
+⋮----
+/// Types is a file type matcher.
+⋮----
+pub struct Types {
+/// All of the file type definitions, sorted lexicographically by name.
+defs: Vec<FileTypeDef>,
+/// All of the selections made by the user.
+selections: Vec<Selection<FileTypeDef>>,
+/// Whether there is at least one Selection::Select in our selections.
+/// When this is true, a Match::None is converted to Match::Ignore.
+has_selected: bool,
+/// A mapping from glob index in the set to two indices. The first is an
+/// index into `selections` and the second is an index into the
+/// corresponding file type definition's list of globs.
+glob_to_selection: Vec<(usize, usize)>,
+/// The set of all glob selections, used for actual matching.
+set: GlobSet,
+/// Temporary storage for globs that match.
+matches: Arc<Pool<Vec<usize>>>,
+⋮----
+/// Indicates the type of a selection for a particular file type.
+⋮----
+enum Selection<T> {
+⋮----
+fn is_negated(&self) -> bool {
+⋮----
+fn name(&self) -> &str {
+⋮----
+fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Selection<U> {
+⋮----
+fn inner(&self) -> &T {
+⋮----
+impl Types {
+/// Creates a new file type matcher that never matches any path and
+/// contains no file type definitions.
+pub fn empty() -> Types {
+⋮----
+/// Returns true if and only if this matcher has zero selections.
+pub fn is_empty(&self) -> bool {
+⋮----
+/// Returns the number of selections used in this matcher.
+pub fn len(&self) -> usize {
+⋮----
+/// Return the set of current file type definitions.
+///
+/// Definitions and globs are sorted.
+pub fn definitions(&self) -> &[FileTypeDef] {
+⋮----
+/// Returns a match for the given path against this file type matcher.
+///
+/// The path is considered whitelisted if it matches a selected file type.
+/// The path is considered ignored if it matches a negated file type.
+/// If at least one file type is selected and `path` doesn't match, then
+/// the path is also considered ignored.
+pub fn matched<'a, P: AsRef<Path>>(
+⋮----
+// File types don't apply to directories, and we can't do anything
+// if our glob set is empty.
+⋮----
+// We only want to match against the file name, so extract it.
+// If one doesn't exist, then we can't match it.
+⋮----
+// The highest precedent match is the last one.
+⋮----
+/// TypesBuilder builds a type matcher from a set of file type definitions and
+/// a set of file type selections.
+pub struct TypesBuilder {
+types: HashMap<String, FileTypeDef>,
+selections: Vec<Selection<()>>,
+⋮----
+impl TypesBuilder {
+/// Create a new builder for a file type matcher.
+///
+/// The builder contains *no* type definitions to start with. A set
+/// of default type definitions can be added with `add_defaults`, and
+/// additional type definitions can be added with `select` and `negate`.
+pub fn new() -> TypesBuilder {
+⋮----
+/// Build the current set of file type definitions *and* selections into
+/// a file type matcher.
+pub fn build(&self) -> Result<Types, Error> {
+⋮----
+/// Return the set of current file type definitions.
+///
+/// Definitions and globs are sorted.
+pub fn definitions(&self) -> Vec<FileTypeDef> {
+⋮----
+/// Select the file type given by `name`.
+///
+/// If `name` is `all`, then all file types currently defined are selected.
+pub fn select(&mut self, name: &str) -> &mut TypesBuilder {
+⋮----
+/// Ignore the file type given by `name`.
+///
+/// If `name` is `all`, then all file types currently defined are negated.
+pub fn negate(&mut self, name: &str) -> &mut TypesBuilder {
+⋮----
+/// Clear any file type definitions for the type name given.
+pub fn clear(&mut self, name: &str) -> &mut TypesBuilder {
+⋮----
+/// Add a new file type definition. `name` can be arbitrary and `pat`
+/// should be a glob recognizing file paths belonging to the `name` type.
+///
+/// If `name` is `all` or otherwise contains any character that is not a
+/// Unicode letter or number, then an error is returned.
+pub fn add(&mut self, name: &str, glob: &str) -> Result<(), Error> {
+⋮----
+/// Add a new file type definition specified in string form. There are two
+/// valid formats:
+/// 1. `{name}:{glob}`.  This defines a 'root' definition that associates the
+///     given name with the given glob.
+/// 2. `{name}:include:{comma-separated list of already defined names}.
+///     This defines an 'include' definition that associates the given name
+///     with the definitions of the given existing types.
+/// Names may not include any characters that are not
+/// Unicode letters or numbers.
+pub fn add_def(&mut self, def: &str) -> Result<(), Error> {
+⋮----
+// Check ahead of time to ensure that all types specified are
+// present and fail fast if not.
+⋮----
+/// Add a set of default file type definitions.
+pub fn add_defaults(&mut self) -> &mut TypesBuilder {
+⋮----
+mod tests {
+use super::TypesBuilder;
+⋮----
+macro_rules! matched {
+⋮----
+fn types() -> Vec<&'static str> {
+⋮----
+fn test_invalid_defs() {
+⋮----
+// Preserve the original definitions for later comparison.
+⋮----
+// Reference to type that does not exist
+⋮----
+// Bad format
+⋮----
+// Ensure that nothing changed, even if some of the includes were valid.
+</file>
+
+<file path="crates/ignore/src/walk.rs">
+/// A directory entry with a possible error attached.
+///
+/// The error typically refers to a problem parsing ignore files in a
+/// particular directory.
+⋮----
+pub struct DirEntry {
+dent: DirEntryInner,
+err: Option<Error>,
+⋮----
+impl DirEntry {
+/// The full path that this entry represents.
+pub fn path(&self) -> &Path {
+⋮----
+/// The full path that this entry represents.
+/// Analogous to [`DirEntry::path`], but moves ownership of the path.
+pub fn into_path(self) -> PathBuf {
+⋮----
+/// Whether this entry corresponds to a symbolic link or not.
+pub fn path_is_symlink(&self) -> bool {
+⋮----
+/// Returns true if and only if this entry corresponds to stdin.
+///
+/// i.e., The entry has depth 0 and its file name is `-`.
+pub fn is_stdin(&self) -> bool {
+⋮----
+/// Return the metadata for the file that this entry points to.
+pub fn metadata(&self) -> Result<Metadata, Error> {
+⋮----
+/// Return the file type for the file that this entry points to.
+///
+/// This entry doesn't have a file type if it corresponds to stdin.
+pub fn file_type(&self) -> Option<FileType> {
+⋮----
+/// Return the file name of this entry.
+///
+/// If this entry has no file name (e.g., `/`), then the full path is
+/// returned.
+pub fn file_name(&self) -> &OsStr {
+⋮----
+/// Returns the depth at which this entry was created relative to the root.
+pub fn depth(&self) -> usize {
+⋮----
+/// Returns the underlying inode number if one exists.
+///
+/// If this entry doesn't have an inode number, then `None` is returned.
+⋮----
+pub fn ino(&self) -> Option<u64> {
+⋮----
+/// Returns an error, if one exists, associated with processing this entry.
+///
+/// An example of an error is one that occurred while parsing an ignore
+/// file. Errors related to traversing a directory tree itself are reported
+/// as part of yielding the directory entry, and not with this method.
+pub fn error(&self) -> Option<&Error> {
+⋮----
+/// Returns true if and only if this entry points to a directory.
+pub(crate) fn is_dir(&self) -> bool {
+⋮----
+fn new_stdin() -> DirEntry {
+⋮----
+fn new_walkdir(dent: walkdir::DirEntry, err: Option<Error>) -> DirEntry {
+⋮----
+fn new_raw(dent: DirEntryRaw, err: Option<Error>) -> DirEntry {
+⋮----
+/// DirEntryInner is the implementation of DirEntry.
+///
+/// It specifically represents three distinct sources of directory entries:
+///
+/// 1. From the walkdir crate.
+/// 2. Special entries that represent things like stdin.
+/// 3. From a path.
+///
+/// Specifically, (3) has to essentially re-create the DirEntry implementation
+/// from WalkDir.
+⋮----
+enum DirEntryInner {
+⋮----
+impl DirEntryInner {
+fn path(&self) -> &Path {
+⋮----
+fn into_path(self) -> PathBuf {
+⋮----
+fn path_is_symlink(&self) -> bool {
+⋮----
+fn is_stdin(&self) -> bool {
+⋮----
+fn metadata(&self) -> Result<Metadata, Error> {
+⋮----
+fn file_type(&self) -> Option<FileType> {
+⋮----
+fn file_name(&self) -> &OsStr {
+⋮----
+fn depth(&self) -> usize {
+⋮----
+fn ino(&self) -> Option<u64> {
+⋮----
+use walkdir::DirEntryExt;
+⋮----
+/// Returns true if and only if this entry points to a directory.
+fn is_dir(&self) -> bool {
+⋮----
+/// DirEntryRaw is essentially copied from the walkdir crate so that we can
+/// build `DirEntry`s from whole cloth in the parallel iterator.
+⋮----
+struct DirEntryRaw {
+/// The path as reported by the `fs::ReadDir` iterator (even if it's a
+/// symbolic link).
+path: PathBuf,
+/// The file type. Necessary for recursive iteration, so store it.
+ty: FileType,
+/// Is set when this entry was created from a symbolic link and the user
+/// expects the iterator to follow symbolic links.
+follow_link: bool,
+/// The depth at which this entry was generated relative to the root.
+depth: usize,
+/// The underlying inode number (Unix only).
+⋮----
+ino: u64,
+/// The underlying metadata (Windows only). We store this on Windows
+/// because this comes for free while reading a directory.
+⋮----
+metadata: fs::Metadata,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// Leaving out FileType because it doesn't have a debug impl
+// in Rust 1.9. We could add it if we really wanted to by manually
+// querying each possibly file type. Meh. ---AG
+⋮----
+impl DirEntryRaw {
+fn path(&self) -> &Path {
+⋮----
+fn into_path(self) -> PathBuf {
+⋮----
+fn path_is_symlink(&self) -> bool {
+⋮----
+fn metadata(&self) -> Result<Metadata, Error> {
+⋮----
+fn metadata_internal(&self) -> Result<fs::Metadata, Error> {
+⋮----
+fn metadata_internal(&self) -> Result<fs::Metadata, Error> {
+⋮----
+fn file_type(&self) -> FileType {
+⋮----
+fn file_name(&self) -> &OsStr {
+⋮----
+fn depth(&self) -> usize {
+⋮----
+fn ino(&self) -> u64 {
+⋮----
+fn from_entry(
+⋮----
+fn from_entry_os(
+⋮----
+fn from_entry_os(
+⋮----
+use std::os::unix::fs::DirEntryExt;
+⋮----
+// Placeholder implementation to allow compiling on non-standard platforms
+// (e.g. wasm32).
+⋮----
+fn from_entry_os(
+⋮----
+fn from_path(
+⋮----
+fn from_path(
+⋮----
+use std::os::unix::fs::MetadataExt;
+⋮----
+/// Builds an entry for `path` without following it if it is a symlink.
+///
+/// Unlike `from_path`, this succeeds for a symlink whose target doesn't
+/// exist.
+fn from_symlink(depth: usize, path: &Path) -> Result<DirEntryRaw, Error> {
+⋮----
+use std::os::unix::fs::MetadataExt;
+⋮----
+// Placeholder implementation to allow compiling on non-standard platforms
+// (e.g. wasm32).
+⋮----
+fn from_path(
+⋮----
+/// WalkBuilder builds a recursive directory iterator.
+///
+/// The builder supports a large number of configurable options. This includes
+/// specific glob overrides, file type matching, toggling whether hidden
+/// files are ignored or not, and of course, support for respecting gitignore
+/// files.
+///
+/// By default, all ignore files found are respected. This includes `.ignore`,
+/// `.gitignore`, `.git/info/exclude` and even your global gitignore
+/// globs, usually found in `$XDG_CONFIG_HOME/git/ignore`.
+///
+/// Some standard recursive directory options are also supported, such as
+/// limiting the recursive depth or whether to follow symbolic links (disabled
+/// by default).
+///
+/// # Ignore rules
+///
+/// There are many rules that influence whether a particular file or directory
+/// is skipped by this iterator. Those rules are documented here. Note that
+/// the rules assume a default configuration.
+///
+/// * First, glob overrides are checked. If a path matches a glob override,
+/// then matching stops. The path is then only skipped if the glob that matched
+/// the path is an ignore glob. (An override glob is a whitelist glob unless it
+/// starts with a `!`, in which case it is an ignore glob.)
+/// * Second, ignore files are checked. Ignore files currently only come from
+/// git ignore files (`.gitignore`, `.git/info/exclude` and the configured
+/// global gitignore file), plain `.ignore` files, which have the same format
+/// as gitignore files, or explicitly added ignore files. The precedence order
+/// is: `.ignore`, `.gitignore`, `.git/info/exclude`, global gitignore and
+/// finally explicitly added ignore files. Note that precedence between
+/// different types of ignore files is not impacted by the directory hierarchy;
+/// any `.ignore` file overrides all `.gitignore` files. Within each precedence
+/// level, more nested ignore files have a higher precedence than less nested
+/// ignore files.
+/// * Third, if the previous step yields an ignore match, then all matching
+/// is stopped and the path is skipped. If it yields a whitelist match, then
+/// matching continues. A whitelist match can be overridden by a later matcher.
+/// * Fourth, unless the path is a directory, the file type matcher is run on
+/// the path. As above, if it yields an ignore match, then all matching is
+/// stopped and the path is skipped. If it yields a whitelist match, then
+/// matching continues.
+/// * Fifth, if the path hasn't been whitelisted and it is hidden, then the
+/// path is skipped.
+/// * Sixth, unless the path is a directory, the size of the file is compared
+/// against the max filesize limit. If it exceeds the limit, it is skipped.
+/// * Seventh, if the path has made it this far then it is yielded in the
+/// iterator.
+⋮----
+pub struct WalkBuilder {
+paths: Vec<PathBuf>,
+ig_builder: IgnoreBuilder,
+max_depth: Option<usize>,
+min_depth: Option<usize>,
+max_filesize: Option<u64>,
+follow_links: bool,
+same_file_system: bool,
+sorter: Option<Sorter>,
+threads: usize,
+skip: Option<Arc<Handle>>,
+filter: Option<Filter>,
+/// The directory that gitignores should be interpreted relative to.
+///
+/// Usually this is the directory containing the gitignore file. But in
+/// some cases, like for global gitignores or for gitignores specified
+/// explicitly, this should generally be set to the current working
+/// directory. This is only used for global gitignores or "explicit"
+/// gitignores.
+///
+/// When `None`, the CWD is fetched from `std::env::current_dir()`. If
+/// that fails, then global gitignores are ignored (an error is logged).
+global_gitignores_relative_to:
+        OnceLock<Result<PathBuf, Arc<std::io::Error>>>,
+⋮----
+enum Sorter {
+⋮----
+struct Filter(Arc<dyn Fn(&DirEntry) -> bool + Send + Sync + 'static>);
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl WalkBuilder {
+/// Create a new builder for a recursive directory iterator for the
+/// directory given.
+///
+/// Note that if you want to traverse multiple different directories, it
+/// is better to call `add` on this builder than to create multiple
+/// `Walk` values.
+pub fn new<P: AsRef<Path>>(path: P) -> WalkBuilder {
+⋮----
+/// Create an empty builder to which paths can be added.
+///
+/// Note that if you call `build` on this instance before calling `add`
+/// on it, it will return exactly zero items during iteration.
+pub fn empty() -> WalkBuilder {
+⋮----
+/// Create a new builder for a recursive directory iterator from the
+/// sequence of paths.
+///
+/// Note that if the iterator is empty, this is the same as
+/// `WalkBuilder::empty`.
+pub fn from_iter<P: AsRef<Path>, I: IntoIterator<Item = P>>(
+⋮----
+/// Build a new `Walk` iterator.
+pub fn build(&self) -> Walk {
+⋮----
+/// Build matchers for checking paths against ignore files without
+/// recursively walking the configured roots.
+///
+/// The returned matchers use the path-based filtering configuration
+/// on this builder, including glob overrides, file type selections,
+/// parent ignore files, `.ignore`, `.gitignore`, global Git
+/// ignore files, explicitly added ignore files and custom ignore
+/// file names. For example, ripgrep configures `.rgignore` via
+/// [`WalkBuilder::add_custom_ignore_filename`]. Minimum and maximum depth
+/// limits, maximum file size and hidden-file filtering are also applied.
+/// Other options that only control traversal or require a directory entry,
+/// such as custom entry predicates, are not applied.
+///
+/// One matcher is returned for each configured path, in the same order as
+/// the paths were added to this builder. Each matcher accepts paths
+/// relative to its own [`IncrementalIgnore::root`]. The matcher for the
+/// special `-` path representing standard input always returns a non-match
+/// for all inputs.
+///
+/// Ignore matchers are loaded lazily and cached by directory.
+/// Thus, the first query may read ignore files from the root and
+/// its parents, while later queries reuse the compiled matchers.
+/// Errors encountered while loading ignore files are returned by
+/// [`IncrementalIgnore::matched_with_errors`]. Once an ignore file has
+/// been loaded, changes to it are not observed. Build new matchers to
+/// reload changed ignore files.
+///
+/// Matchers built together share the builder's base ignore configuration
+/// and compiled parent matchers.
+pub fn build_matchers(&self) -> Vec<IncrementalIgnore> {
+⋮----
+/// Build a new `WalkParallel` iterator.
+///
+/// Note that this *doesn't* return something that implements `Iterator`.
+/// Instead, the returned value must be run with a closure. e.g.,
+/// `builder.build_parallel().run(|| |path| { println!("{path:?}"); WalkState::Continue })`.
+pub fn build_parallel(&self) -> WalkParallel {
+⋮----
+/// Add a file path to the iterator.
+///
+/// Each additional file path added is traversed recursively. This should
+/// be preferred over building multiple `Walk` iterators since this
+/// enables reusing resources across iteration.
+pub fn add<P: AsRef<Path>>(&mut self, path: P) -> &mut WalkBuilder {
+⋮----
+/// The maximum depth to recurse.
+///
+/// The default, `None`, imposes no depth restriction.
+pub fn max_depth(&mut self, depth: Option<usize>) -> &mut WalkBuilder {
+⋮----
+/// The minimum depth to recurse.
+///
+/// The default, `None`, imposes no minimum depth restriction.
+pub fn min_depth(&mut self, depth: Option<usize>) -> &mut WalkBuilder {
+⋮----
+/// Whether to follow symbolic links or not.
+pub fn follow_links(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+// Loop detection needs the ancestors of the root, which is the same
+// chain `add_parents` builds. Keep it alive even with ignore files
+// disabled.
+⋮----
+/// Whether to ignore files above the specified limit.
+pub fn max_filesize(&mut self, filesize: Option<u64>) -> &mut WalkBuilder {
+⋮----
+/// The number of threads to use for traversal.
+///
+/// Note that this only has an effect when using `build_parallel`.
+///
+/// The default setting is `0`, which chooses the number of threads
+/// automatically using heuristics.
+pub fn threads(&mut self, n: usize) -> &mut WalkBuilder {
+⋮----
+/// Add a global ignore file to the matcher.
+///
+/// This has lower precedence than all other sources of ignore rules.
+///
+/// # Errors
+///
+/// If there was a problem adding the ignore file, then an error is
+/// returned. Note that the error may indicate *partial* failure. For
+/// example, if an ignore file contains an invalid glob, all other globs
+/// are still applied.
+///
+/// An error will also occur if this walker could not get the current
+/// working directory (and `WalkBuilder::current_dir` isn't set).
+pub fn add_ignore<P: AsRef<Path>>(&mut self, path: P) -> Option<Error> {
+⋮----
+/// Add a custom ignore file name
+///
+/// These ignore files have higher precedence than all other ignore files.
+///
+/// When specifying multiple names, earlier names have lower precedence than
+/// later names.
+pub fn add_custom_ignore_filename<S: AsRef<OsStr>>(
+⋮----
+/// Add an override matcher.
+///
+/// By default, no override matcher is used.
+///
+/// This overrides any previous setting.
+pub fn overrides(&mut self, overrides: Override) -> &mut WalkBuilder {
+⋮----
+/// Add a file type matcher.
+///
+/// By default, no file type matcher is used.
+///
+/// This overrides any previous setting.
+pub fn types(&mut self, types: Types) -> &mut WalkBuilder {
+⋮----
+/// Enables all the standard ignore filters.
+///
+/// This toggles, as a group, all the filters that are enabled by default:
+///
+/// - [hidden()](#method.hidden)
+/// - [parents()](#method.parents)
+/// - [ignore()](#method.ignore)
+/// - [git_ignore()](#method.git_ignore)
+/// - [git_global()](#method.git_global)
+/// - [git_exclude()](#method.git_exclude)
+///
+/// They may still be toggled individually after calling this function.
+///
+/// This is (by definition) enabled by default.
+pub fn standard_filters(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Enables ignoring hidden files.
+///
+/// This is enabled by default.
+pub fn hidden(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Enables reading ignore files from parent directories.
+///
+/// If this is enabled, then .gitignore files in parent directories of each
+/// file path given are respected. Otherwise, they are ignored.
+///
+/// This is enabled by default.
+pub fn parents(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Enables reading `.ignore` files.
+///
+/// `.ignore` files have the same semantics as `gitignore` files and are
+/// supported by search tools such as ripgrep and The Silver Searcher.
+///
+/// This is enabled by default.
+pub fn ignore(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Enables reading a global gitignore file, whose path is specified in
+/// git's `core.excludesFile` config option.
+///
+/// Git's config file location is `$HOME/.gitconfig`. If `$HOME/.gitconfig`
+/// does not exist or does not specify `core.excludesFile`, then
+/// `$XDG_CONFIG_HOME/git/ignore` is read. If `$XDG_CONFIG_HOME` is not
+/// set or is empty, then `$HOME/.config/git/ignore` is used instead.
+///
+/// This is enabled by default.
+pub fn git_global(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Enables reading `.gitignore` files.
+///
+/// `.gitignore` files have match semantics as described in the `gitignore`
+/// man page.
+///
+/// This is enabled by default.
+pub fn git_ignore(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Enables reading `.git/info/exclude` files.
+///
+/// `.git/info/exclude` files have match semantics as described in the
+/// `gitignore` man page.
+///
+/// This is enabled by default.
+pub fn git_exclude(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Whether a git repository is required to apply git-related ignore
+/// rules (global rules, .gitignore and local exclude rules).
+///
+/// When disabled, git-related ignore rules are applied even when searching
+/// outside a git repository.
+///
+/// In particular, if this is `false` then `.gitignore` files will be read
+/// from parent directories above the git root directory containing `.git`,
+/// which is different from the git behavior.
+pub fn require_git(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Process ignore files case insensitively
+///
+/// This is disabled by default.
+pub fn ignore_case_insensitive(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Set a function for sorting directory entries by their path.
+///
+/// If a compare function is set, the resulting iterator will return all
+/// paths in sorted order. The compare function will be called to compare
+/// entries from the same directory.
+///
+/// This is like `sort_by_file_name`, except the comparator accepts
+/// a `&Path` instead of the base file name, which permits it to sort by
+/// more criteria.
+///
+/// This method will override any previous sorter set by this method or
+/// by `sort_by_file_name`.
+///
+/// Note that this is not used in the parallel iterator.
+pub fn sort_by_file_path<F>(&mut self, cmp: F) -> &mut WalkBuilder
+⋮----
+/// Set a function for sorting directory entries by file name.
+///
+/// If a compare function is set, the resulting iterator will return all
+/// paths in sorted order. The compare function will be called to compare
+/// names from entries from the same directory using only the name of the
+/// entry.
+///
+/// This method will override any previous sorter set by this method or
+/// by `sort_by_file_path`.
+///
+/// Note that this is not used in the parallel iterator.
+pub fn sort_by_file_name<F>(&mut self, cmp: F) -> &mut WalkBuilder
+⋮----
+/// Do not cross file system boundaries.
+///
+/// When this option is enabled, directory traversal will not descend into
+/// directories that are on a different file system from the root path.
+///
+/// Currently, this option is only supported on Unix and Windows. If this
+/// option is used on an unsupported platform, then directory traversal
+/// will immediately return an error and will not yield any entries.
+pub fn same_file_system(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Do not yield directory entries that are believed to correspond to
+/// stdout.
+///
+/// This is useful when a command is invoked via shell redirection to a
+/// file that is also being read. For example, `grep -r foo ./ > results`
+/// might end up trying to search `results` even though it is also writing
+/// to it, which could cause an unbounded feedback loop. Setting this
+/// option prevents this from happening by skipping over the `results`
+/// file.
+///
+/// This is disabled by default.
+pub fn skip_stdout(&mut self, yes: bool) -> &mut WalkBuilder {
+⋮----
+/// Yields only entries which satisfy the given predicate and skips
+/// descending into directories that do not satisfy the given predicate.
+///
+/// The predicate is applied to all entries. If the predicate is
+/// true, iteration carries on as normal. If the predicate is false, the
+/// entry is ignored and if it is a directory, it is not descended into.
+///
+/// Note that the errors for reading entries that may not satisfy the
+/// predicate will still be yielded.
+///
+/// Note also that only one filter predicate can be applied to a
+/// `WalkBuilder`. Calling this subsequent times overrides previous filter
+/// predicates.
+pub fn filter_entry<P>(&mut self, filter: P) -> &mut WalkBuilder
+⋮----
+/// Set the current working directory used for matching global gitignores.
+///
+/// If this is not set, then this walker will attempt to discover the
+/// correct path from the environment's current working directory. If
+/// that fails, then global gitignore files will be ignored.
+///
+/// Global gitignore files come from things like a user's git configuration
+/// or from gitignore files added via [`WalkBuilder::add_ignore`].
+pub fn current_dir(
+⋮----
+// OK because `Err` from `set` implies a value exists.
+⋮----
+/// Gets the currently configured CWD on this walk builder.
+///
+/// This is "lazy." That is, we only ask for the CWD from the environment
+/// if `WalkBuilder::current_dir` hasn't been called yet. And we ensure
+/// that we only do it once.
+fn get_or_set_current_dir(&self) -> Option<&Path> {
+⋮----
+/// Build the root ignore matcher shared by all consumers of this builder.
+fn build_ignore(&self) -> Ignore {
+⋮----
+/// Walk is a recursive directory iterator over file paths in one or more
+/// directories.
+///
+/// Only file and directory paths matching the rules are returned. By default,
+/// ignore files like `.gitignore` are respected. The precise matching rules
+/// and precedence is explained in the documentation for `WalkBuilder`.
+pub struct Walk {
+its: std::vec::IntoIter<(PathBuf, Option<WalkEventIter>)>,
+it: Option<WalkEventIter>,
+ig_root: Ignore,
+ig: Ignore,
+max_depth: Option<usize>,
+max_filesize: Option<u64>,
+skip: Option<Arc<Handle>>,
+filter: Option<Filter>,
+⋮----
+impl Walk {
+/// Creates a new recursive directory iterator for the file path given.
+///
+/// Note that this uses default settings, which include respecting
+/// `.gitignore` files. To configure the iterator, use `WalkBuilder`
+/// instead.
+pub fn new<P: AsRef<Path>>(path: P) -> Walk {
+⋮----
+/// Create a new recursive directory iterator from the sequence of paths
+/// given.
+///
+/// Note that if the provided iterator is empty, then `Walk` is guaranteed
+/// to yield zero entries.
+pub fn from_iter<P: AsRef<Path>, I: IntoIterator<Item = P>>(
+⋮----
+fn skip_entry(&self, ent: &DirEntry) -> Result<bool, Error> {
+⋮----
+// We ensure that trivial skipping is done before any other potentially
+// expensive operations (stat, filesystem other) are done. This seems
+// like an obvious optimization but becomes critical when filesystem
+// operations even as simple as stat can result in significant
+// overheads; an example of this was a bespoke filesystem layer in
+// Windows that hosted files remotely and would download them on-demand
+// when particular filesystem operations occurred. Users of this system
+// who ensured correct file-type filters were being used could still
+// get unnecessary file access resulting in large downloads.
+⋮----
+impl Iterator for Walk {
+type Item = Result<DirEntry, Error>;
+⋮----
+fn next(&mut self) -> Option<Result<DirEntry, Error>> {
+⋮----
+// Like the parallel walker, don't report a symlink that
+// can't be followed if the ignore rules skip it. Root
+// paths are never skipped.
+⋮----
+// Still need to push this on the stack because
+// we'll get a WalkEvent::Exit event for this dir.
+// Its ignore files cannot apply to any visited entry.
+⋮----
+/// WalkEventIter transforms a WalkDir iterator into an iterator that more
+/// accurately describes the directory tree. Namely, it emits events that are
+/// one of three types: directory, file or "exit." An "exit" event means that
+/// the entire contents of a directory have been enumerated.
+struct WalkEventIter {
+depth: usize,
+it: walkdir::IntoIter,
+next: Option<Result<walkdir::DirEntry, walkdir::Error>>,
+⋮----
+enum WalkEvent {
+⋮----
+fn from(it: WalkDir) -> WalkEventIter {
+⋮----
+impl Iterator for WalkEventIter {
+type Item = walkdir::Result<WalkEvent>;
+⋮----
+fn next(&mut self) -> Option<walkdir::Result<WalkEvent>> {
+⋮----
+/// WalkState is used in the parallel recursive directory iterator to indicate
+/// whether walking should continue as normal, skip descending into a
+/// particular directory or quit the walk entirely.
+⋮----
+pub enum WalkState {
+/// Continue walking as normal.
+⋮----
+/// If the directory entry given is a directory, don't descend into it.
+/// In all other cases, this has no effect.
+⋮----
+/// Quit the entire iterator as soon as possible.
+///
+/// Note that this is an inherently asynchronous action. It is possible
+/// for more entries to be yielded even after instructing the iterator
+/// to quit.
+⋮----
+impl WalkState {
+fn is_continue(&self) -> bool {
+⋮----
+fn is_quit(&self) -> bool {
+⋮----
+/// A builder for constructing a visitor when using [`WalkParallel::visit`].
+/// The builder will be called for each thread started by `WalkParallel`. The
+/// visitor returned from each builder is then called for every directory
+/// entry.
+pub trait ParallelVisitorBuilder<'s> {
+/// Create per-thread `ParallelVisitor`s for `WalkParallel`.
+fn build(&mut self) -> Box<dyn ParallelVisitor + 's>;
+⋮----
+fn build(&mut self) -> Box<dyn ParallelVisitor + 's> {
+⋮----
+/// Receives files and directories for the current thread.
+///
+/// Setup for the traversal can be implemented as part of
+/// [`ParallelVisitorBuilder::build`]. Teardown when traversal finishes can be
+/// implemented by implementing the `Drop` trait on your traversal type.
+pub trait ParallelVisitor: Send {
+/// Receives files and directories for the current thread. This is called
+/// once for every directory entry visited by traversal.
+fn visit(&mut self, entry: Result<DirEntry, Error>) -> WalkState;
+⋮----
+struct FnBuilder<F> {
+builder: F,
+⋮----
+fn build(&mut self) -> Box<dyn ParallelVisitor + 's> {
+⋮----
+type FnVisitor<'s> =
+⋮----
+struct FnVisitorImp<'s> {
+visitor: FnVisitor<'s>,
+⋮----
+impl<'s> ParallelVisitor for FnVisitorImp<'s> {
+fn visit(&mut self, entry: Result<DirEntry, Error>) -> WalkState {
+⋮----
+/// WalkParallel is a parallel recursive directory iterator over files paths
+/// in one or more directories.
+///
+/// Only file and directory paths matching the rules are returned. By default,
+/// ignore files like `.gitignore` are respected. The precise matching rules
+/// and precedence is explained in the documentation for `WalkBuilder`.
+///
+/// Unlike `Walk`, this uses multiple threads for traversing a directory.
+pub struct WalkParallel {
+paths: std::vec::IntoIter<PathBuf>,
+ig_root: Ignore,
+max_filesize: Option<u64>,
+max_depth: Option<usize>,
+min_depth: Option<usize>,
+follow_links: bool,
+same_file_system: bool,
+threads: usize,
+skip: Option<Arc<Handle>>,
+filter: Option<Filter>,
+⋮----
+impl WalkParallel {
+/// Execute the parallel recursive directory iterator. `mkf` is called
+/// for each thread used for iteration. The function produced by `mkf`
+/// is then in turn called for each visited file path.
+pub fn run<'s, F>(self, mkf: F)
+⋮----
+/// Execute the parallel recursive directory iterator using a custom
+/// visitor.
+///
+/// The builder given is used to construct a visitor for every thread
+/// used by this traversal. The visitor returned from each builder is then
+/// called for every directory entry seen by that thread.
+///
+/// Typically, creating a custom visitor is useful if you need to perform
+/// some kind of cleanup once traversal is finished. This can be achieved
+/// by implementing `Drop` for your builder (or for your visitor, if you
+/// want to execute cleanup for every thread that is launched).
+///
+/// For example, each visitor might build up a data structure of results
+/// corresponding to the directory entries seen for each thread. Since each
+/// visitor runs on only one thread, this build-up can be done without
+/// synchronization. Then, once traversal is complete, all of the results
+/// can be merged together into a single data structure.
+pub fn visit(mut self, builder: &mut dyn ParallelVisitorBuilder<'_>) {
+⋮----
+// Send the initial set of root paths to the pool of workers. Note
+// that we only send directories. For files, we send to them the
+// callback directly.
+⋮----
+// ... but there's no need to start workers if we don't need them.
+⋮----
+// Create the workers and then wait for them to finish.
+⋮----
+// Collect all of the workers first. In the case that
+// `builder.build()` panics, we want that to happen and
+// propagate before we actually start to run any of the
+// workers.
+⋮----
+fn threads(&self) -> usize {
+⋮----
+/// Message is the set of instructions that a worker knows how to process.
+enum Message {
+/// A work item corresponds to a directory that should be descended into.
+/// Work items for entries that should be skipped or ignored should not
+/// be produced.
+⋮----
+/// This instruction indicates that the worker should quit.
+⋮----
+/// A unit of work for each worker to process.
+///
+/// Each unit of work corresponds to a directory that should be descended
+/// into.
+struct Work {
+/// The directory entry.
+dent: DirEntry,
+/// Any ignore matchers that have been built for this directory's parents.
+ignore: Ignore,
+/// The root device number. When present, only files with the same device
+/// number should be considered.
+root_device: Option<u64>,
+⋮----
+struct ReadDirResult {
+entries: Vec<fs::DirEntry>,
+errors: Vec<Error>,
+⋮----
+impl Work {
+/// Returns true if and only if this work item is a directory.
+fn is_dir(&self) -> bool {
+⋮----
+/// Returns true if and only if this work item is a symlink.
+fn is_symlink(&self) -> bool {
+⋮----
+/// Adds ignore rules for parent directories.
+///
+/// Note that this only applies to entries at depth 0. On all other
+/// entries, this is a no-op.
+fn add_parents(&mut self) -> Option<Error> {
+⋮----
+// At depth 0, the path of this entry is a root path, so we can
+// use it directly to add parent ignore rules.
+⋮----
+/// Adds ignore rules for this directory without reading its contents.
+fn add_ignore(&mut self) {
+⋮----
+/// Reads the directory contents of this work item and adds ignore
+/// rules for this directory.
+///
+/// If there was a problem with reading the directory contents, then
+/// an error is returned. If there was a problem reading the ignore
+/// rules for this directory, then the error is attached to this
+/// work item's directory entry.
+fn read_dir(&mut self) -> Result<ReadDirResult, Error> {
+⋮----
+// Actually descend into the directory and read its contents
+⋮----
+/// A work-stealing stack.
+⋮----
+struct Stack {
+/// This thread's index.
+index: usize,
+/// The thread-local stack.
+deque: Deque<Message>,
+/// The work stealers.
+stealers: Arc<[Stealer<Message>]>,
+⋮----
+impl Stack {
+/// Create a work-stealing stack for each thread. The given messages
+/// correspond to the initial paths to start the search at. They will
+/// be distributed automatically to each stack in a round-robin fashion.
+fn new_for_each_thread(threads: usize, init: Vec<Message>) -> Vec<Stack> {
+// Using new_lifo() ensures each worker operates depth-first, not
+// breadth-first. We do depth-first because a breadth first traversal
+// on wide directories with a lot of gitignores is disastrous (for
+// example, searching a directory tree containing all of crates.io).
+⋮----
+// Distribute the initial messages, reverse the order to cancel out
+// the other reversal caused by the inherent LIFO processing of the
+// per-thread stacks which are filled here.
+⋮----
+/// Push a message.
+fn push(&self, msg: Message) {
+⋮----
+/// Pop a message.
+fn pop(&self) -> Option<Message> {
+⋮----
+/// Steal a message from another queue.
+fn steal(&self) -> Option<Message> {
+// For fairness, try to steal from index + 1, index + 2, ... len - 1,
+// then wrap around to 0, 1, ... index - 1.
+⋮----
+// Don't steal from ourselves
+⋮----
+/// A worker is responsible for descending into directories, updating the
+/// ignore matchers, producing new work and invoking the caller's callback.
+///
+/// Note that a worker is *both* a producer and a consumer.
+struct Worker<'s> {
+/// The caller's callback.
+visitor: Box<dyn ParallelVisitor + 's>,
+/// A work-stealing stack of work to do.
+///
+/// We use a stack instead of a channel because a stack lets us visit
+/// directories in depth first order. This can substantially reduce peak
+/// memory usage by keeping both the number of file paths and gitignore
+/// matchers in memory lower.
+stack: Stack,
+/// Whether all workers should terminate at the next opportunity. Note
+/// that we need this because we don't want other `Work` to be done after
+/// we quit. We wouldn't need this if have a priority channel.
+quit_now: Arc<AtomicBool>,
+/// The number of currently active workers.
+active_workers: Arc<AtomicUsize>,
+/// The maximum depth of directories to descend. A value of `0` means no
+/// descension at all.
+max_depth: Option<usize>,
+/// The minimum depth of directories to descend.
+min_depth: Option<usize>,
+/// The maximum size a searched file can be (in bytes). If a file exceeds
+/// this size it will be skipped.
+max_filesize: Option<u64>,
+/// Whether to follow symbolic links or not. When this is enabled, loop
+/// detection is performed.
+follow_links: bool,
+/// A file handle to skip, currently is either `None` or stdout, if it's
+/// a file and it has been requested to skip files identical to stdout.
+skip: Option<Arc<Handle>>,
+/// A predicate applied to dir entries. If true, the entry and all
+/// children will be skipped.
+filter: Option<Filter>,
+⋮----
+/// Runs this worker until there is no more work left to do.
+///
+/// The worker will call the caller's callback for all entries that aren't
+/// skipped by the ignore matcher.
+fn run(mut self) {
+⋮----
+fn run_one(&mut self, mut work: Work) -> WalkState {
+⋮----
+// If the work is not a directory, then we can just execute the
+// caller's callback immediately and move on.
+⋮----
+// Try to read the directory first before we transfer ownership
+// to the provided closure. Do not unwrap it immediately, though,
+// as we may receive an `Err` value e.g. in the case when we do not
+// have sufficient read permissions to list the directory.
+// In that case we still want to provide the closure with a valid
+// entry before passing the error value.
+⋮----
+/// Decides whether to submit the given directory entry as a file to
+/// search.
+///
+/// If the entry is a path that should be ignored, then this is a no-op.
+/// Otherwise, the entry is pushed on to the queue. (The actual execution
+/// of the callback happens in `run_one`.)
+///
+/// If an error occurs while reading the entry, then it is sent to the
+/// caller's callback.
+///
+/// `ig` is the `Ignore` matcher for the parent directory. `depth` should
+/// be the depth of this entry. `result` should be the item yielded by
+/// a directory iterator.
+fn generate_work(
+⋮----
+// The link can't be followed, but if the ignore rules
+// match the link itself, it must not be reported.
+⋮----
+// N.B. See analogous call in the single-threaded implementation about
+// why it's important for this to come before the checks below.
+⋮----
+/// Returns the next directory to descend into.
+///
+/// If all work has been exhausted, then this returns None. The worker
+/// should then subsequently quit.
+fn get_work(&mut self) -> Option<Work> {
+⋮----
+// Simulate a priority channel: If quit_now flag is set, we can
+// receive only quit messages.
+⋮----
+// Repeat quit message to wake up sleeping threads, if
+// any. The domino effect will ensure that every thread
+// will quit.
+⋮----
+// If deactivate_worker() returns 0, every worker thread
+// is currently within the critical section between the
+// acquire in deactivate_worker() and the release in
+// activate_worker() below.  For this to happen, every
+// worker's local deque must be simultaneously empty,
+// meaning there is no more work left at all.
+⋮----
+// Wait for next `Work` or `Quit` message.
+⋮----
+// Our stack isn't blocking. Instead of burning the
+// CPU waiting, we let the thread sleep for a bit. In
+// general, this tends to only occur once the search is
+// approaching termination.
+⋮----
+/// Indicates that all workers should quit immediately.
+fn quit_now(&self) {
+⋮----
+/// Returns true if this worker should quit immediately.
+fn is_quit_now(&self) -> bool {
+⋮----
+/// Send work.
+fn send(&self, work: Work) {
+⋮----
+/// Send a quit message.
+fn send_quit(&self) {
+⋮----
+/// Receive work.
+fn recv(&self) -> Option<Message> {
+⋮----
+/// Deactivates a worker and returns the number of currently active workers.
+fn deactivate_worker(&self) -> usize {
+⋮----
+/// Reactivates a worker.
+fn activate_worker(&self) {
+⋮----
+impl<'s> Drop for Worker<'s> {
+fn drop(&mut self) {
+⋮----
+fn check_symlink_loop(
+⋮----
+// Note that this deliberately does not stop at the root of the
+// traversal. A symlink resolving to a directory *above* the root is also
+// a loop, since the target contains the root, so descending into it leads
+// back to the root. Stopping early means such a symlink looks like an
+// ordinary directory on the first crossing and is only caught on the
+// second, after everything above the root has already been walked once.
+// The base matcher is excluded: it is not a directory in the traversal
+// and its path may be empty.
+⋮----
+// Before calling this function, make sure that you ensure that is really
+// necessary as the arguments imply a file stat.
+fn skip_filesize(
+⋮----
+fn should_skip_entry(ig: &Ignore, dent: &DirEntry) -> bool {
+⋮----
+/// Returns a handle to stdout for filtering search.
+///
+/// A handle is returned if and only if stdout is being redirected to a file.
+/// The handle returned corresponds to that file.
+///
+/// This can be used to ensure that we do not attempt to search a file that we
+/// may also be writing to.
+fn stdout_handle() -> Option<Handle> {
+⋮----
+/// Returns true if and only if the given file is a regular file on disk.
+///
+/// On Windows, std reports pipes as regular files, so we check the handle
+/// type first. Otherwise, when stdout is a pipe (which is the common case
+/// when another program runs ripgrep), every file we search is opened one
+/// extra time in `path_equals` just to compare it with stdout.
+fn is_regular_file(file: &fs::File) -> bool {
+⋮----
+/// Returns true if and only if the given directory entry is believed to be
+/// equivalent to the given handle. If there was a problem querying the path
+/// for information to determine equality, then that error is returned.
+fn path_equals(dent: &DirEntry, handle: &Handle) -> Result<bool, Error> {
+⋮----
+fn never_equal(dent: &DirEntry, handle: &Handle) -> bool {
+⋮----
+fn never_equal(_: &DirEntry, _: &Handle) -> bool {
+⋮----
+// If we know for sure that these two things aren't equal, then avoid
+// the costly extra stat call to determine equality.
+⋮----
+/// Returns true if the given walkdir entry corresponds to a directory.
+///
+/// This is normally just `dent.file_type().is_dir()`, but when we aren't
+/// following symlinks, the root directory entry may be a symlink to a
+/// directory that we *do* follow---by virtue of it being specified by the user
+/// explicitly. In that case, we need to follow the symlink and query whether
+/// it's a directory or not. But we only do this for root entries to avoid an
+/// additional stat check in most cases.
+fn walkdir_is_dir(dent: &walkdir::DirEntry) -> bool {
+⋮----
+/// Returns true if and only if the given path is on the same device as the
+/// given root device.
+fn is_same_file_system(root_device: u64, path: &Path) -> Result<bool, Error> {
+⋮----
+fn device_num<P: AsRef<Path>>(path: P) -> io::Result<u64> {
+use std::os::unix::fs::MetadataExt;
+⋮----
+fn device_num<P: AsRef<Path>>(path: P) -> io::Result<u64> {
+⋮----
+fn device_num<P: AsRef<Path>>(_: P) -> io::Result<u64> {
+⋮----
+mod tests {
+use std::ffi::OsStr;
+⋮----
+use std::io::Write;
+use std::path::Path;
+⋮----
+use crate::tests::TempDir;
+⋮----
+fn wfile<P: AsRef<Path>>(path: P, contents: &str) {
+⋮----
+fn wfile_size<P: AsRef<Path>>(path: P, size: u64) {
+⋮----
+fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) {
+use std::os::unix::fs::symlink;
+⋮----
+fn mkdirp<P: AsRef<Path>>(path: P) {
+⋮----
+fn normal_path(unix: &str) -> String {
+⋮----
+fn walk_collect(prefix: &Path, builder: &WalkBuilder) -> Vec<String> {
+⋮----
+fn walk_collect_parallel(
+⋮----
+fn walk_collect_entries_parallel(builder: &WalkBuilder) -> Vec<DirEntry> {
+⋮----
+fn mkpaths(paths: &[&str]) -> Vec<String> {
+⋮----
+fn tmpdir() -> TempDir {
+⋮----
+fn assert_paths(prefix: &Path, builder: &WalkBuilder, expected: &[&str]) {
+⋮----
+fn no_ignores() {
+⋮----
+fn custom_ignore() {
+⋮----
+fn custom_ignore_exclusive_use() {
+⋮----
+fn gitignore() {
+⋮----
+fn explicit_ignore() {
+⋮----
+fn explicit_ignore_exclusive_use() {
+⋮----
+// Names that start with a `.` are hidden, even when they also end in a
+// `.`. A trailing `.` must not be confused with a `.` or `..` component.
+//
+// Windows doesn't allow file names that end in a `.`.
+⋮----
+fn hidden_with_trailing_dot() {
+⋮----
+fn gitignore_parent() {
+⋮----
+fn max_depth() {
+⋮----
+fn max_depth_does_not_load_unreachable_ignore_files() {
+⋮----
+fn min_depth() {
+⋮----
+fn max_filesize() {
+⋮----
+fn max_filesize_respects_filter_entry() {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn symlinks() {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn first_path_not_symlink() {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn symlink_loop() {
+⋮----
+// A symlink resolving to a directory above the root of the walk is also a
+// loop, since the target contains the root and descending into it leads
+// back to the root.
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn symlink_loop_above_root() {
+⋮----
+// Only asserted for the parallel walker. `Walk` delegates loop
+// detection to walkdir, which is responsible for its own check.
+//
+// Without the check, this also yields everything reachable from `td`,
+// including `deep/up/outside/stray`.
+⋮----
+// The ancestors of the root are needed for loop detection even when no
+// ignore files are being read at all.
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn symlink_loop_above_root_no_ignores() {
+⋮----
+// Only ancestors are loops. A symlink to a directory outside the root
+// that does not contain the root is still followed.
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn symlink_outside_root_is_followed() {
+⋮----
+// It's a little tricky to test the 'same_file_system' option since
+// we need an environment with more than one file system. We adopt a
+// heuristic where /sys is typically a distinct volume on Linux and roll
+// with that.
+⋮----
+fn same_file_system() {
+use super::device_num;
+⋮----
+// If for some reason /sys doesn't exist or isn't a directory, just
+// skip this test.
+⋮----
+// If our test directory actually isn't a different volume from /sys,
+// then this test is meaningless and we shouldn't run it.
+⋮----
+// Create a symlink to sys and enable following symlinks. If the
+// same_file_system option doesn't work, then this probably will hit a
+// permission error. Otherwise, it should just skip over the symlink
+// completely.
+⋮----
+fn no_read_permissions() {
+⋮----
+// There's no /etc/sudoers.d, skip the test.
+⋮----
+// We're the root, so the test won't check what we want it to.
+⋮----
+// Check that we can't descend but get an entry for the parent dir.
+⋮----
+fn filter() {
+⋮----
+fn empty() {
+⋮----
+fn from_iter() {
+⋮----
+// This should always panic and never hang.
+//
+// Ref: https://github.com/BurntSushi/ripgrep/issues/3009
+⋮----
+fn panic_in_parallel() {
+⋮----
+// This should always panic and never hang. The first call to the visitor
+// builder is used while processing the root paths. Previously, a panic on
+// the third call occurred after the first worker had already been spawned,
+// leaving it waiting indefinitely for workers that were never created.
+⋮----
+fn panic_in_parallel_builder() {
+⋮----
+/// Returns the number of errors yielded by the single threaded walker.
+fn walk_error_count(builder: &WalkBuilder) -> usize {
+⋮----
+/// Returns the number of errors yielded by the parallel walker.
+fn walk_error_count_parallel(builder: &WalkBuilder) -> usize {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn ignored_broken_symlink_follow_links_no_error() {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn broken_symlink_follow_links_error() {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn hidden_broken_symlink_follow_links_no_error() {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn hidden_broken_symlink_not_hidden_follow_links_error() {
+⋮----
+#[cfg(unix)] // because symlinks on windows are weird
+⋮----
+fn broken_symlink_root_follow_links_error() {
+⋮----
+// On Windows, std reports a pipe as a regular file. If stdout is a pipe,
+// we shouldn't keep its handle for skipping, since then every file in
+// the walk gets opened a second time to compare it with stdout.
+⋮----
+fn regular_file_excludes_pipes() {
+</file>
+
+<file path="crates/ignore/README.md">
+ignore
+======
+The ignore crate provides a fast recursive directory iterator that respects
+various filters such as globs, file types and `.gitignore` files. This crate
+also provides lower level direct access to gitignore and file type matchers.
+
+[![Build status](https://github.com/BurntSushi/ripgrep/workflows/ci/badge.svg)](https://github.com/BurntSushi/ripgrep/actions)
+[![](https://img.shields.io/crates/v/ignore.svg)](https://crates.io/crates/ignore)
+
+Dual-licensed under MIT or the [UNLICENSE](https://unlicense.org/).
+
+### Documentation
+
+[https://docs.rs/ignore](https://docs.rs/ignore)
+
+### Usage
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+ignore = "0.4"
+```
+
+### Example
+
+This example shows the most basic usage of this crate. This code will
+recursively traverse the current directory while automatically filtering out
+files and directories according to ignore globs found in files like
+`.ignore` and `.gitignore`:
+
+
+```rust,no_run
+use ignore::Walk;
+
+for result in Walk::new("./") {
+    // Each item yielded by the iterator is either a directory entry or an
+    // error, so either print the path or the error.
+    match result {
+        Ok(entry) => println!("{}", entry.path().display()),
+        Err(err) => println!("ERROR: {}", err),
+    }
+}
+```
+
+### Example: advanced
+
+By default, the recursive directory iterator will ignore hidden files and
+directories. This can be disabled by building the iterator with `WalkBuilder`:
+
+```rust,no_run
+use ignore::WalkBuilder;
+
+for result in WalkBuilder::new("./").hidden(false).build() {
+    println!("{:?}", result);
+}
+```
+
+See the documentation for `WalkBuilder` for many other options.
+</file>
+
+</files>

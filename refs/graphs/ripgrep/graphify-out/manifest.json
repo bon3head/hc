@@ -1,0 +1,128 @@
+{
+  "globset/Cargo.toml": {
+    "mtime": 1795661212.7747214,
+    "seen": 1795661214.6804056,
+    "ast_hash": "99510a0bb13aadfe9502186a0eb61dc5",
+    "semantic_hash": "99510a0bb13aadfe9502186a0eb61dc5"
+  },
+  "globset/benches/bench.rs": {
+    "mtime": 1795661212.7748117,
+    "seen": 1795661214.6804125,
+    "ast_hash": "bd5e25a9e642ebc3dbbefe68511a3303",
+    "semantic_hash": "bd5e25a9e642ebc3dbbefe68511a3303"
+  },
+  "globset/src/fnv.rs": {
+    "mtime": 1795661212.7748501,
+    "seen": 1795661214.6804154,
+    "ast_hash": "24d8dafe5c3b54e8761075f72700fb6d",
+    "semantic_hash": "24d8dafe5c3b54e8761075f72700fb6d"
+  },
+  "globset/src/glob.rs": {
+    "mtime": 1795661212.7748694,
+    "seen": 1795661214.680417,
+    "ast_hash": "9be60a0f549114e870dc4510089420e9",
+    "semantic_hash": "9be60a0f549114e870dc4510089420e9"
+  },
+  "globset/src/lib.rs": {
+    "mtime": 1795661212.774916,
+    "seen": 1795661214.6804183,
+    "ast_hash": "cc46dcf70a73b2dc4c8450c69719ca7c",
+    "semantic_hash": "cc46dcf70a73b2dc4c8450c69719ca7c"
+  },
+  "globset/src/pathutil.rs": {
+    "mtime": 1795661212.7749467,
+    "seen": 1795661214.6804194,
+    "ast_hash": "399923593f3b13fe93dc48485080a51a",
+    "semantic_hash": "399923593f3b13fe93dc48485080a51a"
+  },
+  "globset/src/serde_impl.rs": {
+    "mtime": 1795661212.7749636,
+    "seen": 1795661214.6804209,
+    "ast_hash": "9174cce205abe4f90833b9bcd4129c8c",
+    "semantic_hash": "9174cce205abe4f90833b9bcd4129c8c"
+  },
+  "ignore/Cargo.toml": {
+    "mtime": 1795661212.7750282,
+    "seen": 1795661214.680422,
+    "ast_hash": "30b1b16a02f5b879c7b2e15f36f6332c",
+    "semantic_hash": "30b1b16a02f5b879c7b2e15f36f6332c"
+  },
+  "ignore/benches/workloads.rs": {
+    "mtime": 1795661212.7751613,
+    "seen": 1795661214.6804235,
+    "ast_hash": "b3937f1b980f37e8a7782e9752454313",
+    "semantic_hash": "b3937f1b980f37e8a7782e9752454313"
+  },
+  "ignore/examples/walk.rs": {
+    "mtime": 1795661212.7752037,
+    "seen": 1795661214.6804245,
+    "ast_hash": "c5d0e57aee1afb01ff4f6e6f31a46bb5",
+    "semantic_hash": "c5d0e57aee1afb01ff4f6e6f31a46bb5"
+  },
+  "ignore/src/default_types.rs": {
+    "mtime": 1795661212.7752433,
+    "seen": 1795661214.6804256,
+    "ast_hash": "13374d1ddc145f16154addddd8c65b98",
+    "semantic_hash": "13374d1ddc145f16154addddd8c65b98"
+  },
+  "ignore/src/dir.rs": {
+    "mtime": 1795661212.7752712,
+    "seen": 1795661214.6804276,
+    "ast_hash": "7248516261baf1a16e100a3ab81d6910",
+    "semantic_hash": "7248516261baf1a16e100a3ab81d6910"
+  },
+  "ignore/src/gitignore.rs": {
+    "mtime": 1795661212.7753074,
+    "seen": 1795661214.6804285,
+    "ast_hash": "cea19b7a3a4aeaa8ca1459877ccaf29b",
+    "semantic_hash": "cea19b7a3a4aeaa8ca1459877ccaf29b"
+  },
+  "ignore/src/incremental.rs": {
+    "mtime": 1795661212.7753356,
+    "seen": 1795661214.68043,
+    "ast_hash": "2c6dad8e2b441dbb83da7120477ddc50",
+    "semantic_hash": "2c6dad8e2b441dbb83da7120477ddc50"
+  },
+  "ignore/src/lib.rs": {
+    "mtime": 1795661212.7753701,
+    "seen": 1795661214.680431,
+    "ast_hash": "80067472de989573ac9105e8e53f7d39",
+    "semantic_hash": "80067472de989573ac9105e8e53f7d39"
+  },
+  "ignore/src/overrides.rs": {
+    "mtime": 1795661212.775391,
+    "seen": 1795661214.6804318,
+    "ast_hash": "819cf01155397fa6a804eaa1d1f8f797",
+    "semantic_hash": "819cf01155397fa6a804eaa1d1f8f797"
+  },
+  "ignore/src/pathutil.rs": {
+    "mtime": 1795661212.77541,
+    "seen": 1795661214.6804335,
+    "ast_hash": "d75ba4c64d2f4ae504b352b6deb64db6",
+    "semantic_hash": "d75ba4c64d2f4ae504b352b6deb64db6"
+  },
+  "ignore/src/types.rs": {
+    "mtime": 1795661212.7754285,
+    "seen": 1795661214.6804345,
+    "ast_hash": "ee5b600eb083e8a93287e6815988b3ca",
+    "semantic_hash": "ee5b600eb083e8a93287e6815988b3ca"
+  },
+  "ignore/src/walk.rs": {
+    "mtime": 1795661212.7754545,
+    "seen": 1795661214.6804361,
+    "ast_hash": "d1b883eb897e56846cb740639d9375b8",
+    "semantic_hash": "d1b883eb897e56846cb740639d9375b8"
+  },
+  "ignore/tests/gitignore_matched_path_or_any_parents_tests.rs": {
+    "mtime": 1795661212.7755451,
+    "seen": 1795661214.6804376,
+    "ast_hash": "b5f7a139f3d250646c99b5dd3b4ca7ef",
+    "semantic_hash": "b5f7a139f3d250646c99b5dd3b4ca7ef"
+  },
+  "ignore/tests/gitignore_skip_bom.rs": {
+    "mtime": 1795661212.7755897,
+    "seen": 1795661214.6804388,
+    "ast_hash": "47a508b328e3dde6e8456212782c27d1",
+    "semantic_hash": "47a508b328e3dde6e8456212782c27d1"
+  }
+}

@@ -1,0 +1,4842 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: README.md, src/_derive/**, src/_tutorial/**, src/_cookbook/**, examples/**/*.rs, examples/**/*.md
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+examples/
+  derive_ref/
+    augment_args.rs
+    augment_subcommands.rs
+    flatten_hand_args.rs
+    hand_subcommand.rs
+    interop_tests.md
+  tutorial_builder/
+    01_quick.md
+    01_quick.rs
+    02_app_settings.md
+    02_app_settings.rs
+    02_apps.md
+    02_apps.rs
+    02_crate.md
+    02_crate.rs
+    03_01_flag_bool.md
+    03_01_flag_bool.rs
+    03_01_flag_count.md
+    03_01_flag_count.rs
+    03_02_option_mult.md
+    03_02_option_mult.rs
+    03_02_option.md
+    03_02_option.rs
+    03_03_positional_mult.md
+    03_03_positional_mult.rs
+    03_03_positional.md
+    03_03_positional.rs
+    03_04_subcommands.md
+    03_04_subcommands.rs
+    03_05_default_values.md
+    03_05_default_values.rs
+    03_06_required.md
+    03_06_required.rs
+    04_01_enum.md
+    04_01_enum.rs
+    04_01_possible.md
+    04_01_possible.rs
+    04_02_parse.md
+    04_02_parse.rs
+    04_02_validate.md
+    04_02_validate.rs
+    04_03_relations.md
+    04_03_relations.rs
+    04_04_custom.md
+    04_04_custom.rs
+    05_01_assert.rs
+  tutorial_derive/
+    01_quick.md
+    01_quick.rs
+    02_app_settings.md
+    02_app_settings.rs
+    02_apps.md
+    02_apps.rs
+    02_crate.md
+    02_crate.rs
+    03_01_flag_bool.md
+    03_01_flag_bool.rs
+    03_01_flag_count.md
+    03_01_flag_count.rs
+    03_02_option_mult.md
+    03_02_option_mult.rs
+    03_02_option.md
+    03_02_option.rs
+    03_03_positional_mult.md
+    03_03_positional_mult.rs
+    03_03_positional.md
+    03_03_positional.rs
+    03_04_subcommands_alt.rs
+    03_04_subcommands.md
+    03_04_subcommands.rs
+    03_05_default_values.md
+    03_05_default_values.rs
+    03_06_optional.md
+    03_06_optional.rs
+    04_01_enum.md
+    04_01_enum.rs
+    04_02_parse.md
+    04_02_parse.rs
+    04_02_validate.md
+    04_02_validate.rs
+    04_03_relations.md
+    04_03_relations.rs
+    04_04_custom.md
+    04_04_custom.rs
+    05_01_assert.rs
+  typed-derive/
+    builtin.md
+    builtin.rs
+    custom.md
+    custom.rs
+    fn_parser.md
+    fn_parser.rs
+    foreign_crate.rs
+    implicit.md
+    implicit.rs
+    main.rs
+  cargo-example-derive.md
+  cargo-example-derive.rs
+  cargo-example.md
+  cargo-example.rs
+  demo.md
+  demo.rs
+  escaped-positional-derive.md
+  escaped-positional-derive.rs
+  escaped-positional.md
+  escaped-positional.rs
+  find.md
+  find.rs
+  git-derive.md
+  git-derive.rs
+  git.md
+  git.rs
+  multicall-busybox.md
+  multicall-busybox.rs
+  multicall-hostname.md
+  multicall-hostname.rs
+  pacman.md
+  pacman.rs
+  README.md
+  repl-derive.rs
+  repl.rs
+src/
+  _cookbook/
+    cargo_example_derive.rs
+    cargo_example.rs
+    escaped_positional_derive.rs
+    escaped_positional.rs
+    find.rs
+    git_derive.rs
+    git.rs
+    mod.rs
+    multicall_busybox.rs
+    multicall_hostname.rs
+    pacman.rs
+    repl_derive.rs
+    repl.rs
+    typed_derive.rs
+  _derive/
+    _tutorial.rs
+    mod.rs
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="examples/derive_ref/augment_args.rs">
+struct DerivedArgs {
+⋮----
+derived: bool,
+⋮----
+fn main() {
+⋮----
+// Augment built args with derived args
+⋮----
+// Since DerivedArgs implements FromArgMatches, we can extract it from the unstructured ArgMatches.
+// This is the main benefit of using derived arguments.
+</file>
+
+<file path="examples/derive_ref/augment_subcommands.rs">
+enum Subcommands {
+⋮----
+derived_flag: bool,
+⋮----
+fn main() {
+⋮----
+// Augment with derived subcommands
+</file>
+
+<file path="examples/derive_ref/flatten_hand_args.rs">
+use clap::error::Error;
+⋮----
+struct CliArgs {
+foo: bool,
+bar: bool,
+quuz: Option<String>,
+⋮----
+impl FromArgMatches for CliArgs {
+fn from_arg_matches(matches: &ArgMatches) -> Result<Self, Error> {
+⋮----
+fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
+⋮----
+fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), Error> {
+⋮----
+fn update_from_arg_matches_mut(&mut self, matches: &mut ArgMatches) -> Result<(), Error> {
+⋮----
+impl Args for CliArgs {
+fn augment_args(cmd: Command) -> Command {
+⋮----
+fn augment_args_for_update(cmd: Command) -> Command {
+⋮----
+struct Cli {
+⋮----
+top_level: bool,
+⋮----
+more_args: CliArgs,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/derive_ref/hand_subcommand.rs">
+struct AddArgs {
+name: Vec<String>,
+⋮----
+struct RemoveArgs {
+⋮----
+force: bool,
+name: Vec<String>,
+⋮----
+enum CliSub {
+⋮----
+impl FromArgMatches for CliSub {
+fn from_arg_matches(matches: &ArgMatches) -> Result<Self, Error> {
+⋮----
+fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), Error> {
+⋮----
+impl Subcommand for CliSub {
+fn augment_subcommands(cmd: Command) -> Command {
+⋮----
+fn augment_subcommands_for_update(cmd: Command) -> Command {
+⋮----
+fn has_subcommand(name: &str) -> bool {
+⋮----
+struct Cli {
+⋮----
+top_level: bool,
+⋮----
+subcommand: CliSub,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/derive_ref/interop_tests.md">
+Following are tests for the interop examples in this directory.
+
+## Augment Args
+
+```console
+$ interop_augment_args
+Value of built: false
+Value of derived via ArgMatches: false
+Value of derived: DerivedArgs {
+    derived: false,
+}
+
+```
+
+```console
+$ interop_augment_args -b --derived
+Value of built: true
+Value of derived via ArgMatches: true
+Value of derived: DerivedArgs {
+    derived: true,
+}
+
+```
+
+```console
+$ interop_augment_args -d --built
+Value of built: true
+Value of derived via ArgMatches: true
+Value of derived: DerivedArgs {
+    derived: true,
+}
+
+```
+
+```console
+$ interop_augment_args --unknown
+? failed
+error: unexpected argument '--unknown' found
+
+Usage: interop_augment_args[EXE] [OPTIONS]
+
+For more information, try '--help'.
+
+```
+
+## Augment Subcommands
+
+```console
+$ interop_augment_subcommands
+? failed
+error: a subcommand is required but one was not provided
+```
+
+```console
+$ interop_augment_subcommands derived
+Derived subcommands: Derived {
+    derived_flag: false,
+}
+
+```
+
+```console
+$ interop_augment_subcommands derived --derived-flag
+Derived subcommands: Derived {
+    derived_flag: true,
+}
+
+```
+
+```console
+$ interop_augment_subcommands derived --unknown
+? failed
+error: unexpected argument '--unknown' found
+
+Usage: interop_augment_subcommands[EXE] derived [OPTIONS]
+
+For more information, try '--help'.
+
+```
+
+```console
+$ interop_augment_subcommands unknown
+? failed
+error: unrecognized subcommand 'unknown'
+
+Usage: interop_augment_subcommands[EXE] [COMMAND]
+
+For more information, try '--help'.
+
+```
+
+## Hand-Implemented Subcommand
+
+```console
+$ interop_hand_subcommand
+? failed
+Usage: interop_hand_subcommand[EXE] [OPTIONS] <COMMAND>
+
+Commands:
+  add     
+  remove  
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -t, --top-level  
+  -h, --help       Print help
+
+```
+
+```console
+$ interop_hand_subcommand add
+Cli {
+    top_level: false,
+    subcommand: Add(
+        AddArgs {
+            name: [],
+        },
+    ),
+}
+
+```
+
+```console
+$ interop_hand_subcommand add a b c
+Cli {
+    top_level: false,
+    subcommand: Add(
+        AddArgs {
+            name: [
+                "a",
+                "b",
+                "c",
+            ],
+        },
+    ),
+}
+
+```
+
+```console
+$ interop_hand_subcommand add --unknown
+? failed
+error: unexpected argument '--unknown' found
+
+  tip: to pass '--unknown' as a value, use '-- --unknown'
+
+Usage: interop_hand_subcommand[EXE] add [NAME]...
+
+For more information, try '--help'.
+
+```
+
+```console
+$ interop_hand_subcommand remove
+Cli {
+    top_level: false,
+    subcommand: Remove(
+        RemoveArgs {
+            force: false,
+            name: [],
+        },
+    ),
+}
+
+```
+
+```console
+$ interop_hand_subcommand remove --force a b c
+Cli {
+    top_level: false,
+    subcommand: Remove(
+        RemoveArgs {
+            force: true,
+            name: [
+                "a",
+                "b",
+                "c",
+            ],
+        },
+    ),
+}
+
+```
+
+```console
+$ interop_hand_subcommand unknown
+? failed
+error: unrecognized subcommand 'unknown'
+
+Usage: interop_hand_subcommand[EXE] [OPTIONS] <COMMAND>
+
+For more information, try '--help'.
+
+```
+
+## Flatten Hand-Implemented Args
+
+```console
+$ interop_flatten_hand_args
+Cli {
+    top_level: false,
+    more_args: CliArgs {
+        foo: false,
+        bar: false,
+        quuz: None,
+    },
+}
+
+```
+
+```console
+$ interop_flatten_hand_args -f --bar
+Cli {
+    top_level: false,
+    more_args: CliArgs {
+        foo: true,
+        bar: true,
+        quuz: None,
+    },
+}
+
+```
+
+```console
+$ interop_flatten_hand_args --quuz abc
+Cli {
+    top_level: false,
+    more_args: CliArgs {
+        foo: false,
+        bar: false,
+        quuz: Some(
+            "abc",
+        ),
+    },
+}
+
+```
+
+```console
+$ interop_flatten_hand_args --unknown
+? failed
+error: unexpected argument '--unknown' found
+
+Usage: interop_flatten_hand_args[EXE] [OPTIONS]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_builder/01_quick.md">
+```console
+$ 01_quick --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 01_quick[EXE] [OPTIONS] [name] [COMMAND]
+
+Commands:
+  test  does testing things
+  help  Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [name]  Optional name to operate on
+
+Options:
+  -c, --config <FILE>  Sets a custom config file
+  -d, --debug...       Turn debugging information on
+  -h, --help           Print help
+  -V, --version        Print version
+
+```
+
+By default, the program does nothing:
+```console
+$ 01_quick
+Debug mode is off
+
+```
+
+But you can mix and match the various features
+```console
+$ 01_quick -dd test
+Debug mode is on
+Not printing testing lists...
+
+```
+</file>
+
+<file path="examples/tutorial_builder/01_quick.rs">
+use std::path::PathBuf;
+⋮----
+fn main() {
+let matches = command!() // requires `cargo` feature
+⋮----
+// We don't have syntax yet for optional options, so manually calling `required`
+⋮----
+// You can check the value provided by positional arguments, or option arguments
+⋮----
+// You can see how many times a particular flag or argument occurred
+// Note, only flags can have multiple occurrences
+⋮----
+// You can check for the existence of subcommands, and if found use their
+// matches just as you would the top level cmd
+⋮----
+// "$ myapp test" was run
+⋮----
+// "$ myapp test -l" was run
+⋮----
+// Continued program logic goes here...
+</file>
+
+<file path="examples/tutorial_builder/02_app_settings.md">
+```console
+$ 02_app_settings --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 02_app_settings[EXE] --two <VALUE> --one <VALUE>
+
+Options:
+      --two <VALUE>
+          
+      --one <VALUE>
+          
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+
+```
+</file>
+
+<file path="examples/tutorial_builder/02_app_settings.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/02_apps.md">
+```console
+$ 02_apps --help
+Does awesome things
+
+Usage: 02_apps[EXE] --two <VALUE> --one <VALUE>
+
+Options:
+      --two <VALUE>  
+      --one <VALUE>  
+  -h, --help         Print help
+  -V, --version      Print version
+
+$ 02_apps --version
+MyApp 1.0
+
+```
+</file>
+
+<file path="examples/tutorial_builder/02_apps.rs">
+fn main() {
+</file>
+
+<file path="examples/tutorial_builder/02_crate.md">
+```console
+$ 02_crate --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 02_crate[EXE] --two <VALUE> --one <VALUE>
+
+Options:
+      --two <VALUE>  
+      --one <VALUE>  
+  -h, --help         Print help
+  -V, --version      Print version
+
+$ 02_crate --version
+clap [..]
+
+```
+</file>
+
+<file path="examples/tutorial_builder/02_crate.rs">
+fn main() {
+// requires `cargo` feature, reading name, version, author, and description from `Cargo.toml`
+</file>
+
+<file path="examples/tutorial_builder/03_01_flag_bool.md">
+```console
+$ 03_01_flag_bool --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_01_flag_bool[EXE] [OPTIONS]
+
+Options:
+  -v, --verbose  
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_01_flag_bool
+verbose: false
+
+$ 03_01_flag_bool --verbose
+verbose: true
+
+$ 03_01_flag_bool --verbose --verbose
+? failed
+error: the argument '--verbose' cannot be used multiple times
+
+Usage: 03_01_flag_bool[EXE] [OPTIONS]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_01_flag_bool.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_01_flag_count.md">
+```console
+$ 03_01_flag_count --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_01_flag_count[EXE] [OPTIONS]
+
+Options:
+  -v, --verbose...  
+  -h, --help        Print help
+  -V, --version     Print version
+
+$ 03_01_flag_count
+verbose: 0
+
+$ 03_01_flag_count --verbose
+verbose: 1
+
+$ 03_01_flag_count --verbose --verbose
+verbose: 2
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_01_flag_count.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_02_option_mult.md">
+```console
+$ 03_02_option_mult --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_02_option_mult[EXE] [OPTIONS]
+
+Options:
+  -n, --name <name>  
+  -h, --help         Print help
+  -V, --version      Print version
+
+$ 03_02_option_mult
+names: []
+
+$ 03_02_option_mult --name bob
+names: ["bob"]
+
+$ 03_02_option_mult --name bob --name john
+names: ["bob", "john"]
+
+$ 03_02_option_mult_derive --name bob --name=john -n tom -n=chris -nsteve
+name: ["bob", "john", "tom", "chris", "steve"]
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_02_option_mult.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_02_option.md">
+```console
+$ 03_02_option --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_02_option[EXE] [OPTIONS]
+
+Options:
+  -n, --name <name>  
+  -h, --help         Print help
+  -V, --version      Print version
+
+$ 03_02_option
+name: None
+
+$ 03_02_option --name bob
+name: Some("bob")
+
+$ 03_02_option --name=bob
+name: Some("bob")
+
+$ 03_02_option -n bob
+name: Some("bob")
+
+$ 03_02_option -n=bob
+name: Some("bob")
+
+$ 03_02_option -nbob
+name: Some("bob")
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_02_option.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_03_positional_mult.md">
+```console
+$ 03_03_positional_mult --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_03_positional_mult[EXE] [name]...
+
+Arguments:
+  [name]...  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_03_positional_mult
+names: []
+
+$ 03_03_positional_mult bob
+names: ["bob"]
+
+$ 03_03_positional_mult bob john
+names: ["bob", "john"]
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_03_positional_mult.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_03_positional.md">
+```console
+$ 03_03_positional --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_03_positional[EXE] [name]
+
+Arguments:
+  [name]  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_03_positional
+name: None
+
+$ 03_03_positional bob
+name: Some("bob")
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_03_positional.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_04_subcommands.md">
+```console
+$ 03_04_subcommands help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_04_subcommands[EXE] <COMMAND>
+
+Commands:
+  add   Adds files to myapp
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_04_subcommands help add
+Adds files to myapp
+
+Usage: 03_04_subcommands[EXE] add [NAME]
+
+Arguments:
+  [NAME]  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_04_subcommands add bob
+'myapp add' was used, name is: Some("bob")
+
+```
+
+We set
+[`Command::arg_required_else_help`][crate::Command::arg_required_else_help] to
+show the help, rather than an error, when the
+[required subcommand][crate::Command::subcommand_required] is missing:
+```console
+$ 03_04_subcommands
+? failed
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_04_subcommands[EXE] <COMMAND>
+
+Commands:
+  add   Adds files to myapp
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+```
+
+Since we specified [`Command::propagate_version`][crate::Command::propagate_version], the `--version` flag
+is available in all subcommands:
+```console
+$ 03_04_subcommands --version
+clap [..]
+
+$ 03_04_subcommands add --version
+clap-add [..]
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_04_subcommands.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_05_default_values.md">
+```console
+$ 03_05_default_values --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_05_default_values[EXE] [PORT]
+
+Arguments:
+  [PORT]  [default: 2020]
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_05_default_values
+port: 2020
+
+$ 03_05_default_values 22
+port: 22
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_05_default_values.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/03_06_required.md">
+```console
+$ 03_06_required --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_06_required[EXE] <name>
+
+Arguments:
+  <name>  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_06_required
+? 2
+error: the following required arguments were not provided:
+  <name>
+
+Usage: 03_06_required[EXE] <name>
+
+For more information, try '--help'.
+
+$ 03_06_required bob
+name: "bob"
+
+```
+</file>
+
+<file path="examples/tutorial_builder/03_06_required.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+</file>
+
+<file path="examples/tutorial_builder/04_01_enum.md">
+```console
+$ 04_01_enum --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_01_enum[EXE] <MODE>
+
+Arguments:
+  <MODE>
+          What mode to run the program in
+
+          Possible values:
+          - fast: Run swiftly
+          - slow: Crawl slowly but steadily
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+$ 04_01_enum -h
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_01_enum[EXE] <MODE>
+
+Arguments:
+  <MODE>  What mode to run the program in [possible values: fast, slow]
+
+Options:
+  -h, --help     Print help (see more with '--help')
+  -V, --version  Print version
+
+$ 04_01_enum fast
+Hare
+
+$ 04_01_enum slow
+Tortoise
+
+$ 04_01_enum medium
+? failed
+error: invalid value 'medium' for '<MODE>'
+  [possible values: fast, slow]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_builder/04_01_enum.rs">
+enum Mode {
+⋮----
+// Can also be derived with feature flag `derive`
+impl ValueEnum for Mode {
+fn value_variants<'a>() -> &'a [Self] {
+⋮----
+fn to_possible_value(&self) -> Option<PossibleValue> {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+type Err = String;
+⋮----
+fn from_str(s: &str) -> Result<Self, Self::Err> {
+⋮----
+fn main() {
+let matches = command!() // requires `cargo` feature
+⋮----
+// Note, it's safe to call unwrap() because the arg is required
+</file>
+
+<file path="examples/tutorial_builder/04_01_possible.md">
+```console
+$ 04_01_possible --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_01_possible[EXE] <MODE>
+
+Arguments:
+  <MODE>  What mode to run the program in [possible values: fast, slow]
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 04_01_possible fast
+Hare
+
+$ 04_01_possible slow
+Tortoise
+
+$ 04_01_possible medium
+? failed
+error: invalid value 'medium' for '<MODE>'
+  [possible values: fast, slow]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_builder/04_01_possible.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+⋮----
+// Note, it's safe to call unwrap() because the arg is required
+</file>
+
+<file path="examples/tutorial_builder/04_02_parse.md">
+```console
+$ 04_02_parse --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_02_parse[EXE] <PORT>
+
+Arguments:
+  <PORT>  Network port to use
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 04_02_parse 22
+PORT = 22
+
+$ 04_02_parse foobar
+? failed
+error: invalid value 'foobar' for '<PORT>': invalid digit found in string
+
+For more information, try '--help'.
+
+$ 04_02_parse_derive 0
+? failed
+error: invalid value '0' for '<PORT>': 0 is not in 1..=65535
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_builder/04_02_parse.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+⋮----
+// Note, it's safe to call unwrap() because the arg is required
+</file>
+
+<file path="examples/tutorial_builder/04_02_validate.md">
+```console
+$ 04_02_validate --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_02_validate[EXE] <PORT>
+
+Arguments:
+  <PORT>  Network port to use
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 04_02_validate 22
+PORT = 22
+
+$ 04_02_validate foobar
+? failed
+error: invalid value 'foobar' for '<PORT>': `foobar` isn't a port number
+
+For more information, try '--help'.
+
+$ 04_02_validate 0
+? failed
+error: invalid value '0' for '<PORT>': port not in range 1-65535
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_builder/04_02_validate.rs">
+use std::ops::RangeInclusive;
+⋮----
+fn main() {
+let matches = command!() // requires `cargo` feature
+⋮----
+// Note, it's safe to call unwrap() because the arg is required
+⋮----
+fn port_in_range(s: &str) -> Result<u16, String> {
+</file>
+
+<file path="examples/tutorial_builder/04_03_relations.md">
+```console
+$ 04_03_relations --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_03_relations[EXE] [OPTIONS] <--set-ver <VER>|--major|--minor|--patch> [INPUT_FILE]
+
+Arguments:
+  [INPUT_FILE]  some regular input
+
+Options:
+      --set-ver <VER>      set version manually
+      --major              auto inc major
+      --minor              auto inc minor
+      --patch              auto inc patch
+      --spec-in <SPEC_IN>  some special input argument
+  -c <CONFIG>              
+  -h, --help               Print help
+  -V, --version            Print version
+
+$ 04_03_relations
+? failed
+error: the following required arguments were not provided:
+  <--set-ver <VER>|--major|--minor|--patch>
+
+Usage: 04_03_relations[EXE] <--set-ver <VER>|--major|--minor|--patch> [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_03_relations --major
+Version: 2.2.3
+
+$ 04_03_relations --major --minor
+? failed
+error: the argument '--major' cannot be used with '--minor'
+
+Usage: 04_03_relations[EXE] <--set-ver <VER>|--major|--minor|--patch> [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_03_relations --major -c config.toml
+? failed
+error: the following required arguments were not provided:
+  <INPUT_FILE|--spec-in <SPEC_IN>>
+
+Usage: 04_03_relations[EXE] -c <CONFIG> <--set-ver <VER>|--major|--minor|--patch> <INPUT_FILE|--spec-in <SPEC_IN>>
+
+For more information, try '--help'.
+
+$ 04_03_relations --major -c config.toml --spec-in input.txt
+Version: 2.2.3
+Doing work using input input.txt and config config.toml
+
+```
+</file>
+
+<file path="examples/tutorial_builder/04_03_relations.rs">
+use std::path::PathBuf;
+⋮----
+fn main() {
+// Create application like normal
+let matches = command!() // requires `cargo` feature
+// Add the version arguments
+⋮----
+// Create a group, make it required, and add the above arguments
+⋮----
+// Arguments can also be added to a group individually, these two arguments
+// are part of the "input" group which is not required
+⋮----
+// Now let's assume we have a -c [config] argument which requires one of
+// (but **not** both) the "input" arguments
+⋮----
+// Let's assume the old version 1.2.3
+⋮----
+// See if --set-ver was used to set the version manually
+⋮----
+// Increment the one requested (in a real program, we'd reset the lower numbers)
+⋮----
+// Check for usage of -c
+</file>
+
+<file path="examples/tutorial_builder/04_04_custom.md">
+```console
+$ 04_04_custom --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_04_custom[EXE] [OPTIONS] [INPUT_FILE]
+
+Arguments:
+  [INPUT_FILE]  some regular input
+
+Options:
+      --set-ver <VER>      set version manually
+      --major              auto inc major
+      --minor              auto inc minor
+      --patch              auto inc patch
+      --spec-in <SPEC_IN>  some special input argument
+  -c <CONFIG>              
+  -h, --help               Print help
+  -V, --version            Print version
+
+$ 04_04_custom
+? failed
+error: Can only modify one version field
+
+Usage: 04_04_custom[EXE] [OPTIONS] [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_04_custom --major
+Version: 2.2.3
+
+$ 04_04_custom --major --minor
+? failed
+error: Can only modify one version field
+
+Usage: 04_04_custom[EXE] [OPTIONS] [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_04_custom --major -c config.toml
+? failed
+Version: 2.2.3
+error: INPUT_FILE or --spec-in is required when using --config
+
+Usage: 04_04_custom[EXE] [OPTIONS] [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_04_custom --major -c config.toml --spec-in input.txt
+Version: 2.2.3
+Doing work using input input.txt and config config.toml
+
+```
+</file>
+
+<file path="examples/tutorial_builder/04_04_custom.rs">
+use std::path::PathBuf;
+⋮----
+use clap::error::ErrorKind;
+⋮----
+fn main() {
+// Create application like normal
+let mut cmd = command!() // requires `cargo` feature
+// Add the version arguments
+⋮----
+// Arguments can also be added to a group individually, these two arguments
+// are part of the "input" group which is not required
+⋮----
+// Now let's assume we have a -c [config] argument which requires one of
+// (but **not** both) the "input" arguments
+⋮----
+// Let's assume the old version 1.2.3
+⋮----
+// See if --set-ver was used to set the version manually
+⋮----
+// Increment the one requested (in a real program, we'd reset the lower numbers)
+⋮----
+// Check for usage of -c
+</file>
+
+<file path="examples/tutorial_builder/05_01_assert.rs">
+fn main() {
+⋮----
+// Note, it's safe to call unwrap() because the arg is required
+⋮----
+fn cmd() -> clap::Command {
+command!() // requires `cargo` feature
+⋮----
+fn verify_cmd() {
+</file>
+
+<file path="examples/tutorial_derive/01_quick.md">
+```console
+$ 01_quick_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 01_quick_derive[EXE] [OPTIONS] [NAME] [COMMAND]
+
+Commands:
+  test  does testing things
+  help  Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [NAME]  Optional name to operate on
+
+Options:
+  -c, --config <FILE>  Sets a custom config file
+  -d, --debug...       Turn debugging information on
+  -h, --help           Print help
+  -V, --version        Print version
+
+```
+
+By default, the program does nothing:
+```console
+$ 01_quick_derive
+Debug mode is off
+
+```
+
+But you can mix and match the various features
+```console
+$ 01_quick_derive -dd test
+Debug mode is on
+Not printing testing lists...
+
+```
+</file>
+
+<file path="examples/tutorial_derive/01_quick.rs">
+use std::path::PathBuf;
+⋮----
+struct Cli {
+/// Optional name to operate on
+name: Option<String>,
+⋮----
+/// Sets a custom config file
+⋮----
+config: Option<PathBuf>,
+⋮----
+/// Turn debugging information on
+⋮----
+debug: u8,
+⋮----
+command: Option<Commands>,
+⋮----
+enum Commands {
+/// does testing things
+⋮----
+/// lists test values
+⋮----
+list: bool,
+⋮----
+fn main() {
+⋮----
+// You can check the value provided by positional arguments, or option arguments
+⋮----
+// You can see how many times a particular flag or argument occurred
+// Note, only flags can have multiple occurrences
+⋮----
+// You can check for the existence of subcommands, and if found use their
+// matches just as you would the top level cmd
+⋮----
+// Continued program logic goes here...
+</file>
+
+<file path="examples/tutorial_derive/02_app_settings.md">
+```console
+$ 02_app_settings_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 02_app_settings_derive[EXE] --two <TWO> --one <ONE>
+
+Options:
+      --two <TWO>
+          
+      --one <ONE>
+          
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+
+```
+</file>
+
+<file path="examples/tutorial_derive/02_app_settings.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+⋮----
+two: String,
+⋮----
+one: String,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/02_apps.md">
+```console
+$ 02_apps_derive --help
+Does awesome things
+
+Usage: 02_apps_derive[EXE] --two <TWO> --one <ONE>
+
+Options:
+      --two <TWO>  
+      --one <ONE>  
+  -h, --help       Print help
+  -V, --version    Print version
+
+$ 02_apps_derive --version
+MyApp 1.0
+
+```
+</file>
+
+<file path="examples/tutorial_derive/02_apps.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+⋮----
+two: String,
+⋮----
+one: String,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/02_crate.md">
+```console
+$ 02_crate_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 02_crate_derive[EXE] --two <TWO> --one <ONE>
+
+Options:
+      --two <TWO>  
+      --one <ONE>  
+  -h, --help       Print help
+  -V, --version    Print version
+
+$ 02_crate_derive --version
+clap [..]
+
+```
+</file>
+
+<file path="examples/tutorial_derive/02_crate.rs">
+use clap::Parser;
+⋮----
+#[command(version, about, long_about = None)] // Read from `Cargo.toml`
+struct Cli {
+⋮----
+two: String,
+⋮----
+one: String,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_01_flag_bool.md">
+```console
+$ 03_01_flag_bool_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_01_flag_bool_derive[EXE] [OPTIONS]
+
+Options:
+  -v, --verbose  
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_01_flag_bool_derive
+verbose: false
+
+$ 03_01_flag_bool_derive --verbose
+verbose: true
+
+$ 03_01_flag_bool_derive --verbose --verbose
+? failed
+error: the argument '--verbose' cannot be used multiple times
+
+Usage: 03_01_flag_bool_derive[EXE] [OPTIONS]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_01_flag_bool.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+⋮----
+verbose: bool,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_01_flag_count.md">
+```console
+$ 03_01_flag_count_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_01_flag_count_derive[EXE] [OPTIONS]
+
+Options:
+  -v, --verbose...  
+  -h, --help        Print help
+  -V, --version     Print version
+
+$ 03_01_flag_count_derive
+verbose: 0
+
+$ 03_01_flag_count_derive --verbose
+verbose: 1
+
+$ 03_01_flag_count_derive --verbose --verbose
+verbose: 2
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_01_flag_count.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+⋮----
+verbose: u8,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_02_option_mult.md">
+```console
+$ 03_02_option_mult_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_02_option_mult_derive[EXE] [OPTIONS]
+
+Options:
+  -n, --name <NAME>  
+  -h, --help         Print help
+  -V, --version      Print version
+
+$ 03_02_option_mult_derive
+name: []
+
+$ 03_02_option_mult_derive --name bob
+name: ["bob"]
+
+$ 03_02_option_mult_derive --name bob --name john
+name: ["bob", "john"]
+
+$ 03_02_option_mult_derive --name bob --name=john -n tom -n=chris -nsteve
+name: ["bob", "john", "tom", "chris", "steve"]
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_02_option_mult.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+⋮----
+name: Vec<String>,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_02_option.md">
+```console
+$ 03_02_option_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_02_option_derive[EXE] --name <NAME>
+
+Options:
+  -n, --name <NAME>  
+  -h, --help         Print help
+  -V, --version      Print version
+
+$ 03_02_option_derive
+? 2
+error: the following required arguments were not provided:
+  --name <NAME>
+
+Usage: 03_02_option_derive[EXE] --name <NAME>
+
+For more information, try '--help'.
+
+$ 03_02_option_derive --name bob
+name: "bob"
+
+$ 03_02_option_derive --name=bob
+name: "bob"
+
+$ 03_02_option_derive -n bob
+name: "bob"
+
+$ 03_02_option_derive -n=bob
+name: "bob"
+
+$ 03_02_option_derive -nbob
+name: "bob"
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_02_option.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+⋮----
+name: String,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_03_positional_mult.md">
+```console
+$ 03_03_positional_mult_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_03_positional_mult_derive[EXE] [NAME]...
+
+Arguments:
+  [NAME]...  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_03_positional_mult_derive
+name: []
+
+$ 03_03_positional_mult_derive bob
+name: ["bob"]
+
+$ 03_03_positional_mult_derive bob john
+name: ["bob", "john"]
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_03_positional_mult.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+name: Vec<String>,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_03_positional.md">
+```console
+$ 03_03_positional_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_03_positional_derive[EXE] <NAME>
+
+Arguments:
+  <NAME>  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_03_positional_derive
+? 2
+error: the following required arguments were not provided:
+  <NAME>
+
+Usage: 03_03_positional_derive[EXE] <NAME>
+
+For more information, try '--help'.
+
+$ 03_03_positional_derive bob
+name: "bob"
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_03_positional.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+name: String,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_04_subcommands_alt.rs">
+struct Cli {
+⋮----
+command: Commands,
+⋮----
+enum Commands {
+/// Adds files to myapp
+⋮----
+struct AddArgs {
+name: Option<String>,
+⋮----
+fn main() {
+⋮----
+// You can check for the existence of subcommands, and if found use their
+// matches just as you would the top level cmd
+</file>
+
+<file path="examples/tutorial_derive/03_04_subcommands.md">
+```console
+$ 03_04_subcommands_derive help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_04_subcommands_derive[EXE] <COMMAND>
+
+Commands:
+  add   Adds files to myapp
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_04_subcommands_derive help add
+Adds files to myapp
+
+Usage: 03_04_subcommands_derive[EXE] add [NAME]
+
+Arguments:
+  [NAME]  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_04_subcommands_derive add bob
+'myapp add' was used, name is: Some("bob")
+
+```
+
+When specifying commands with `command: Commands`, they are [required][crate::Command::subcommand_required].
+By default, a missing subcommand will [show help rather than error][crate::Command::arg_required_else_help].
+```console
+$ 03_04_subcommands_derive
+? failed
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_04_subcommands_derive[EXE] <COMMAND>
+
+Commands:
+  add   Adds files to myapp
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+```
+To make a subcommand optional, wrap it in an `Option` (e.g. `command: Option<Commands>`).
+
+Since we specified [`#[command(propagate_version = true)]`][crate::Command::propagate_version],
+the `--version` flag is available in all subcommands:
+```console
+$ 03_04_subcommands_derive --version
+clap [..]
+
+$ 03_04_subcommands_derive add --version
+clap-add [..]
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_04_subcommands.rs">
+struct Cli {
+⋮----
+command: Commands,
+⋮----
+enum Commands {
+/// Adds files to myapp
+Add { name: Option<String> },
+⋮----
+fn main() {
+⋮----
+// You can check for the existence of subcommands, and if found use their
+// matches just as you would the top level cmd
+</file>
+
+<file path="examples/tutorial_derive/03_05_default_values.md">
+```console
+$ 03_05_default_values_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_05_default_values_derive[EXE] [PORT]
+
+Arguments:
+  [PORT]  [default: 2020]
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_05_default_values_derive
+port: 2020
+
+$ 03_05_default_values_derive 22
+port: 22
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_05_default_values.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+⋮----
+port: u16,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/03_06_optional.md">
+```console
+$ 03_06_optional_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 03_06_optional_derive[EXE] [NAME]
+
+Arguments:
+  [NAME]  
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 03_06_optional_derive
+name: None
+
+$ 03_06_optional_derive bob
+name: Some("bob")
+
+```
+</file>
+
+<file path="examples/tutorial_derive/03_06_optional.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+name: Option<String>,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/04_01_enum.md">
+```console
+$ 04_01_enum_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_01_enum_derive[EXE] <MODE>
+
+Arguments:
+  <MODE>
+          What mode to run the program in
+
+          Possible values:
+          - fast: Run swiftly
+          - slow: Crawl slowly but steadily
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+$ 04_01_enum_derive -h
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_01_enum_derive[EXE] <MODE>
+
+Arguments:
+  <MODE>  What mode to run the program in [possible values: fast, slow]
+
+Options:
+  -h, --help     Print help (see more with '--help')
+  -V, --version  Print version
+
+$ 04_01_enum_derive fast
+Hare
+
+$ 04_01_enum_derive slow
+Tortoise
+
+$ 04_01_enum_derive medium
+? failed
+error: invalid value 'medium' for '<MODE>'
+  [possible values: fast, slow]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_derive/04_01_enum.rs">
+struct Cli {
+/// What mode to run the program in
+⋮----
+mode: Mode,
+⋮----
+enum Mode {
+/// Run swiftly
+⋮----
+/// Crawl slowly but steadily
+///
+/// This paragraph is ignored because there is no long help text for possible values.
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/04_02_parse.md">
+```console
+$ 04_02_parse_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_02_parse_derive[EXE] <PORT>
+
+Arguments:
+  <PORT>  Network port to use
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 04_02_parse_derive 22
+PORT = 22
+
+$ 04_02_parse_derive foobar
+? failed
+error: invalid value 'foobar' for '<PORT>': invalid digit found in string
+
+For more information, try '--help'.
+
+$ 04_02_parse_derive 0
+? failed
+error: invalid value '0' for '<PORT>': 0 is not in 1..=65535
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_derive/04_02_parse.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+/// Network port to use
+⋮----
+port: u16,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/tutorial_derive/04_02_validate.md">
+```console
+$ 04_02_validate_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_02_validate_derive[EXE] <PORT>
+
+Arguments:
+  <PORT>  Network port to use
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ 04_02_validate_derive 22
+PORT = 22
+
+$ 04_02_validate_derive foobar
+? failed
+error: invalid value 'foobar' for '<PORT>': `foobar` isn't a port number
+
+For more information, try '--help'.
+
+$ 04_02_validate_derive 0
+? failed
+error: invalid value '0' for '<PORT>': port not in range 1-65535
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/tutorial_derive/04_02_validate.rs">
+use std::ops::RangeInclusive;
+⋮----
+use clap::Parser;
+⋮----
+struct Cli {
+/// Network port to use
+⋮----
+port: u16,
+⋮----
+fn main() {
+⋮----
+fn port_in_range(s: &str) -> Result<u16, String> {
+</file>
+
+<file path="examples/tutorial_derive/04_03_relations.md">
+```console
+$ 04_03_relations_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_03_relations_derive[EXE] [OPTIONS] <--set-ver <VER>|--major|--minor|--patch> [INPUT_FILE]
+
+Arguments:
+  [INPUT_FILE]  some regular input
+
+Options:
+      --set-ver <VER>      set version manually
+      --major              auto inc major
+      --minor              auto inc minor
+      --patch              auto inc patch
+      --spec-in <SPEC_IN>  some special input argument
+  -c <CONFIG>              
+  -h, --help               Print help
+  -V, --version            Print version
+
+$ 04_03_relations_derive
+? failed
+error: the following required arguments were not provided:
+  <--set-ver <VER>|--major|--minor|--patch>
+
+Usage: 04_03_relations_derive[EXE] <--set-ver <VER>|--major|--minor|--patch> [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_03_relations_derive --major
+Version: 2.2.3
+
+$ 04_03_relations_derive --major --minor
+? failed
+error: the argument '--major' cannot be used with '--minor'
+
+Usage: 04_03_relations_derive[EXE] <--set-ver <VER>|--major|--minor|--patch> [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_03_relations_derive --major -c config.toml
+? failed
+error: the following required arguments were not provided:
+  <INPUT_FILE|--spec-in <SPEC_IN>>
+
+Usage: 04_03_relations_derive[EXE] -c <CONFIG> <--set-ver <VER>|--major|--minor|--patch> <INPUT_FILE|--spec-in <SPEC_IN>>
+
+For more information, try '--help'.
+
+$ 04_03_relations_derive --major -c config.toml --spec-in input.txt
+Version: 2.2.3
+Doing work using input input.txt and config config.toml
+
+```
+</file>
+
+<file path="examples/tutorial_derive/04_03_relations.rs">
+struct Cli {
+⋮----
+vers: Vers,
+⋮----
+/// some regular input
+⋮----
+input_file: Option<String>,
+⋮----
+/// some special input argument
+⋮----
+spec_in: Option<String>,
+⋮----
+config: Option<String>,
+⋮----
+struct Vers {
+/// set version manually
+⋮----
+set_ver: Option<String>,
+⋮----
+/// auto inc major
+⋮----
+major: bool,
+⋮----
+/// auto inc minor
+⋮----
+minor: bool,
+⋮----
+/// auto inc patch
+⋮----
+patch: bool,
+⋮----
+fn main() {
+⋮----
+// Let's assume the old version 1.2.3
+⋮----
+// See if --set_ver was used to set the version manually
+⋮----
+// Increment the one requested (in a real program, we'd reset the lower numbers)
+⋮----
+// Check for usage of -c
+</file>
+
+<file path="examples/tutorial_derive/04_04_custom.md">
+```console
+$ 04_04_custom_derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: 04_04_custom_derive[EXE] [OPTIONS] [INPUT_FILE]
+
+Arguments:
+  [INPUT_FILE]  some regular input
+
+Options:
+      --set-ver <VER>      set version manually
+      --major              auto inc major
+      --minor              auto inc minor
+      --patch              auto inc patch
+      --spec-in <SPEC_IN>  some special input argument
+  -c <CONFIG>              
+  -h, --help               Print help
+  -V, --version            Print version
+
+$ 04_04_custom_derive
+? failed
+error: Can only modify one version field
+
+Usage: clap [OPTIONS] [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_04_custom_derive --major
+Version: 2.2.3
+
+$ 04_04_custom_derive --major --minor
+? failed
+error: Can only modify one version field
+
+Usage: clap [OPTIONS] [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_04_custom_derive --major -c config.toml
+? failed
+Version: 2.2.3
+error: INPUT_FILE or --spec-in is required when using --config
+
+Usage: clap [OPTIONS] [INPUT_FILE]
+
+For more information, try '--help'.
+
+$ 04_04_custom_derive --major -c config.toml --spec-in input.txt
+Version: 2.2.3
+Doing work using input input.txt and config config.toml
+
+```
+</file>
+
+<file path="examples/tutorial_derive/04_04_custom.rs">
+use clap::error::ErrorKind;
+⋮----
+struct Cli {
+/// set version manually
+⋮----
+set_ver: Option<String>,
+⋮----
+/// auto inc major
+⋮----
+major: bool,
+⋮----
+/// auto inc minor
+⋮----
+minor: bool,
+⋮----
+/// auto inc patch
+⋮----
+patch: bool,
+⋮----
+/// some regular input
+input_file: Option<String>,
+⋮----
+/// some special input argument
+⋮----
+spec_in: Option<String>,
+⋮----
+config: Option<String>,
+⋮----
+fn main() {
+⋮----
+// Let's assume the old version 1.2.3
+⋮----
+// See if --set-ver was used to set the version manually
+⋮----
+// Increment the one requested (in a real program, we'd reset the lower numbers)
+⋮----
+// Check for usage of -c
+⋮----
+// 'or' is preferred to 'or_else' here since `Option::as_deref` is 'const'
+</file>
+
+<file path="examples/tutorial_derive/05_01_assert.rs">
+use clap::Parser;
+⋮----
+struct Cli {
+/// Network port to use
+port: u16,
+⋮----
+fn main() {
+⋮----
+fn verify_cli() {
+use clap::CommandFactory;
+</file>
+
+<file path="examples/typed-derive/builtin.md">
+Help:
+```console
+$ typed-derive builtin --help
+Usage: typed-derive builtin [OPTIONS]
+
+Options:
+      --port <PORT>            Support for discrete numbers [default: 22] [possible values: 22, 80]
+      --log-level <LOG_LEVEL>  Support enums from a foreign crate that don't implement `ValueEnum` [default: info] [possible values: trace, debug, info, warn, error]
+  -h, --help                   Print help
+
+```
+
+Discrete numbers
+```console
+$ typed-derive builtin --port 22
+Builtin(BuiltInParsers { port: 22, log_level: Info })
+
+$ typed-derive builtin --port 80
+Builtin(BuiltInParsers { port: 80, log_level: Info })
+
+$ typed-derive builtin --port
+? failed
+error: a value is required for '--port <PORT>' but none was supplied
+  [possible values: 22, 80]
+
+For more information, try '--help'.
+
+$ typed-derive builtin --port 3000
+? failed
+error: invalid value '3000' for '--port <PORT>'
+  [possible values: 22, 80]
+
+For more information, try '--help'.
+
+```
+
+Enums from crates that can't implement `ValueEnum`
+```console
+$ typed-derive builtin --log-level debug
+Builtin(BuiltInParsers { port: 22, log_level: Debug })
+
+$ typed-derive builtin --log-level error
+Builtin(BuiltInParsers { port: 22, log_level: Error })
+
+$ typed-derive builtin --log-level
+? failed
+error: a value is required for '--log-level <LOG_LEVEL>' but none was supplied
+  [possible values: trace, debug, info, warn, error]
+
+For more information, try '--help'.
+
+$ typed-derive builtin --log-level critical
+? failed
+error: invalid value 'critical' for '--log-level <LOG_LEVEL>'
+  [possible values: trace, debug, info, warn, error]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/typed-derive/builtin.rs">
+use clap::Args;
+⋮----
+use crate::foreign_crate;
+⋮----
+pub(crate) struct BuiltInParsers {
+/// Support for discrete numbers
+⋮----
+port: usize,
+⋮----
+/// Support enums from a foreign crate that don't implement `ValueEnum`
+⋮----
+log_level: foreign_crate::LogLevel,
+</file>
+
+<file path="examples/typed-derive/custom.md">
+Help:
+```console
+$ typed-derive custom --help
+Usage: typed-derive custom [OPTIONS]
+
+Options:
+      --target-version <TARGET_VERSION>
+          Hand-implement `TypedValueParser`
+
+          Possible values:
+          - major: Increase the major version (x.0.0)
+          - minor: Increase the minor version (x.y.0)
+          - patch: Increase the patch version (x.y.z)
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+Defines (key-value pairs)
+```console
+$ typed-derive custom --target-version major
+Custom(CustomParser { target_version: Some(Relative(Major)) })
+
+$ typed-derive custom --target-version 10.0.0
+Custom(CustomParser { target_version: Some(Absolute(Version { major: 10, minor: 0, patch: 0 })) })
+
+$ typed-derive custom --target-version 10
+? failed
+error: invalid value '10' for '--target-version <TARGET_VERSION>': unexpected end of input while parsing major version number
+
+For more information, try '--help'.
+
+$ typed-derive custom --target-version blue
+? failed
+error: invalid value 'blue' for '--target-version <TARGET_VERSION>': unexpected character 'b' while parsing major version number
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/typed-derive/custom.rs">
+use clap::Args;
+⋮----
+use crate::implicit::BumpLevel;
+⋮----
+pub(crate) struct CustomParser {
+/// Hand-implement `TypedValueParser`
+⋮----
+target_version: Option<TargetVersion>,
+⋮----
+/// Enum or custom value
+⋮----
+pub(crate) enum TargetVersion {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+⋮----
+type Err = String;
+⋮----
+fn from_str(s: &str) -> Result<Self, Self::Err> {
+⋮----
+/// Default to `TargetVersionParser` for `TargetVersion`, instead of `FromStr`
+⋮----
+type Parser = TargetVersionParser;
+⋮----
+fn value_parser() -> Self::Parser {
+⋮----
+pub(crate) struct TargetVersionParser;
+⋮----
+type Value = TargetVersion;
+⋮----
+fn parse_ref(
+⋮----
+fn possible_values(
+⋮----
+#[allow(clippy::needless_collect)] // Erasing a lifetime
+</file>
+
+<file path="examples/typed-derive/fn_parser.md">
+Help:
+```console
+$ typed-derive fn-parser --help
+Usage: typed-derive fn-parser [OPTIONS]
+
+Options:
+  -D <KEY=VALUE>  Hand-written parser for tuples
+  -h, --help      Print help
+
+```
+
+Defines (key-value pairs)
+```console
+$ typed-derive fn-parser -D Foo=10 -D Alice=30
+FnParser(FnParser { defines: [("Foo", 10), ("Alice", 30)] })
+
+$ typed-derive fn-parser -D Foo
+? failed
+error: invalid value 'Foo' for '-D <KEY=VALUE>': invalid KEY=value: no `=` found in `Foo`
+
+For more information, try '--help'.
+
+$ typed-derive fn-parser -D Foo=Bar
+? failed
+error: invalid value 'Foo=Bar' for '-D <KEY=VALUE>': invalid digit found in string
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/typed-derive/fn_parser.rs">
+use std::error::Error;
+⋮----
+use clap::Args;
+⋮----
+pub(crate) struct FnParser {
+/// Hand-written parser for tuples
+⋮----
+defines: Vec<(String, i32)>,
+⋮----
+/// Parse a single key-value pair
+fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
+</file>
+
+<file path="examples/typed-derive/foreign_crate.rs">
+pub(crate) enum LogLevel {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+type Err = String;
+⋮----
+fn from_str(s: &str) -> Result<Self, Self::Err> {
+</file>
+
+<file path="examples/typed-derive/implicit.md">
+Help:
+```console
+$ typed-derive implicit --help
+Usage: typed-derive implicit [OPTIONS]
+
+Options:
+  -O <OPTIMIZATION>
+          Implicitly using `std::str::FromStr`
+
+  -I <DIR>
+          Allow invalid UTF-8 paths
+
+      --bind <BIND>
+          Handle IP addresses
+
+      --sleep <SLEEP>
+          Allow human-readable durations
+
+      --bump-level <BUMP_LEVEL>
+          Custom enums
+
+          Possible values:
+          - major: Increase the major version (x.0.0)
+          - minor: Increase the minor version (x.y.0)
+          - patch: Increase the patch version (x.y.z)
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+```
+
+Optimization-level (number)
+```console
+$ typed-derive implicit -O 1
+Implicit(ImplicitParsers { optimization: Some(1), include: None, bind: None, sleep: None, bump_level: None })
+
+$ typed-derive implicit -O plaid
+? failed
+error: invalid value 'plaid' for '-O <OPTIMIZATION>': invalid digit found in string
+
+For more information, try '--help'.
+
+```
+
+Include (path)
+```console
+$ typed-derive implicit -I../hello
+Implicit(ImplicitParsers { optimization: None, include: Some("../hello"), bind: None, sleep: None, bump_level: None })
+
+```
+
+IP Address
+```console
+$ typed-derive implicit --bind 192.0.0.1
+Implicit(ImplicitParsers { optimization: None, include: None, bind: Some(192.0.0.1), sleep: None, bump_level: None })
+
+$ typed-derive implicit --bind localhost
+? failed
+error: invalid value 'localhost' for '--bind <BIND>': invalid IP address syntax
+
+For more information, try '--help'.
+
+```
+
+Time
+```console
+$ typed-derive implicit --sleep 10s
+Implicit(ImplicitParsers { optimization: None, include: None, bind: None, sleep: Some(10s), bump_level: None })
+
+$ typed-derive implicit --sleep forever
+? failed
+error: invalid value 'forever' for '--sleep <SLEEP>': failed to parse input in the "friendly" duration format: expected duration to start with a unit value (a decimal integer) after an optional sign, but no integer was found
+
+For more information, try '--help'.
+
+```
+
+Version field
+```console
+$ typed-derive implicit --bump-level minor
+Implicit(ImplicitParsers { optimization: None, include: None, bind: None, sleep: None, bump_level: Some(Minor) })
+
+$ typed-derive implicit --bump-level 10.0.0
+? failed
+error: invalid value '10.0.0' for '--bump-level <BUMP_LEVEL>'
+  [possible values: major, minor, patch]
+
+For more information, try '--help'.
+
+$ typed-derive implicit --bump-level blue
+? failed
+error: invalid value 'blue' for '--bump-level <BUMP_LEVEL>'
+  [possible values: major, minor, patch]
+
+For more information, try '--help'.
+
+```
+</file>
+
+<file path="examples/typed-derive/implicit.rs">
+use clap::Args;
+use clap::ValueEnum;
+⋮----
+pub(crate) struct ImplicitParsers {
+/// Implicitly using `std::str::FromStr`
+⋮----
+optimization: Option<usize>,
+⋮----
+/// Allow invalid UTF-8 paths
+⋮----
+include: Option<std::path::PathBuf>,
+⋮----
+/// Handle IP addresses
+⋮----
+bind: Option<std::net::IpAddr>,
+⋮----
+/// Allow human-readable durations
+⋮----
+sleep: Option<jiff::SignedDuration>,
+⋮----
+/// Custom enums
+⋮----
+bump_level: Option<BumpLevel>,
+⋮----
+pub(crate) enum BumpLevel {
+/// Increase the major version (x.0.0)
+⋮----
+/// Increase the minor version (x.y.0)
+⋮----
+/// Increase the patch version (x.y.z)
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+use clap::ValueEnum;
+⋮----
+type Err = String;
+⋮----
+fn from_str(s: &str) -> Result<Self, Self::Err> {
+use clap::ValueEnum;
+</file>
+
+<file path="examples/typed-derive/main.rs">
+use clap::Parser;
+⋮----
+mod builtin;
+mod custom;
+mod fn_parser;
+mod foreign_crate;
+mod implicit;
+⋮----
+#[derive(Parser, Debug)] // requires `derive` feature
+#[command(term_width = 0)] // Just to make testing across clap features easier
+#[command(bin_name = "typed-derive")] // Make testing easier by avoiding `.exe` in Usage on Windows
+enum Cli {
+⋮----
+fn main() {
+</file>
+
+<file path="examples/cargo-example-derive.md">
+For more on creating a custom subcommand, see [the cargo
+book](https://doc.rust-lang.org/cargo/reference/external-tools.html#custom-subcommands).
+The crate [`clap-cargo`](https://github.com/crate-ci/clap-cargo) can help in
+mimicking cargo's interface.
+
+The help looks like:
+```console
+$ cargo-example-derive --help
+Usage: cargo <COMMAND>
+
+Commands:
+  example-derive  A simple to use, efficient, and full-featured Command Line Argument Parser
+  help            Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+$ cargo-example-derive example-derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: cargo example-derive [OPTIONS]
+
+Options:
+      --manifest-path <MANIFEST_PATH>  
+  -h, --help                           Print help
+  -V, --version                        Print version
+
+```
+
+Then to directly invoke the command, run:
+```console
+$ cargo-example-derive example-derive
+None
+
+$ cargo-example-derive example-derive --manifest-path Cargo.toml
+Some("Cargo.toml")
+
+```
+</file>
+
+<file path="examples/cargo-example-derive.rs">
+use clap::Parser;
+⋮----
+#[derive(Parser)] // requires `derive` feature
+⋮----
+enum CargoCli {
+⋮----
+// See also `clap_cargo::style::CLAP_STYLING`
+⋮----
+struct ExampleDeriveArgs {
+⋮----
+manifest_path: Option<std::path::PathBuf>,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/cargo-example.md">
+For more on creating a custom subcommand, see [the cargo
+book](https://doc.rust-lang.org/cargo/reference/external-tools.html#custom-subcommands).
+The crate [`clap-cargo`](https://github.com/crate-ci/clap-cargo) can help in
+mimicking cargo's interface.
+
+The help looks like:
+```console
+$ cargo-example --help
+Usage: cargo <COMMAND>
+
+Commands:
+  example  A simple to use, efficient, and full-featured Command Line Argument Parser
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+$ cargo-example example --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: cargo example [OPTIONS]
+
+Options:
+      --manifest-path <PATH>  
+  -h, --help                  Print help
+  -V, --version               Print version
+
+```
+
+Then to directly invoke the command, run:
+```console
+$ cargo-example example
+None
+
+$ cargo-example example --manifest-path Cargo.toml
+Some("Cargo.toml")
+
+```
+</file>
+
+<file path="examples/cargo-example.rs">
+fn main() {
+⋮----
+// See also `clap_cargo::style::CLAP_STYLING`
+</file>
+
+<file path="examples/demo.md">
+```console
+$ demo --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: demo[EXE] [OPTIONS] --name <NAME>
+
+Options:
+  -n, --name <NAME>    Name of the person to greet
+  -c, --count <COUNT>  Number of times to greet [default: 1]
+  -h, --help           Print help
+  -V, --version        Print version
+
+$ demo --name Me
+Hello Me!
+
+```
+*(version number and `.exe` extension on windows replaced by placeholders)*
+</file>
+
+<file path="examples/demo.rs">
+use clap::Parser;
+⋮----
+/// Simple program to greet a person
+⋮----
+struct Args {
+/// Name of the person to greet
+⋮----
+name: String,
+⋮----
+/// Number of times to greet
+⋮----
+count: u8,
+⋮----
+fn main() {
+</file>
+
+<file path="examples/escaped-positional-derive.md">
+**This requires enabling the [`derive` feature flag][crate::_features].**
+
+You can use `--` to escape further arguments.
+
+Let's see what this looks like in the help:
+```console
+$ escaped-positional-derive --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: escaped-positional-derive[EXE] [OPTIONS] [-- <SLOP>...]
+
+Arguments:
+  [SLOP]...  
+
+Options:
+  -f             
+  -p <PEAR>      
+  -h, --help     Print help
+  -V, --version  Print version
+
+```
+
+Here is a baseline without any arguments:
+```console
+$ escaped-positional-derive
+-f used: false
+-p's value: None
+'slops' values: []
+
+```
+
+Notice that we can't pass positional arguments before `--`:
+```console
+$ escaped-positional-derive foo bar
+? failed
+error: unexpected argument 'foo' found
+
+Usage: escaped-positional-derive[EXE] [OPTIONS] [-- <SLOP>...]
+
+For more information, try '--help'.
+
+```
+
+But you can after:
+```console
+$ escaped-positional-derive -f -p=bob -- sloppy slop slop
+-f used: true
+-p's value: Some("bob")
+'slops' values: ["sloppy", "slop", "slop"]
+
+```
+
+As mentioned, the parser will directly pass everything through:
+```console
+$ escaped-positional-derive -- -f -p=bob sloppy slop slop
+-f used: false
+-p's value: None
+'slops' values: ["-f", "-p=bob", "sloppy", "slop", "slop"]
+
+```
+</file>
+
+<file path="examples/escaped-positional-derive.rs">
+use clap::Parser;
+⋮----
+#[derive(Parser)] // requires `derive` feature
+⋮----
+struct Cli {
+⋮----
+eff: bool,
+⋮----
+pea: Option<String>,
+⋮----
+slop: Vec<String>,
+⋮----
+fn main() {
+⋮----
+// This is what will happen with `myprog -f -p=bob -- sloppy slop slop`...
+println!("-f used: {:?}", args.eff); // -f used: true
+println!("-p's value: {:?}", args.pea); // -p's value: Some("bob")
+println!("'slops' values: {:?}", args.slop); // 'slops' values: Some(["sloppy", "slop", "slop"])
+⋮----
+// Continued program logic goes here...
+</file>
+
+<file path="examples/escaped-positional.md">
+**This requires enabling the [`cargo` feature flag][crate::_features].**
+
+You can use `--` to escape further arguments.
+
+Let's see what this looks like in the help:
+```console
+$ escaped-positional --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: escaped-positional[EXE] [OPTIONS] [-- <SLOP>...]
+
+Arguments:
+  [SLOP]...  
+
+Options:
+  -f             
+  -p <PEAR>      
+  -h, --help     Print help
+  -V, --version  Print version
+
+```
+
+Here is a baseline without any arguments:
+```console
+$ escaped-positional
+-f used: false
+-p's value: None
+'slops' values: []
+
+```
+
+Notice that we can't pass positional arguments before `--`:
+```console
+$ escaped-positional foo bar
+? failed
+error: unexpected argument 'foo' found
+
+Usage: escaped-positional[EXE] [OPTIONS] [-- <SLOP>...]
+
+For more information, try '--help'.
+
+```
+
+But you can after:
+```console
+$ escaped-positional -f -p=bob -- sloppy slop slop
+-f used: true
+-p's value: Some("bob")
+'slops' values: ["sloppy", "slop", "slop"]
+
+```
+
+As mentioned, the parser will directly pass everything through:
+```console
+$ escaped-positional -- -f -p=bob sloppy slop slop
+-f used: false
+-p's value: None
+'slops' values: ["-f", "-p=bob", "sloppy", "slop", "slop"]
+
+```
+</file>
+
+<file path="examples/escaped-positional.rs">
+fn main() {
+let matches = command!() // requires `cargo` feature
+⋮----
+// Indicates that `slop` is only accessible after `--`.
+⋮----
+// This is what will happen with `myprog -f -p=bob -- sloppy slop slop`...
+⋮----
+// -f used: true
+⋮----
+// -p's value: Some("bob")
+⋮----
+// 'slops' values: Some(["sloppy", "slop", "slop"])
+⋮----
+// Continued program logic goes here...
+</file>
+
+<file path="examples/find.md">
+`find` is an example of position-sensitive flags
+
+```console
+$ find --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: find[EXE] [OPTIONS]
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+TESTS:
+      --empty        File is empty and is either a regular file or a directory
+      --name <name>  Base of file name (the path with the leading directories removed) matches shell
+                     pattern pattern
+
+OPERATORS:
+  -o, --or   expr2 is not evaluate if exp1 is true
+  -a, --and  Same as `expr1 expr1`
+
+$ find --empty -o --name .keep
+[
+    (
+        "empty",
+        Bool(
+            true,
+        ),
+    ),
+    (
+        "or",
+        Bool(
+            true,
+        ),
+    ),
+    (
+        "name",
+        String(
+            ".keep",
+        ),
+    ),
+]
+
+$ find --empty -o --name .keep -o --name foo
+[
+    (
+        "empty",
+        Bool(
+            true,
+        ),
+    ),
+    (
+        "or",
+        Bool(
+            true,
+        ),
+    ),
+    (
+        "name",
+        String(
+            ".keep",
+        ),
+    ),
+    (
+        "or",
+        Bool(
+            true,
+        ),
+    ),
+    (
+        "name",
+        String(
+            "foo",
+        ),
+    ),
+]
+
+```
+</file>
+
+<file path="examples/find.rs">
+use std::collections::BTreeMap;
+⋮----
+fn main() {
+⋮----
+fn cli() -> Command {
+⋮----
+fn position_sensitive_flag(arg: Arg) -> Arg {
+// Flags don't track the position of each occurrence, so we need to emulate flags with
+// value-less options to get the same result
+⋮----
+pub enum Value {
+⋮----
+impl Value {
+pub fn from_matches(matches: &ArgMatches) -> Vec<(clap::Id, Self)> {
+⋮----
+// ignore groups
+⋮----
+// Any other source just gets tacked on at the end (like default values)
+⋮----
+fn extract<T: Clone + Into<Self> + Send + Sync + 'static>(
+⋮----
+fn from(other: String) -> Self {
+⋮----
+fn from(other: bool) -> Self {
+</file>
+
+<file path="examples/git-derive.md">
+**This requires enabling the [`derive` feature flag][crate::_features].**
+
+Git is an example of several common subcommand patterns.
+
+Help:
+```console
+$ git-derive
+? failed
+A fictional versioning CLI
+
+Usage: git-derive[EXE] <COMMAND>
+
+Commands:
+  clone  Clones repos
+  diff   Compare two commits
+  push   pushes things
+  add    adds things
+  stash  
+  help   Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+$ git-derive help
+A fictional versioning CLI
+
+Usage: git-derive[EXE] <COMMAND>
+
+Commands:
+  clone  Clones repos
+  diff   Compare two commits
+  push   pushes things
+  add    adds things
+  stash  
+  help   Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+$ git-derive help add
+adds things
+
+Usage: git-derive[EXE] add <PATH>...
+
+Arguments:
+  <PATH>...  Stuff to add
+
+Options:
+  -h, --help  Print help
+
+```
+
+A basic argument:
+```console
+$ git-derive add
+? failed
+adds things
+
+Usage: git-derive[EXE] add <PATH>...
+
+Arguments:
+  <PATH>...  Stuff to add
+
+Options:
+  -h, --help  Print help
+
+$ git-derive add Cargo.toml Cargo.lock
+Adding ["Cargo.toml", "Cargo.lock"]
+
+```
+
+Default subcommand:
+```console
+$ git-derive stash -h
+Usage: git-derive[EXE] stash [OPTIONS]
+       git-derive[EXE] stash push [OPTIONS]
+       git-derive[EXE] stash pop [STASH]
+       git-derive[EXE] stash apply [STASH]
+       git-derive[EXE] stash help [COMMAND]...
+
+Options:
+  -m, --message <MESSAGE>  
+  -h, --help               Print help
+
+git-derive[EXE] stash push:
+  -m, --message <MESSAGE>  
+  -h, --help               Print help
+
+git-derive[EXE] stash pop:
+  -h, --help  Print help
+  [STASH]     
+
+git-derive[EXE] stash apply:
+  -h, --help  Print help
+  [STASH]     
+
+git-derive[EXE] stash help:
+Print this message or the help of the given subcommand(s)
+  [COMMAND]...  Print help for the subcommand(s)
+
+$ git-derive stash push -h
+Usage: git-derive[EXE] stash push [OPTIONS]
+
+Options:
+  -m, --message <MESSAGE>  
+  -h, --help               Print help
+
+$ git-derive stash pop -h
+Usage: git-derive[EXE] stash pop [STASH]
+
+Arguments:
+  [STASH]  
+
+Options:
+  -h, --help  Print help
+
+$ git-derive stash -m "Prototype"
+Pushing StashPushArgs { message: Some("Prototype") }
+
+$ git-derive stash pop
+Popping None
+
+$ git-derive stash push -m "Prototype"
+Pushing StashPushArgs { message: Some("Prototype") }
+
+$ git-derive stash pop
+Popping None
+
+```
+
+External subcommands:
+```console
+$ git-derive custom-tool arg1 --foo bar
+Calling out to "custom-tool" with ["arg1", "--foo", "bar"]
+
+```
+
+Configurable aliases:
+Aliases loaded from application configuration can expand into built-in commands
+and arguments. Built-in commands take precedence over configured aliases.
+
+```console
+$ git-derive last ./src
+Diffing HEAD~..HEAD ./src (color=auto)
+
+$ git-derive stage Cargo.toml Cargo.lock
+Adding ["Cargo.toml", "Cargo.lock"]
+
+```
+
+Last argument:
+```console
+$ git-derive diff --help
+Compare two commits
+
+Usage: git-derive[EXE] diff [OPTIONS] [COMMIT] [COMMIT] [-- <PATH>]
+
+Arguments:
+  [COMMIT]  
+  [COMMIT]  
+  [PATH]    
+
+Options:
+      --color[=<WHEN>]  [default: auto] [possible values: always, auto, never]
+  -h, --help            Print help
+
+$ git-derive diff
+Diffing stage..worktree  (color=auto)
+
+$ git-derive diff ./src
+Diffing stage..worktree ./src (color=auto)
+
+$ git-derive diff HEAD ./src
+Diffing HEAD..worktree ./src (color=auto)
+
+$ git-derive diff HEAD~~ -- HEAD
+Diffing HEAD~~..worktree HEAD (color=auto)
+
+$ git-derive diff --color
+Diffing stage..worktree  (color=always)
+
+$ git-derive diff --color=never
+Diffing stage..worktree  (color=never)
+
+```
+</file>
+
+<file path="examples/git-derive.rs">
+use std::collections::HashMap;
+use std::ffi::OsStr;
+use std::ffi::OsString;
+use std::path::PathBuf;
+⋮----
+/// A fictional versioning CLI
+#[derive(Debug, Parser)] // requires `derive` feature
+⋮----
+struct Cli {
+⋮----
+command: Commands,
+⋮----
+enum Commands {
+/// Clones repos
+⋮----
+/// The remote to clone
+remote: String,
+⋮----
+/// Compare two commits
+⋮----
+base: Option<OsString>,
+⋮----
+head: Option<OsString>,
+⋮----
+path: Option<OsString>,
+⋮----
+color: ColorWhen,
+⋮----
+/// pushes things
+⋮----
+/// The remote to target
+remote: String,
+⋮----
+/// adds things
+⋮----
+/// Stuff to add
+⋮----
+path: Vec<PathBuf>,
+⋮----
+enum ColorWhen {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+struct StashArgs {
+⋮----
+command: Option<StashCommands>,
+⋮----
+push: StashPushArgs,
+⋮----
+enum StashCommands {
+⋮----
+Pop { stash: Option<String> },
+Apply { stash: Option<String> },
+⋮----
+struct StashPushArgs {
+⋮----
+message: Option<String>,
+⋮----
+fn aliases() -> HashMap<&'static str, Vec<&'static str>> {
+⋮----
+fn parse_aliases() -> Result<Cli, clap::Error> {
+⋮----
+fn expand_aliases(args: Cli, mut expanded: Vec<String>) -> Result<Cli, clap::Error> {
+⋮----
+fn main() {
+⋮----
+// Continued program logic goes here...
+</file>
+
+<file path="examples/git.md">
+Git is an example of several common subcommand patterns.
+
+Help:
+```console
+$ git
+? failed
+A fictional versioning CLI
+
+Usage: git[EXE] <COMMAND>
+
+Commands:
+  clone  Clones repos
+  diff   Compare two commits
+  push   pushes things
+  add    adds things
+  stash  
+  help   Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+$ git help
+A fictional versioning CLI
+
+Usage: git[EXE] <COMMAND>
+
+Commands:
+  clone  Clones repos
+  diff   Compare two commits
+  push   pushes things
+  add    adds things
+  stash  
+  help   Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+$ git help add
+adds things
+
+Usage: git[EXE] add <PATH>...
+
+Arguments:
+  <PATH>...  Stuff to add
+
+Options:
+  -h, --help  Print help
+
+```
+
+A basic argument:
+```console
+$ git add
+? failed
+adds things
+
+Usage: git[EXE] add <PATH>...
+
+Arguments:
+  <PATH>...  Stuff to add
+
+Options:
+  -h, --help  Print help
+
+$ git add Cargo.toml Cargo.lock
+Adding ["Cargo.toml", "Cargo.lock"]
+
+```
+
+Default subcommand:
+```console
+$ git stash -h
+Usage: git[EXE] stash [OPTIONS]
+       git[EXE] stash push [OPTIONS]
+       git[EXE] stash pop [STASH]
+       git[EXE] stash apply [STASH]
+       git[EXE] stash help [COMMAND]...
+
+Options:
+  -m, --message <MESSAGE>  
+  -h, --help               Print help
+
+git[EXE] stash push:
+  -m, --message <MESSAGE>  
+  -h, --help               Print help
+
+git[EXE] stash pop:
+  -h, --help  Print help
+  [STASH]     
+
+git[EXE] stash apply:
+  -h, --help  Print help
+  [STASH]     
+
+git[EXE] stash help:
+Print this message or the help of the given subcommand(s)
+  [COMMAND]...  Print help for the subcommand(s)
+
+$ git stash push -h
+Usage: git[EXE] stash push [OPTIONS]
+
+Options:
+  -m, --message <MESSAGE>  
+  -h, --help               Print help
+
+$ git stash pop -h
+Usage: git[EXE] stash pop [STASH]
+
+Arguments:
+  [STASH]  
+
+Options:
+  -h, --help  Print help
+
+$ git stash -m "Prototype"
+Pushing Some("Prototype")
+
+$ git stash pop
+Popping None
+
+$ git stash push -m "Prototype"
+Pushing Some("Prototype")
+
+$ git stash pop
+Popping None
+
+```
+
+External subcommands:
+```console
+$ git custom-tool arg1 --foo bar
+Calling out to "custom-tool" with ["arg1", "--foo", "bar"]
+
+```
+
+Configurable aliases:
+Aliases loaded from application configuration can expand into built-in commands
+and arguments. Built-in commands take precedence over configured aliases.
+
+```console
+$ git last ./src
+Diffing HEAD~..HEAD ./src (color=auto)
+
+$ git stage Cargo.toml Cargo.lock
+Adding ["Cargo.toml", "Cargo.lock"]
+
+```
+
+Last argument:
+```console
+$ git diff --help
+Compare two commits
+
+Usage: git[EXE] diff [OPTIONS] [COMMIT] [COMMIT] [-- <PATH>]
+
+Arguments:
+  [COMMIT]  
+  [COMMIT]  
+  [PATH]    
+
+Options:
+      --color[=<WHEN>]  [default: auto] [possible values: always, auto, never]
+  -h, --help            Print help
+
+$ git diff
+Diffing stage..worktree  (color=auto)
+
+$ git diff ./src
+Diffing stage..worktree ./src (color=auto)
+
+$ git diff HEAD ./src
+Diffing HEAD..worktree ./src (color=auto)
+
+$ git diff HEAD~~ -- HEAD
+Diffing HEAD~~..worktree HEAD (color=auto)
+
+$ git diff --color
+Diffing stage..worktree  (color=always)
+
+$ git diff --color=never
+Diffing stage..worktree  (color=never)
+
+```
+</file>
+
+<file path="examples/git.rs">
+use std::collections::HashMap;
+use std::ffi::OsString;
+use std::path::PathBuf;
+⋮----
+fn cli() -> Command {
+⋮----
+fn push_args() -> Vec<clap::Arg> {
+⋮----
+fn aliases() -> HashMap<&'static str, Vec<&'static str>> {
+⋮----
+fn parse_aliases() -> Result<ArgMatches, clap::Error> {
+⋮----
+fn expand_aliases(
+⋮----
+fn main() {
+⋮----
+_ => unreachable!(), // If all subcommands are defined above, anything else is unreachable!()
+⋮----
+// Continued program logic goes here...
+</file>
+
+<file path="examples/multicall-busybox.md">
+See the documentation for [`Command::multicall`][crate::Command::multicall] for rationale.
+
+This example omits every command except true and false,
+which are the most trivial to implement,
+```console
+$ busybox true
+? 0
+
+$ busybox false
+? 1
+
+```
+*Note: without the links setup, we can't demonstrate the multicall behavior*
+
+But includes the `--install` option as an example of why it can be useful
+for the main program to take arguments that aren't applet subcommands.
+```console
+$ busybox --install
+? failed
+...
+
+```
+
+Though users must pass something:
+```console
+$ busybox
+? failed
+Usage: busybox [OPTIONS] [APPLET]
+
+APPLETS:
+  true   does nothing successfully
+  false  does nothing unsuccessfully
+  help   Print this message or the help of the given subcommand(s)
+
+Options:
+      --install <install>  Install hardlinks for all subcommands in path
+  -h, --help               Print help
+
+```
+</file>
+
+<file path="examples/multicall-busybox.rs">
+use std::path::PathBuf;
+use std::process::exit;
+⋮----
+fn applet_commands() -> [Command; 2] {
+⋮----
+fn main() {
+</file>
+
+<file path="examples/multicall-hostname.md">
+See the documentation for [`Command::multicall`][crate::Command::multicall] for rationale.
+
+This example omits the implementation of displaying address config
+
+```console
+$ hostname
+www
+
+```
+*Note: without the links setup, we can't demonstrate the multicall behavior*
+</file>
+
+<file path="examples/multicall-hostname.rs">
+use clap::Command;
+⋮----
+fn main() {
+</file>
+
+<file path="examples/pacman.md">
+[`pacman`](https://wiki.archlinux.org/index.php/pacman) defines subcommands via flags.
+
+Here, `-S` is a short flag subcommand:
+```console
+$ pacman -S package
+Installing package...
+
+```
+
+Here `--sync` is a long flag subcommand:
+```console
+$ pacman --sync package
+Installing package...
+
+```
+
+Now the short flag subcommand (`-S`) with a long flag:
+```console
+$ pacman -S --search name
+Searching for name...
+
+```
+
+And the various forms of short flags that work:
+```console
+$ pacman -S -s name
+Searching for name...
+
+$ pacman -Ss name
+Searching for name...
+
+```
+*(users can "stack" short subcommands with short flags or with other short flag subcommands)*
+
+In the help, this looks like:
+```console
+$ pacman -h
+package manager utility
+
+Usage: pacman[EXE] <COMMAND>
+
+Commands:
+  query, -Q, --query  Query the package database.
+  sync, -S, --sync    Synchronize packages.
+  help                Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+$ pacman -S -h
+Synchronize packages.
+
+Usage: pacman[EXE] {sync|--sync|-S} [OPTIONS] [package]...
+
+Arguments:
+  [package]...  packages
+
+Options:
+  -s, --search <search>...  search remote repositories for matching strings
+  -i, --info                view package information
+  -h, --help                Print help
+
+```
+
+And errors:
+```console
+$ pacman -S -s foo -i bar
+? failed
+error: the argument '--search <search>...' cannot be used with '--info'
+
+Usage: pacman[EXE] {sync|--sync|-S} --search <search>... <package>...
+
+For more information, try '--help'.
+
+```
+
+<div class="warning">
+
+**NOTE:** Keep in mind that subcommands, flags, and long flags are *case sensitive*: `-Q` and `-q` are different flags/subcommands. For example, you can have both `-Q` subcommand and `-q` flag, and they will be properly disambiguated.
+Let's make a quick program to illustrate.
+
+</div>
+
+## Reviewing help output
+
+The test renders every command's long help.
+Each Markdown heading contains the complete command path.
+Generated `help` subcommands are skipped.
+`term_width(0)` prevents terminal-dependent wrapping.
+
+[`snapbox`](https://docs.rs/snapbox) compares this output with a snapshot.
+The resulting diff makes CLI changes easy to review.
+Set `SNAPSHOTS=overwrite` to accept intentional changes.
+</file>
+
+<file path="examples/pacman.rs">
+fn cli() -> Command {
+⋮----
+// Query subcommand
+//
+// Only a few of its arguments are implemented below.
+⋮----
+// Sync subcommand
+//
+// Only a few of its arguments are implemented below.
+⋮----
+fn main() {
+⋮----
+_ => unreachable!(), // If all subcommands are defined above, anything else is unreachable
+⋮----
+mod tests {
+⋮----
+fn help_output_is_stable() {
+⋮----
+fn render_reference(mut command: Command) -> String {
+⋮----
+fn write_help(buffer: &mut String, cmd: &mut Command, mut path: String) {
+⋮----
+// Generated `help` nodes proxy other commands.
+</file>
+
+<file path="examples/README.md">
+# Examples
+
+We try to focus our documentation on the [four types of
+documentation](https://documentation.divio.com/).  Examples fit into this by
+providing:
+- [Cookbook / How-To Guides](https://docs.rs/clap/latest/clap/_cookbook/index.html)
+- Tutorials ([derive](https://docs.rs/clap/latest/clap/_derive/_tutorial/index.html), [builder](https://docs.rs/clap/latest/clap/_tutorial/index.html))
+
+This directory contains the source for the above.
+
+## Contributing
+
+New examples should fit within the above structure and support their narrative
+- Add the example to [Cargo.toml](../Cargo.toml) for any `required-features`
+- Document how the example works with a `.md` file which will be verified using [trycmd](https://docs.rs/trycmd)
+- Pull the `.rs` and `.md` file into the appropriate module doc comment to be accessible on docs.rs
+</file>
+
+<file path="examples/repl-derive.rs">
+use std::io::Write;
+⋮----
+fn main() -> Result<(), String> {
+⋮----
+fn respond(line: &str) -> Result<bool, String> {
+⋮----
+struct Cli {
+⋮----
+command: Commands,
+⋮----
+enum Commands {
+⋮----
+fn readline() -> Result<String, String> {
+</file>
+
+<file path="examples/repl.rs">
+use std::io::Write;
+⋮----
+use clap::Command;
+⋮----
+fn main() -> Result<(), String> {
+⋮----
+fn respond(line: &str) -> Result<bool, String> {
+⋮----
+fn cli() -> Command {
+// strip out usage
+⋮----
+// strip out name/version
+⋮----
+fn readline() -> Result<String, String> {
+</file>
+
+<file path="src/_cookbook/cargo_example_derive.rs">
+//! # Example: cargo subcommand (Derive API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/cargo_example.rs">
+//! # Example: cargo subcommand (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/escaped_positional_derive.rs">
+//! # Example (Derive API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/escaped_positional.rs">
+//! # Example (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/find.rs">
+//! # Example: find-like CLI (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/git_derive.rs">
+//! # Example: git-like CLI (Derive API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/git.rs">
+//! # Example: git-like CLI (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/mod.rs">
+// Contributing
+//
+// New examples:
+// - Building: They must be added to `Cargo.toml` with the appropriate `required-features`.
+// - Testing: Ensure there is a markdown file with [trycmd](https://docs.rs/trycmd) syntax
+// - Link the `.md` file from here
+⋮----
+//! # Documentation: Cookbook
+//!
+//! Typed arguments: [derive][typed_derive]
+//! - Topics:
+//!   - Custom `parse()`
+//!
+//! Custom cargo command: [builder][cargo_example], [derive][cargo_example_derive]
+//! - Topics:
+//!   - Subcommands
+//!   - Cargo plugins
+//!   - custom terminal [styles][crate::Command::styles] (colors)
+//!
+//! find-like interface: [builder][find]
+//! - Topics:
+//!   - Position-sensitive flags
+//!
+//! git-like interface: [builder][git], [derive][git_derive]
+//! - Topics:
+//!   - Subcommands
+//!   - External subcommands
+//!   - Optional subcommands
+//!   - Default subcommands
+//!   - [`last`][crate::Arg::last]
+//!   - Configurable command aliases
+//!
+//! pacman-like interface: [builder][pacman]
+//! - Topics:
+//!   - Flag subcommands
+//!   - Conflicting arguments
+//!   - Visualizing help output changes through snapshot testing
+//!
+//! Escaped positionals with `--`: [builder][escaped_positional], [derive][escaped_positional_derive]
+//!
+//! Multi-call
+//! - busybox: [builder][multicall_busybox]
+//!   - Topics:
+//!     - Subcommands
+//! - hostname: [builder][multicall_hostname]
+//!   - Topics:
+//!     - Subcommands
+//!
+//! repl: [builder][repl], [derive][repl_derive]
+//! - Topics:
+//!   - Read-Eval-Print Loops / Custom command lines
+⋮----
+pub mod cargo_example;
+pub mod cargo_example_derive;
+pub mod escaped_positional;
+pub mod escaped_positional_derive;
+pub mod find;
+pub mod git;
+pub mod git_derive;
+pub mod multicall_busybox;
+pub mod multicall_hostname;
+pub mod pacman;
+pub mod repl;
+pub mod repl_derive;
+pub mod typed_derive;
+</file>
+
+<file path="src/_cookbook/multicall_busybox.rs">
+//! # Example: busybox-like CLI (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/multicall_hostname.rs">
+//! # Example: hostname-like CLI (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/pacman.rs">
+// The included source defines a snapshot test.
+⋮----
+//! # Example: pacman-like CLI (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_cookbook/repl_derive.rs">
+//! # Example: REPL (Derive API)
+//!
+//! ```rust
+</file>
+
+<file path="src/_cookbook/repl.rs">
+//! # Example: Command REPL (Builder API)
+//!
+//! ```rust
+⋮----
+//! ```
+</file>
+
+<file path="src/_cookbook/typed_derive.rs">
+//! # Example: Custom Types (Derive API)
+//!
+//! **This requires enabling the [`derive` feature flag][crate::_features].**
+//!
+//! ## Implicit [`Arg::value_parser`][crate::Arg::value_parser]
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+⋮----
+//!
+//! ## Built-in [`TypedValueParser`][crate::builder::TypedValueParser]
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+⋮----
+//!
+//! ## Custom parser function
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+⋮----
+//!
+//! ## Custom [`TypedValueParser`][crate::builder::TypedValueParser]
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+</file>
+
+<file path="src/_derive/_tutorial.rs">
+// Contributing
+//
+// New example code:
+// - Please update the corresponding section in the derive tutorial
+// - Building: They must be added to `Cargo.toml` with the appropriate `required-features`.
+// - Testing: Ensure there is a markdown file with [trycmd](https://docs.rs/trycmd) syntax
+//
+// See also the general CONTRIBUTING
+⋮----
+//! ## Tutorial for the Derive API
+//!
+//! *See the side bar for the Table of Contents*
+//!
+//! ## Quick Start
+//!
+//! You can create an application declaratively with a `struct` and some
+//! attributes.
+//!
+//! First, ensure `clap` is available with the [`derive` feature flag][crate::_features]:
+//! ```console
+//! $ cargo add clap --features derive
+//! ```
+//!
+//! Here is a preview of the type of application you can make:
+//! ```rust
+⋮----
+//! ```
+//!
+⋮----
+//!
+//! See also
+//! - [FAQ: When should I use the builder vs derive APIs?][crate::_faq#when-should-i-use-the-builder-vs-derive-apis]
+//! - The [cookbook][crate::_cookbook] for more application-focused examples
+//!
+//! ## Configuring the Parser
+//!
+//! You use derive [`Parser`][crate::Parser] to start building a parser.
+//!
+//! ```rust
+⋮----
+//! ```
+//!
+⋮----
+//!
+//! You can use [`#[command(version, about)]` attribute defaults][super#command-attributes] on the struct to fill these fields in from your `Cargo.toml` file.
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! You can use `#[command]` attributes on the struct to change the application level behavior of clap.  Any [`Command`] builder function can be used as an attribute, like [`Command::next_line_help`].
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ## Adding Arguments
+//!
+//! 1. [Positionals](#positionals)
+//! 2. [Options](#options)
+//! 3. [Flags](#flags)
+//! 4. [Optional](#optional)
+//! 5. [Defaults](#defaults)
+//! 6. [Subcommands](#subcommands)
+//!
+//! Arguments are inferred from the fields of your struct.
+//!
+//! ### Positionals
+//!
+//! By default, struct fields define positional arguments:
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! Note that the [default `ArgAction` is `Set`][super#arg-types].  To
+//! accept multiple values, override the [action][Arg::action] with [`Append`][crate::ArgAction::Append] via `Vec`:
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ### Options
+//!
+//! You can name your arguments with a flag:
+//! - Intent of the value is clearer
+//! - Order doesn't matter
+//!
+//! To specify the flags for an argument, you can use [`#[arg(short = 'n')]`][Arg::short] and/or
+//! [`#[arg(long = "name")]`][Arg::long] attributes on a field.  When no value is given (e.g.
+//! `#[arg(short)]`), the flag is inferred from the field's name.
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! Note that the [default `ArgAction` is `Set`][super#arg-types].  To
+//! accept multiple occurrences, override the [action][Arg::action] with [`Append`][crate::ArgAction::Append] via `Vec`:
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ### Flags
+//!
+//! Flags can also be switches that can be on/off:
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! Note that the [default `ArgAction` for a `bool` field is
+//! `SetTrue`][super#arg-types].  To accept multiple flags, override the [action][Arg::action] with
+//! [`Count`][crate::ArgAction::Count]:
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! This also shows that any[`Arg`] method may be used as an attribute.
+//!
+//! ### Optional
+//!
+//! By default, arguments are assumed to be [`required`][crate::Arg::required].
+//! To make an argument optional, wrap the field's type in `Option`:
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ### Defaults
+//!
+//! We've previously showed that arguments can be [`required`][crate::Arg::required] or optional.
+//! When optional, you work with a `Option` and can `unwrap_or`.  Alternatively, you can
+//! set [`#[arg(default_value_t)]`][super#arg-attributes].
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ### Subcommands
+//!
+//! Subcommands are derived with `#[derive(Subcommand)]` and be added via
+//! [`#[command(subcommand)]` attribute][super#command-attributes] on the field using that type.
+//! Each instance of a [Subcommand][crate::Subcommand] can have its own version, author(s), Args,
+//! and even its own subcommands.
+//!
+//! ```rust
+⋮----
+//! ```
+//! We used a struct-variant to define the `add` subcommand.
+//! Alternatively, you can use a struct for your subcommand's arguments:
+//! ```rust
+⋮----
+//! ```
+//!
+⋮----
+//!
+//! ## Validation
+//!
+//! 1. [Enumerated values](#enumerated-values)
+//! 2. [Validated values](#validated-values)
+//! 3. [Argument Relations](#argument-relations)
+//! 4. [Custom Validation](#custom-validation)
+//!
+//! An appropriate default parser/validator will be selected for the field's type.  See
+//! [`value_parser!`][crate::value_parser!] for more details.
+//!
+//! ### Enumerated values
+//!
+//! For example, if you have arguments of specific values you want to test for, you can derive
+//! [`ValueEnum`][super#valueenum-attributes]
+//! (any [`PossibleValue`] builder function can be used as a `#[value]` attribute on enum variants).
+//!
+//! This allows you specify the valid values for that argument. If the user does not use one of
+//! those specific values, they will receive a graceful exit with error message informing them
+//! of the mistake, and what the possible valid values are
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ### Validated values
+//!
+//! More generally, you can validate and parse into any data type with [`Arg::value_parser`].
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! A [custom parser][TypedValueParser] can be used to improve the error messages or provide additional validation:
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! See [`Arg::value_parser`][crate::Arg::value_parser] for more details.
+//!
+//! ### Argument Relations
+//!
+//! You can declare dependencies or conflicts between [`Arg`]s or even
+//! [`ArgGroup`]s.
+//!
+//! [`ArgGroup`]s  make it easier to declare relations instead of having to list
+//! each individually, or when you want a rule to apply "any but not all" arguments.
+//!
+//! Perhaps the most common use of [`ArgGroup`]s is to require one and *only* one
+//! argument to be present out of a given set. Imagine that you had multiple arguments, and you
+//! want one of them to be required, but making all of them required isn't feasible because perhaps
+//! they conflict with each other.
+//!
+//! [`ArgGroup`]s are automatically created for a `struct` with its
+//! [`ArgGroup::id`] being the struct's name.
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ### Custom Validation
+//!
+//! As a last resort, you can create custom errors with the basics of clap's formatting.
+//!
+//! ```rust
+⋮----
+//! ```
+⋮----
+//!
+//! ## Testing
+//!
+//! clap reports most development errors as `debug_assert!`s.  Rather than checking every
+//! subcommand, you should have a test that calls
+//! [`Command::debug_assert`][crate::Command::debug_assert]:
+//! ```rust,no_run
+⋮----
+//! ```
+//!
+//! ## Next Steps
+//!
+//! - [Cookbook][crate::_cookbook] for application-focused examples
+//! - Explore more features in the [Derive reference][super]
+//!   - See also [`Command`], [`Arg`], [`ArgGroup`], and [`PossibleValue`] builder functions which
+//!     can be used as attributes
+//!
+//! For support, see [Discussions](https://github.com/clap-rs/clap/discussions)
+</file>
+
+<file path="src/_derive/mod.rs">
+//! # Documentation: Derive Reference
+//!
+//! 1. [Overview](#overview)
+//! 2. [Attributes](#attributes)
+//!     1. [Terminology](#terminology)
+//!     2. [Command Attributes](#command-attributes)
+//!     2. [ArgGroup Attributes](#arggroup-attributes)
+//!     3. [Arg Attributes](#arg-attributes)
+//!     4. [ValueEnum Attributes](#valueenum-attributes)
+//!     5. [Possible Value Attributes](#possible-value-attributes)
+//! 3. [Field Types](#field-types)
+//! 4. [Doc Comments](#doc-comments)
+//! 5. [Mixing Builder and Derive APIs](#mixing-builder-and-derive-apis)
+//! 6. [Tips](#tips)
+//!
+//! ## Overview
+//!
+//! To derive `clap` types, you need to enable the [`derive` feature flag][crate::_features].
+//!
+//! Example:
+//! ```rust
+⋮----
+//! ```
+//!
+//! Let's start by breaking down the anatomy of the derive attributes:
+//! ```rust
+//! use clap::{Parser, Args, Subcommand, ValueEnum};
+//!
+//! /// Doc comment
+//! #[derive(Parser)]
+//! #[command(CMD ATTRIBUTE)]
+//! #[group(GROUP ATTRIBUTE)]
+//! struct Cli {
+//!     /// Doc comment
+//!     #[arg(ARG ATTRIBUTE)]
+//!     field: UserType,
+//!
+//!     #[arg(value_enum, ARG ATTRIBUTE...)]
+//!     field: EnumValues,
+//!
+//!     #[command(flatten)]
+//!     delegate: Struct,
+//!
+//!     #[command(subcommand)]
+//!     command: Command,
+//! }
+//!
+//! /// Doc comment
+//! #[derive(Args)]
+//! #[command(PARENT CMD ATTRIBUTE)]
+//! #[group(GROUP ATTRIBUTE)]
+//! struct Struct {
+//!     /// Doc comment
+//!     #[command(ARG ATTRIBUTE)]
+//!     field: UserType,
+//! }
+//!
+//! /// Doc comment
+//! #[derive(Subcommand)]
+//! #[command(PARENT CMD ATTRIBUTE)]
+//! enum Command {
+//!     /// Doc comment
+//!     #[command(CMD ATTRIBUTE)]
+//!     Variant1(Struct),
+//!
+//!     /// Doc comment
+//!     #[command(CMD ATTRIBUTE)]
+//!     Variant2 {
+//!         /// Doc comment
+//!         #[arg(ARG ATTRIBUTE)]
+//!         field: UserType,
+//!     }
+//! }
+//!
+//! /// Doc comment
+//! #[derive(ValueEnum)]
+//! #[value(VALUE ENUM ATTRIBUTE)]
+//! enum EnumValues {
+//!     /// Doc comment
+//!     #[value(POSSIBLE VALUE ATTRIBUTE)]
+//!     Variant1,
+//! }
+//!
+//! let cli = Cli::parse();
+//! ```
+//!
+//! Traits:
+//! - [`Parser`][crate::Parser] parses arguments into a `struct` (arguments) or `enum` (subcommands).
+//!   - [`Args`][crate::Args] allows defining a set of re-usable arguments that get merged into their parent container.
+//!   - [`Subcommand`][crate::Subcommand] defines available subcommands.
+//!   - Subcommand arguments can be defined in a struct-variant or automatically flattened with a tuple-variant.
+//! - [`ValueEnum`][crate::ValueEnum] allows parsing a value directly into an `enum`, erroring on unsupported values.
+//!   - The derive doesn't work on enums that contain non-unit variants, unless they are skipped
+//!
+//! *See also the [derive tutorial][crate::_derive::_tutorial] and [cookbook][crate::_cookbook]*
+//!
+//! ## Attributes
+//!
+//! ### Terminology
+//!
+//! **Raw attributes** are forwarded directly to the underlying [`clap` builder][crate::builder].  Any
+//! [`Command`][crate::Command], [`Arg`][crate::Arg], or [`PossibleValue`][crate::builder::PossibleValue] method can be used as an attribute.
+//!
+//! Raw attributes come in two different syntaxes:
+//! ```rust,ignore
+//! #[arg(
+//!     global = true, // name = arg form, neat for one-arg methods
+//!     required_if_eq("out", "file") // name(arg1, arg2, ...) form.
+//! )]
+//! ```
+//!
+//! - `method = arg` can only be used for methods which take only one argument.
+//! - `method(arg1, arg2)` can be used with any method.
+//!
+//! As long as `method_name` is not one of the magical methods it will be
+//! translated into a mere method call.
+//!
+//! **Magic attributes** have post-processing done to them, whether that is
+//! - Providing of defaults
+//! - Special behavior is triggered off of it
+//!
+//! Magic attributes are more constrained in the syntax they support, usually just
+//! `<attr> = <value>` though some use `<attr>(<value>)` instead.  See the specific
+//! magic attributes documentation for details.  This allows users to access the
+//! raw behavior of an attribute via `<attr>(<value>)` syntax.
+//!
+//! <div class="warning">
+//!
+//! **NOTE:** Some attributes are inferred from [Arg Types](#arg-types) and [Doc
+//! Comments](#doc-comments).  Explicit attributes take precedence over inferred
+//! attributes.
+//!
+//! </div>
+//!
+//! ### Command Attributes
+//!
+//! These correspond to a [`Command`][crate::Command] which is used for both top-level parsers and
+//! when defining subcommands.
+//!
+//! **Raw attributes:**  Any [`Command` method][crate::Command] can also be used as an attribute,
+//! see [Terminology](#terminology) for syntax.
+//! - e.g. `#[command(arg_required_else_help(true))]` would translate to `cmd.arg_required_else_help(true)`
+//!
+//! **Magic attributes:**
+//! - `name  = <expr>`: [`Command::name`][crate::Command::name]
+//!   - When not present: [package `name`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-name-field) (if on [`Parser`][crate::Parser] container), variant name (if on [`Subcommand`][crate::Subcommand] variant)
+//! - `version [= <expr>]`: [`Command::version`][crate::Command::version]
+//!   - When not present: no version set
+//!   - Without `<expr>`: defaults to [crate `version`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-version-field)
+//! - `author [= <expr>]`: [`Command::author`][crate::Command::author]
+//!   - When not present: no author set
+//!   - Without `<expr>`: defaults to [crate `authors`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-authors-field)
+//!   - **NOTE:** A custom [`help_template`][crate::Command::help_template] is needed for author to show up.
+//! - `about [= <expr>]`: [`Command::about`][crate::Command::about]
+//!   - When not present: [Doc comment summary](#doc-comments)
+//!   - Without `<expr>`: [crate `description`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-description-field) ([`Parser`][crate::Parser] container)
+//!     - **TIP:** When a doc comment is also present, you most likely want to add
+//!       `#[arg(long_about = None)]` to clear the doc comment so only [`about`][crate::Command::about]
+//!       gets shown with both `-h` and `--help`.
+//! - `long_about[ = <expr>]`: [`Command::long_about`][crate::Command::long_about]
+//!   - When not present: [Doc comment](#doc-comments) if there is a blank line, else nothing
+//!   - When present without a value: [Doc comment](#doc-comments)
+//! - `verbatim_doc_comment`: Minimizes pre-processing when converting doc comments to [`about`][crate::Command::about] / [`long_about`][crate::Command::long_about]
+//! - `defer = <bool_literal>`: Delay argument construction for an enum's subcommands with
+//!   [`Command::defer`][crate::Command::defer]. Available on [`Parser`][crate::Parser] and
+//!   [`Subcommand`][crate::Subcommand] enum containers.
+//!   - When not present: `false`, or `true` with the `unstable-v5` feature.
+//!   - Subcommand names and attributes on the variants are applied eagerly, so their descriptions
+//!     are available in the parent's help. Arguments and groups in named variants, and the entire
+//!     [`Args::augment_args`][crate::Args::augment_args] call for newtype variants, are deferred.
+//!   - Put metadata needed by the parent's help on the enum variants. Metadata from an `Args`
+//!     container or its flattened fields is applied when the subcommand is built, and can then
+//!     override metadata on the variant.
+//!   - Flattened and nested `Subcommand` enums use their own `defer` setting. The setting is not
+//!     inherited by those enums and does not defer their registration in the parent.
+//!   - Call [`Command::build`][crate::Command::build] before inspecting deferred arguments or
+//!     nested commands. Parsing builds the selected commands automatically.
+//! - `next_display_order`: [`Command::next_display_order`][crate::Command::next_display_order]
+//! - `next_help_heading`: [`Command::next_help_heading`][crate::Command::next_help_heading]
+//!   - When `flatten`ing [`Args`][crate::Args], this is scoped to just the args in this struct and any struct `flatten`ed into it
+//! - `rename_all = <string_literal>`: Override default field / variant name case conversion for [`Command::name`][crate::Command::name] / [`Arg::id`][crate::Arg::id]
+//!   - When not present: `"kebab-case"`
+//!   - Available values: `"camelCase"`, `"kebab-case"`, `"PascalCase"`, `"SCREAMING_SNAKE_CASE"`, `"snake_case"`, `"lower"`, `"UPPER"`, `"verbatim"`
+//! - `rename_all_env = <string_literal>`: Override default field name case conversion for env variables for  [`Arg::env`][crate::Arg::env]
+//!   - When not present: `"SCREAMING_SNAKE_CASE"`
+//!   - Available values: `"camelCase"`, `"kebab-case"`, `"PascalCase"`, `"SCREAMING_SNAKE_CASE"`, `"snake_case"`, `"lower"`, `"UPPER"`, `"verbatim"`
+//!
+//! And for [`Subcommand`][crate::Subcommand] variants:
+//! - `skip`: Ignore this variant
+//! - `flatten`: Delegates to the variant for more subcommands (must implement
+//!   [`Subcommand`][crate::Subcommand])
+//! - `subcommand`: Nest subcommands under the current set of subcommands (must implement
+//!   [`Subcommand`][crate::Subcommand])
+//! - `external_subcommand`: [`Command::allow_external_subcommand(true)`][crate::Command::allow_external_subcommands]
+//!   - Variant must be either `Variant(Vec<String>)` or `Variant(Vec<OsString>)`
+//!
+//! And for [`Args`][crate::Args] fields:
+//! - `flatten`: Delegates to the field for more arguments (must implement [`Args`][crate::Args])
+//!   - Only [`next_help_heading`][crate::Command::next_help_heading] can be used with `flatten`.  See
+//!     [clap-rs/clap#3269](https://github.com/clap-rs/clap/issues/3269) for why
+//!     arg attributes are not generally supported.
+//!   - **Tip:** Though we do apply a flattened [`Args`][crate::Args]'s Parent Command Attributes, this
+//!     makes reuse harder. Generally prefer putting the cmd attributes on the
+//!     [`Parser`][crate::Parser] or on the flattened field.
+//! - `subcommand`: Delegates definition of subcommands to the field (must implement
+//!   [`Subcommand`][crate::Subcommand])
+//!   - When `Option<T>`, the subcommand becomes optional
+//!
+//! See [Configuring the Parser][_tutorial#configuring-the-parser] and
+//! [Subcommands][_tutorial#subcommands] from the tutorial.
+//!
+//! ### ArgGroup Attributes
+//!
+//! These correspond to the [`ArgGroup`][crate::ArgGroup] which is implicitly created for each
+//! `Args` derive.
+//!
+//! **Raw attributes:**  Any [`ArgGroup` method][crate::ArgGroup] can also be used as an attribute, see [Terminology](#terminology) for syntax.
+//! - e.g. `#[group(required = true)]` would translate to `arg_group.required(true)`
+//!
+//! **Magic attributes**:
+//! - `id = <expr>`: [`ArgGroup::id`][crate::ArgGroup::id]
+//!   - When not present: struct's name is used
+//! - `skip [= <expr>]`: Ignore this field, filling in with `<expr>`
+//!   - Without `<expr>`: fills the field with `Default::default()`
+//!
+//! Note:
+//! - For `struct`s, [`multiple = true`][crate::ArgGroup::multiple] is implied
+//! - `enum` support is tracked at [#2621](https://github.com/clap-rs/clap/issues/2621)
+//!
+//! See [Argument Relations][_tutorial#argument-relations] from the tutorial.
+//!
+//! ### Arg Attributes
+//!
+//! These correspond to a [`Arg`][crate::Arg].
+//! The default state for a field without attributes is to be a positional argument with [behavior
+//! inferred from the field type](#arg-types).
+//! `#[arg(...)]` attributes allow overriding or extending those defaults.
+//!
+//! **Raw attributes:**  Any [`Arg` method][crate::Arg] can also be used as an attribute, see [Terminology](#terminology) for syntax.
+//! - e.g. `#[arg(num_args(..=3))]` would translate to `arg.num_args(..=3)`
+//!
+//! **Magic attributes**:
+//! - `id = <expr>`: [`Arg::id`][crate::Arg::id]
+//!   - When not present: field's name is used
+//! - `value_parser [= <expr>]`: [`Arg::value_parser`][crate::Arg::value_parser]
+//!   - When not present: will auto-select an implementation based on the field type using
+//!     [`value_parser!`][crate::value_parser!]
+//! - `action [= <expr>]`: [`Arg::action`][crate::Arg::action]
+//!   - When not present: will auto-select an action based on the field type
+//! - `help = <expr>`: [`Arg::help`][crate::Arg::help]
+//!   - When not present: [Doc comment summary](#doc-comments)
+//! - `long_help[ = <expr>]`: [`Arg::long_help`][crate::Arg::long_help]
+//!   - When not present: [Doc comment](#doc-comments) if there is a blank line, else nothing
+//!   - When present without a value: [Doc comment](#doc-comments)
+//! - `verbatim_doc_comment`: Minimizes pre-processing when converting doc comments to [`help`][crate::Arg::help] / [`long_help`][crate::Arg::long_help]
+//! - `short [= <char>]`: [`Arg::short`][crate::Arg::short]
+//!   - When not present: no short set
+//!   - Without `<char>`: defaults to first character in the case-converted field name
+//! - `long [= <str>]`: [`Arg::long`][crate::Arg::long]
+//!   - When not present: no long set
+//!   - Without `<str>`: defaults to the case-converted field name
+//! - `env [= <str>]`: [`Arg::env`][crate::Arg::env] (needs [`env` feature][crate::_features] enabled)
+//!   - When not present: no env set
+//!   - Without `<str>`: defaults to the case-converted field name
+//! - `from_global`: Read a [`Arg::global`][crate::Arg::global] argument (raw attribute), regardless of what subcommand you are in
+//! - `value_enum`: Parse the value using the [`ValueEnum`][crate::ValueEnum]
+//! - `skip [= <expr>]`: Ignore this field, filling in with `<expr>`
+//!   - Without `<expr>`: fills the field with `Default::default()`
+//! - `default_value = <str>`: [`Arg::default_value`][crate::Arg::default_value] and [`Arg::required(false)`][crate::Arg::required]
+//! - `default_value_t [= <expr>]`: [`Arg::default_value`][crate::Arg::default_value] and [`Arg::required(false)`][crate::Arg::required]
+//!   - Requires `std::fmt::Display` that roundtrips correctly with the
+//!     [`Arg::value_parser`][crate::Arg::value_parser] or `#[arg(value_enum)]`
+//!   - Without `<expr>`, relies on `Default::default()`
+//! - `default_values_t = <expr>`: [`Arg::default_values`][crate::Arg::default_values] and [`Arg::required(false)`][crate::Arg::required]
+//!   - Requires field arg to be of type `Vec<T>` and `T` to implement `std::fmt::Display` or `#[arg(value_enum)]`
+//!   - `<expr>` must implement `IntoIterator<T>`
+//! - `default_value_os_t [= <expr>]`: [`Arg::default_value_os`][crate::Arg::default_value_os] and [`Arg::required(false)`][crate::Arg::required]
+//!   - Requires `std::convert::Into<OsString>` or `#[arg(value_enum)]`
+//!   - Without `<expr>`, relies on `Default::default()`
+//! - `default_values_os_t = <expr>`: [`Arg::default_values_os`][crate::Arg::default_values_os] and [`Arg::required(false)`][crate::Arg::required]
+//!   - Requires field arg to be of type `Vec<T>` and `T` to implement `std::convert::Into<OsString>` or `#[arg(value_enum)]`
+//!   - `<expr>` must implement `IntoIterator<T>`
+//!
+//! See [Adding Arguments][_tutorial#adding-arguments] and [Validation][_tutorial#validation] from the
+//! tutorial.
+//!
+//! ### ValueEnum Attributes
+//!
+//! - `rename_all = <string_literal>`: Override default field / variant name case conversion for [`PossibleValue::new`][crate::builder::PossibleValue]
+//!   - When not present: `"kebab-case"`
+//!   - Available values: `"camelCase"`, `"kebab-case"`, `"PascalCase"`, `"SCREAMING_SNAKE_CASE"`, `"snake_case"`, `"lower"`, `"UPPER"`, `"verbatim"`
+//!
+//! See [Enumerated values][_tutorial#enumerated-values] from the tutorial.
+//!
+//! ### Possible Value Attributes
+//!
+//! These correspond to a [`PossibleValue`][crate::builder::PossibleValue].
+//!
+//! **Raw attributes:**  Any [`PossibleValue` method][crate::builder::PossibleValue] can also be used as an attribute, see [Terminology](#terminology) for syntax.
+//! - e.g. `#[value(alias("foo"))]` would translate to `pv.alias("foo")`
+//!
+//! **Magic attributes**:
+//! - `name = <expr>`: [`PossibleValue::new`][crate::builder::PossibleValue::new]
+//!   - When not present: case-converted field name is used
+//! - `help = <expr>`: [`PossibleValue::help`][crate::builder::PossibleValue::help]
+//!   - When not present: [Doc comment summary](#doc-comments)
+//! - `skip`: Ignore this variant
+//!
+//! ## Field Types
+//!
+//! `clap` assumes some intent based on the type used.
+//!
+//! ### Subcommand Types
+//!
+//! | Type                  | Effect              | Implies                                                   |
+//! |-----------------------|---------------------|-----------------------------------------------------------|
+//! | `Option<T>`           | optional subcommand |                                                           |
+//! | `T`                   | required subcommand | `.subcommand_required(true).arg_required_else_help(true)` |
+//!
+//! ### Arg Types
+//!
+//! | Type                  | Effect                                               | Implies                                                     | Notes |
+//! |-----------------------|------------------------------------------------------|-------------------------------------------------------------|-------|
+//! | `()`                  | user-defined                                         | `.action(ArgAction::Set).required(false)`                   |       |
+//! | `bool`                | flag                                                 | `.action(ArgAction::SetTrue)`                               |       |
+//! | `Option<T>`           | optional argument                                    | `.action(ArgAction::Set).required(false)`                   |       |
+//! | `Option<Option<T>>`   | optional value for optional argument                 | `.action(ArgAction::Set).required(false).num_args(0..=1)`   |       |
+//! | `T`                   | required argument                                    | `.action(ArgAction::Set).required(!has_default)`            |       |
+//! | `Vec<T>`              | `0..` occurrences of argument                        | `.action(ArgAction::Append).required(false)`  |       |
+//! | `Option<Vec<T>>`      | `0..` occurrences of argument                        | `.action(ArgAction::Append).required(false)`  |       |
+//! | `Vec<Vec<T>>`         | `0..` occurrences of argument, grouped by occurrence | `.action(ArgAction::Append).required(false)`  | requires `unstable-v5` |
+//! | `Option<Vec<Vec<T>>>` | `0..` occurrences of argument, grouped by occurrence | `.action(ArgAction::Append).required(false)`  | requires `unstable-v5` |
+//!
+//! In addition, [`.value_parser(value_parser!(T))`][crate::value_parser!] is called for each
+//! field in the absence of a [`#[arg(value_parser)]` attribute](#arg-attributes).
+//!
+//! Notes:
+//! - For custom type behavior, you can override the implied attributes/settings and/or set additional ones
+//!   - To force any inferred type (like `Vec<T>`) to be treated as `T`, you can refer to the type
+//!     by another means, like using `std::vec::Vec` instead of `Vec`.  For improving this, see
+//!     [#4626](https://github.com/clap-rs/clap/issues/4626).
+//! - `Option<Vec<T>>` and `Option<Vec<Vec<T>>` will be `None` instead of `vec![]` if no arguments are provided.
+//!   - This gives the user some flexibility in designing their argument, like with `num_args(0..)`
+//! - `Vec<Vec<T>>` will need [`Arg::num_args`][crate::Arg::num_args] set to be meaningful
+//!
+//! ## Doc Comments
+//!
+//! In clap, help messages for the whole binary can be specified
+//! via [`Command::about`][crate::Command::about] and [`Command::long_about`][crate::Command::long_about] while help messages
+//! for individual arguments can be specified via [`Arg::help`][crate::Arg::help] and [`Arg::long_help`][crate::Arg::long_help].
+//!
+//! `long_*` variants are used when user calls the program with
+//! `--help` and "short" variants are used with `-h` flag.
+//!
+//! ```rust
+//! # use clap::Parser;
+//!
+//! #[derive(Parser)]
+//! #[command(about = "I am a program and I work, just pass `-h`", long_about = None)]
+//! struct Foo {
+//!     #[arg(short, help = "Pass `-h` and you'll see me!")]
+//!     bar: String,
+//! }
+//! ```
+//!
+//! For convenience, doc comments can be used instead of raw methods
+//! (this example works exactly like the one above):
+//!
+//! ```rust
+//! # use clap::Parser;
+//!
+//! #[derive(Parser)]
+//! /// I am a program and I work, just pass `-h`
+//! struct Foo {
+//!     /// Pass `-h` and you'll see me!
+//!     bar: String,
+//! }
+//! ```
+//!
+//! <div class="warning">
+//!
+//! **NOTE:** Attributes have priority over doc comments!
+//!
+//! **Top level doc comments always generate `Command::about/long_about` calls!**
+//! If you really want to use the `Command::about/long_about` methods (you likely don't),
+//! use the `about` / `long_about` attributes to override the calls generated from
+//! the doc comment.  To clear `long_about`, you can use
+//! `#[command(long_about = None)]`.
+//!
+//! </div>
+//!
+//! ### Pre-processing
+//!
+//! ```rust
+//! # use clap::Parser;
+//! #[derive(Parser)]
+//! /// Hi there, I'm Robo!
+//! ///
+//! /// I like beeping, stumbling, eating your electricity,
+//! /// and making records of you singing in a shower.
+//! /// Pay up, or I'll upload it to youtube!
+//! struct Robo {
+//!     /// Call my brother SkyNet.
+//!     ///
+//!     /// I am artificial superintelligence. I won't rest
+//!     /// until I'll have destroyed humanity. Enjoy your
+//!     /// pathetic existence, you mere mortals.
+//!     #[arg(long, action)]
+//!     kill_all_humans: bool,
+//! }
+//! ```
+//!
+//! A doc comment consists of three parts:
+//! - Short summary
+//! - A blank line (whitespace only)
+//! - Detailed description, all the rest
+//!
+//! The summary corresponds with `Command::about` / `Arg::help`.  When a blank line is
+//! present, the whole doc comment will be passed to `Command::long_about` /
+//! `Arg::long_help`.  Or in other words, a doc may result in just a `Command::about` /
+//! `Arg::help` or `Command::about` / `Arg::help` and `Command::long_about` /
+//! `Arg::long_help`
+//!
+//! In addition, when `verbatim_doc_comment` is not present, `clap` applies some preprocessing, including:
+//!
+//! - Strip leading and trailing whitespace from every line, if present.
+//!
+//! - Strip leading and trailing blank lines, if present.
+//!
+//! - Interpret each group of non-empty lines as a word-wrapped paragraph.
+//!
+//!   We replace newlines within paragraphs with spaces to allow the output
+//!   to be re-wrapped to the terminal width.
+//!
+//! - Strip any excess blank lines so that there is exactly one per paragraph break.
+//!
+//! - If the first paragraph ends in exactly one period,
+//!   remove the trailing period (i.e. strip trailing periods but not trailing ellipses).
+//!
+//! Sometimes you don't want this preprocessing to apply, for example the comment contains
+//! some ASCII art or markdown tables, you would need to preserve LFs along with
+//! blank lines and the leading/trailing whitespace. When you pass use the
+//! `verbatim_doc_comment` magic attribute, you  preserve
+//! them.
+//!
+//! **Note:** Keep in mind that `verbatim_doc_comment` will *still*
+//! - Remove one leading space from each line, even if this attribute is present,
+//!   to allow for a space between `///` and the content.
+//! - Remove leading and trailing blank lines
+//!
+//! ## Mixing Builder and Derive APIs
+//!
+//! The builder and derive APIs do not live in isolation. They can work together, which is
+//! especially helpful if some arguments can be specified at compile-time while others must be
+//! specified at runtime.
+//!
+//! ### Using derived arguments in a builder application
+//!
+//! When using the derive API, you can `#[command(flatten)]` a struct deriving `Args` into a struct
+//! deriving `Args` or `Parser`. This example shows how you can augment a `Command` instance
+//! created using the builder API with `Args` created using the derive API.
+//!
+//! It uses the [`Args::augment_args`][crate::Args::augment_args] method to add the arguments to
+//! the `Command` instance.
+//!
+//! Crates such as [clap-verbosity-flag](https://github.com/rust-cli/clap-verbosity-flag) provide
+//! structs that implement `Args`. Without the technique shown in this example, it would not be
+//! possible to use such crates with the builder API.
+//!
+//! For example:
+//! ```rust
+⋮----
+//! ```
+//!
+//! ### Using derived subcommands in a builder application
+//!
+//! When using the derive API, you can use `#[command(subcommand)]` inside the struct to add
+//! subcommands. The type of the field is usually an enum that derived `Parser`. However, you can
+//! also add the subcommands in that enum to a `Command` instance created with the builder API.
+//!
+//! It uses the [`Subcommand::augment_subcommands`][crate::Subcommand::augment_subcommands] method
+//! to add the subcommands to the `Command` instance.
+//!
+//! For example:
+//! ```rust
+⋮----
+//! ```
+//!
+//! ### Adding hand-implemented subcommands to a derived application
+//!
+//! When using the derive API, you can use `#[command(subcommand)]` inside the struct to add
+//! subcommands. The type of the field is usually an enum that derived `Parser`. However, you can
+//! also implement the `Subcommand` trait manually on this enum (or any other type) and it can
+//! still be used inside the struct created with the derive API. The implementation of the
+//! `Subcommand` trait will use the builder API to add the subcommands to the `Command` instance
+//! created behind the scenes for you by the derive API.
+//!
+//! Notice how in the previous example we used
+//! [`augment_subcommands`][crate::Subcommand::augment_subcommands] on an enum that derived
+//! `Parser`, whereas now we implement
+//! [`augment_subcommands`][crate::Subcommand::augment_subcommands] ourselves, but the derive API
+//! calls it automatically since we used the `#[command(subcommand)]` attribute.
+//!
+//! For example:
+//! ```rust
+⋮----
+//! ```
+//!
+//! ### Flattening hand-implemented args into a derived application
+//!
+//! When using the derive API, you can use `#[command(flatten)]` inside the struct to add arguments as
+//! if they were added directly to the containing struct. The type of the field is usually an
+//! struct that derived `Args`. However, you can also implement the `Args` trait manually on this
+//! struct (or any other type) and it can still be used inside the struct created with the derive
+//! API. The implementation of the `Args` trait will use the builder API to add the arguments to
+//! the `Command` instance created behind the scenes for you by the derive API.
+//!
+//! Notice how in the previous example we used [`augment_args`][crate::Args::augment_args] on the
+//! struct that derived `Parser`, whereas now we implement
+//! [`augment_args`][crate::Args::augment_args] ourselves, but the derive API calls it
+//! automatically since we used the `#[command(flatten)]` attribute.
+//!
+//! For example:
+//! ```rust
+⋮----
+//! ```
+//!
+//! ## Tips
+//!
+//! - To get access to a [`Command`][crate::Command] call
+//!   [`CommandFactory::command`][crate::CommandFactory::command] (implemented when deriving
+//!   [`Parser`][crate::Parser])
+//! - Proactively check for bad [`Command`][crate::Command] configurations by calling
+//!   [`Command::debug_assert`][crate::Command::debug_assert] in a test
+//!   ([example][_tutorial#testing])
+//! - Always remember to [document](#doc-comments) args and commands with `#![deny(missing_docs)]`
+//!   or `#[deny(clippy::missing_docs_in_private_items)]`
+⋮----
+// Point people here that search for attributes that don't exist in the derive (a subset of magic
+// attributes)
+⋮----
+pub mod _tutorial;
+⋮----
+pub use crate::_cookbook;
+</file>
+
+<file path="README.md">
+# clap
+
+> **Command Line Argument Parser for Rust**
+
+[![Crates.io](https://img.shields.io/crates/v/clap?style=flat-square)](https://crates.io/crates/clap)
+[![Crates.io](https://img.shields.io/crates/d/clap?style=flat-square)](https://crates.io/crates/clap)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE-MIT)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/clap-rs/clap/ci.yml?branch=main&style=flat-square)](https://github.com/clap-rs/clap/actions/workflows/ci.yml?query=branch%3Amain)
+[![Coverage Status](https://img.shields.io/coveralls/github/clap-rs/clap/main?style=flat-square)](https://coveralls.io/github/clap-rs/clap?branch=main)
+[![Contributors](https://img.shields.io/github/contributors/clap-rs/clap?style=flat-square)](https://github.com/clap-rs/clap/graphs/contributors)
+
+Dual-licensed under [Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT).
+
+## Get Started
+
+```console
+$ cargo add clap
+```
+
+## About
+
+Create your command-line parser, with all of the bells and whistles, declaratively or procedurally.
+
+For more details, see:
+- [docs.rs](https://docs.rs/clap/latest/clap/)
+- [examples](examples/)
+
+## Sponsors
+
+<!-- omit in TOC -->
+### Gold
+
+[![](https://opencollective.com/clap/tiers/gold.svg?width=890)](https://opencollective.com/clap)
+
+<!-- omit in TOC -->
+### Silver
+
+[![](https://opencollective.com/clap/tiers/silver.svg?width=890)](https://opencollective.com/clap)
+
+<!-- omit in TOC -->
+### Bronze
+
+[![](https://opencollective.com/clap/tiers/bronze.svg?width=890)](https://opencollective.com/clap)
+
+<!-- omit in TOC -->
+### Backer
+
+[![](https://opencollective.com/clap/tiers/backer.svg?width=890)](https://opencollective.com/clap)
+</file>
+
+</files>

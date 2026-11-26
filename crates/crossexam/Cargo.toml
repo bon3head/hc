@@ -1,0 +1,31 @@
+[package]
+name = "crossexam"
+description = "The kernel: cross-examines agent claims against harness evidence and is the only code that can mint Verified"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bedrock.workspace = true
+cell.workspace = true
+docket.workspace = true
+exhibit.workspace = true
+globset.workspace = true
+regex.workspace = true
+seal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shlex.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tree-sitter.workspace = true
+tree-sitter-python.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+trybuild.workspace = true
+bedrock.workspace = true
+
+[lints]
+workspace = true

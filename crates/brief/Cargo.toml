@@ -1,0 +1,17 @@
+[package]
+name = "brief"
+description = "The linker: compiles verified facts, refutations and unresolved claims into the next agent's brief"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bedrock.workspace = true
+crossexam.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

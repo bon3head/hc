@@ -1,0 +1,3892 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: src/bundle/**/*.rs, src/crypto/**/*.rs, src/errors.rs, README.md
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  bundle/
+    verify/
+      mod.rs
+      models.rs
+      policy.rs
+      verifier.rs
+    intoto.rs
+    mod.rs
+    models.rs
+    sign.rs
+  crypto/
+    backend/
+      aws_lc.rs
+      mod.rs
+      openssl.rs
+    merkle/
+      mod.rs
+      proof_verification.rs
+      rfc6962.rs
+    signing_key/
+      ecdsa/
+        ec.rs
+        mod.rs
+      rsa/
+        keypair.rs
+        mod.rs
+      ed25519.rs
+      kdf.rs
+      mod.rs
+    certificate_pool.rs
+    certificate.rs
+    keyring.rs
+    mod.rs
+    transparency.rs
+    verification_key.rs
+  errors.rs
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/bundle/verify/mod.rs">
+//
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Types for verifying Sigstore bundles with policies.
+⋮----
+pub(crate) mod models;
+⋮----
+pub mod policy;
+⋮----
+mod verifier;
+⋮----
+/// Fixtures shared between the unit tests of this module's submodules.
+⋮----
+pub(crate) mod test_data {
+/// `sigstore@5.0.0` npm SLSA provenance, from
+/// <https://registry.npmjs.org/-/npm/v1/attestations/sigstore@5.0.0>.
+/// Its in-toto statement's only subject digest is a `sha512`.
+⋮----
+/// A pinned copy of the Sigstore Public Good Instance's `trusted_root.json`,
+/// so bundle verification tests never touch the network.
+⋮----
+/// SHA-512 of `sigstore-5.0.0.tgz`, i.e. [`NPM_SLSA_BUNDLE_V03`]'s only
+/// subject digest.
+⋮----
+/// The SAN of [`NPM_SLSA_BUNDLE_V03`]'s signing certificate.
+⋮----
+/// The OIDC issuer of [`NPM_SLSA_BUNDLE_V03`]'s signing certificate.
+</file>
+
+<file path="src/bundle/verify/models.rs">
+//
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+use std::str::FromStr;
+⋮----
+use thiserror::Error;
+⋮----
+use super::policy::PolicyError;
+⋮----
+/// Computes the DSSE Pre-Authentication Encoding (PAE) for the given payload type and payload.
+///
+/// PAE is the canonical byte string that is actually signed in a DSSE envelope.
+/// It encodes both the payload type and payload length to prevent cross-protocol attacks:
+///
+/// ```text
+/// DSSEv1 <len(type)> <type> <len(payload)> <payload>
+/// ```
+///
+/// See <https://github.com/secure-systems-lab/dsse/blob/master/protocol.md>.
+pub(crate) fn compute_pae(payload_type: &str, payload: &[u8]) -> Vec<u8> {
+⋮----
+pub enum Bundle01ProfileErrorKind {
+⋮----
+pub enum Bundle02ProfileErrorKind {
+⋮----
+pub enum BundleProfileErrorKind {
+⋮----
+/// Maximum number of subjects accepted in a DSSE in-toto statement, and
+/// maximum number of digest entries accepted per subject.
+///
+/// The statement comes from an untrusted bundle, so the work and memory spent
+/// on it before it can be rejected have to be bounded.  Statements over these
+/// limits are rejected outright rather than truncated.  The values match
+/// sigstore-go's `maxAllowedSubjects` / `maxAllowedSubjectDigests`
+/// (`pkg/verify/signature.go`).
+⋮----
+pub enum BundleErrorKind {
+⋮----
+pub enum CertificateErrorKind {
+⋮----
+pub enum SignatureErrorKind {
+⋮----
+/// An artifact digest, tagged with the algorithm that produced it.
+///
+/// Sigstore bundles bind a signature to an artifact by digest.  Which digest
+/// algorithm is used is the *producer's* choice: cosign and PyPI publish
+/// `sha256` subjects, while npm provenance attestations carry `sha512`
+/// subjects.  Verification therefore has to be told which algorithm the
+/// caller hashed with, rather than assuming SHA-256.
+///
+/// See [`Verifier::verify_digest_with`](crate::bundle::verify::Verifier::verify_digest_with).
+⋮----
+pub enum ArtifactDigest {
+/// A SHA-256 digest of the artifact.
+⋮----
+/// A SHA-512 digest of the artifact.
+⋮----
+impl ArtifactDigest {
+/// The in-toto digest algorithm name (`sha256` or `sha512`), as it appears
+/// as a key in an in-toto statement's subject digest map.
+pub fn algorithm(&self) -> &'static str {
+⋮----
+/// The raw digest bytes.
+pub fn as_bytes(&self) -> &[u8] {
+⋮----
+/// The digest as a lowercase hex string, without an algorithm prefix.
+pub fn to_hex(&self) -> String {
+⋮----
+/// Parses one entry of an in-toto subject's digest map into a typed digest.
+///
+/// Returns `Ok(None)` for algorithms this crate cannot match an artifact
+/// against (`gitCommit`, `dirHash`, ...), which the in-toto DigestSet
+/// guidance tells consumers to ignore.  For the accepted algorithms, a
+/// value that is not hex of exactly the algorithm's digest length can never
+/// be a real digest of that algorithm, so it is rejected outright instead
+/// of being carried around as an unmatchable string.
+pub(crate) fn from_subject_entry(
+⋮----
+fn decode<const N: usize>(
+⋮----
+fn from(digest: [u8; 32]) -> Self {
+⋮----
+fn from(digest: [u8; 64]) -> Self {
+⋮----
+fn from(hasher: Sha256) -> Self {
+⋮----
+fn from(hasher: Sha512) -> Self {
+⋮----
+pub enum VerificationError {
+⋮----
+pub type VerificationResult = Result<(), VerificationError>;
+⋮----
+/// Describes how to verify the signature in a [`CheckedBundle`].
+⋮----
+pub(crate) enum BundleContent {
+/// Classic message signature: `signature` is verified via `verify_prehash(sig, hash(input))`.
+⋮----
+/// DSSE envelope: `signature` is verified via `verify_signature(sig, PAE)` where `signed_data`
+/// holds the PAE bytes.  The caller's artifact digest is compared against the
+/// subject digests in the in-toto statement rather than being used for signature verification.
+⋮----
+/// The DSSE Pre-Authentication Encoding bytes (what was actually signed).
+pae: Vec<u8>,
+/// Every recognized subject digest of the in-toto statement, parsed and
+/// flattened across subjects.  An artifact matches if *any* entry
+/// equals the caller's digest (which carries its algorithm); entries
+/// under algorithms this crate cannot match are not retained.
+subject_digests: Vec<ArtifactDigest>,
+/// Canonical JSON serialization of the DSSE envelope (used to verify `envelopeHash`
+/// in the tlog body consistency check).
+envelope_json: Vec<u8>,
+/// Raw payload bytes from the DSSE envelope (used to verify `payloadHash`).
+payload_bytes: Vec<u8>,
+⋮----
+pub struct CheckedBundle {
+pub(crate) certificate: Certificate,
+/// The DER bytes of `certificate`, as they are in the bundle.
+pub(crate) certificate_der: Vec<u8>,
+pub(crate) signature: Vec<u8>,
+pub(crate) content: BundleContent,
+⋮----
+tlog_entry: TransparencyLogEntry,
+⋮----
+type Error = BundleErrorKind;
+⋮----
+fn try_from(input: Bundle) -> Result<Self, Self::Error> {
+⋮----
+// Parse the certificates. The first entry in the chain MUST be a leaf certificate, and the
+// rest of the chain MUST NOT include a root CA or any intermediate CAs that appear in an
+// independent root of trust.
+⋮----
+// Serialize the DSSE envelope to canonical JSON for envelopeHash
+// verification.
+// Must happen before .into_iter() consumes signatures below.
+⋮----
+// The signature inside the envelope is raw bytes (not base64 in the
+// protobuf representation). Spec requires exactly one signature —
+// reject if count != 1.
+⋮----
+// Compute the DSSE PAE from the in-memory (raw bytes) payload.
+⋮----
+// Bound the untrusted statement before building any owned
+// representation of it.
+⋮----
+// Collect every subject digest an artifact could be matched
+// against.  Algorithm keys are matched exactly — in-toto defines
+// them as lowercase strings, and this mirrors sigstore-go's
+// exact map lookup.  Digest values are hex-decoded here, so
+// matching later is a byte comparison and no attacker-controlled
+// strings are retained.
+⋮----
+// A statement whose subjects carry no digest we can match
+// against could never bind an artifact, so reject it up front
+// rather than failing later with a mismatch.
+⋮----
+// `inclusion_proof` is a required field in the current protobuf spec,
+// but older versions of Rekor didn't provide it. Check invariants
+// here and selectively allow for this case.
+//
+// https://github.com/sigstore/sigstore-python/pull/634#discussion_r1182769140
+⋮----
+// Bundle v0.3 requires a full inclusion proof with checkpoint, same as v0.2.
+// The Sigstore bundle protobuf spec (`tlog_entries` field comment) states that
+// only v0.1 bundles MAY use an inclusion promise without a proof; v0.2 and later
+// MUST include a full inclusion proof with checkpoint.
+// https://github.com/sigstore/protobuf-specs/blob/main/protos/sigstore_bundle.proto
+⋮----
+impl CheckedBundle {
+/// Retrieves and checks consistency of the bundle's [TransparencyLogEntry].
+pub fn tlog_entry(&self, offline: bool, input_digest: &[u8]) -> Option<&TransparencyLogEntry> {
+⋮----
+fn tlog_entry_for_message_signature(
+⋮----
+fn tlog_entry_for_dsse(&self, offline: bool) -> Option<&TransparencyLogEntry> {
+⋮----
+// For DSSE entries the tlog body kind must be "dsse" and the body must be
+// consistent with the envelope: envelopeHash, payloadHash, signature, and
+// verifier certificate must all match what we have in the bundle.
+⋮----
+// Guard the schema-dependent field traversal below (spec.envelopeHash,
+// spec.payloadHash, spec.signatures) which are defined by the dsse v0.0.1
+// body schema.  Fail fast if the version is unexpected rather than
+// silently parsing the wrong fields.
+⋮----
+// 1. Verify envelopeHash algorithm is sha256 and value matches sha256(canonical envelope JSON).
+⋮----
+// 2. Verify payloadHash algorithm is sha256 and value matches sha256(payload bytes).
+⋮----
+// 3. Verify the first tlog signature matches the bundle signature.
+⋮----
+// 4. Verify the tlog verifier matches the bundle's signing certificate.
+⋮----
+/// Builds the canonical JSON representation of a DSSE envelope that Rekor uses when
+/// computing `envelopeHash`.  The format matches the JSON serialization produced by
+/// the Rekor `dsse` entry type (v0.0.1): keys are in alphabetical order, binary
+/// fields (`payload`, `sig`) are standard base64-encoded strings.
+///
+/// Returns `None` if the envelope has no signatures (which is invalid for our purposes).
+⋮----
+mod tests {
+use rstest::rstest;
+⋮----
+/// npm provenance attestations describe their subject with a `sha512` digest
+/// and nothing else, so requiring `sha256` made them unverifiable.
+⋮----
+fn checked_bundle_accepts_sha512_only_subject() {
+⋮----
+/// Build a `CheckedBundle` from the real fixture after applying `mutate` to
+/// the decoded in-toto statement of its DSSE envelope.
+fn checked_bundle_with_envelope(
+⋮----
+use sigstore_protobuf_specs::dev::sigstore::bundle::v1::bundle::Content;
+⋮----
+/// Build a `CheckedBundle` from the real fixture after replacing the in-toto
+/// statement's `subject` array with `subject`.
+fn checked_bundle_with_subjects(
+⋮----
+/// Extract the retained subject digests from a construction result, or
+/// panic with the construction error.
+fn subject_digests_of(result: Result<CheckedBundle, BundleErrorKind>) -> Vec<ArtifactDigest> {
+⋮----
+/// The npm fixture's `predicateType` is SLSA provenance, not cosign sign-v1:
+/// bundle verification must not restrict the predicate.
+⋮----
+fn checked_bundle_accepts_any_predicate_type(#[case] predicate_type: &str) {
+⋮----
+/// Statement `_type` is not restricted at this layer: v0.1 statements —
+/// which older cosign releases produced, with the same `subject` shape —
+/// were accepted by the previous verifier and still are.  sigstore-go's
+/// verifier does not pin `_type` either.
+⋮----
+fn checked_bundle_accepts_statement_v01_type() {
+⋮----
+fn checked_bundle_collects_every_subject_digest() {
+⋮----
+/// Digest values are hex-decoded at construction, so the case of the hex
+/// cannot affect matching.
+⋮----
+fn checked_bundle_parses_uppercase_hex_digest_values() {
+⋮----
+/// Algorithm keys are matched exactly: in-toto defines DigestSet keys as
+/// lowercase strings, and sigstore-go's map lookup is exact.  A
+/// non-lowercase key is just an unrecognized algorithm.
+⋮----
+fn checked_bundle_does_not_case_fold_algorithm_keys() {
+⋮----
+/// A value under a recognized algorithm that cannot be a digest of that
+/// algorithm (bad hex, or hex of the wrong length) can never match and is
+/// rejected at construction, before any expensive verification runs.
+⋮----
+// Valid hex, but 32 bytes cannot be a SHA-512 digest.
+⋮----
+fn checked_bundle_rejects_malformed_recognized_digest(
+⋮----
+/// Unrecognized algorithms are ignored per the in-toto DigestSet consumer
+/// guidance: they are not retained (nothing could ever match them) and
+/// their values are not validated.
+⋮----
+fn checked_bundle_ignores_unrecognized_algorithms() {
+⋮----
+/// Builds a subject array with `count` subjects, each carrying one valid
+/// sha256 digest.
+fn subjects_with_count(count: usize) -> serde_json::Value {
+⋮----
+/// Builds one subject whose digest map has `count` entries (one valid
+/// sha256, the rest unrecognized algorithms).
+fn subject_with_digest_entries(count: usize) -> serde_json::Value {
+⋮----
+/// Over-limit statements are rejected outright, never truncated; statements
+/// exactly at the limit still build.  Limits match sigstore-go's.
+⋮----
+fn checked_bundle_bounds_subject_count() {
+⋮----
+/// Same bound for the digest entries of a single subject; unrecognized
+/// entries count toward the limit (the map itself is what is bounded).
+⋮----
+fn checked_bundle_bounds_digest_entries_per_subject() {
+⋮----
+/// `from_subject_entry` must accept exactly the digests an
+/// [`ArtifactDigest`] can represent, and parsing a digest's own hex must
+/// yield the digest back.
+⋮----
+fn from_subject_entry_round_trips_every_algorithm(#[case] digest: ArtifactDigest) {
+⋮----
+fn artifact_digest_from_hasher(
+⋮----
+// No subjects at all: nothing to bind an artifact to.
+⋮----
+// A subject with no digest entries whatsoever.
+⋮----
+// Digest entries exist, but none under an algorithm we can match against.
+⋮----
+fn checked_bundle_rejects_unmatchable_subjects(#[case] subject: serde_json::Value) {
+⋮----
+/// Parse the real v0.3 fixture, apply `mutate` to the decoded-then-re-serialised
+/// `canonicalizedBody` JSON value, and build a [`CheckedBundle`] from the result.
+///
+/// `mutate` receives the full parsed body `serde_json::Value` (keys: `apiVersion`,
+/// `kind`, `spec`) and should modify it in place.  The mutated value is
+/// re-serialised and stored back as `canonicalized_body` bytes in the single tlog
+/// entry before the bundle is converted to a [`CheckedBundle`].
+fn checked_bundle_with_mutated_body(
+⋮----
+fn dsse_tlog_entry_accepts_real_fixture() {
+⋮----
+// `offline = true` skips the online fetch guard; the real fixture carries
+// an inclusion proof so it passes the guard even in offline mode.
+⋮----
+fn dsse_tlog_entry_accepts_generalized_time_certificate() {
+⋮----
+// Wrong top-level kind.
+⋮----
+// envelopeHash value is a different (all-zeros) 64-hex string.
+⋮----
+// envelopeHash algorithm replaced with something other than sha256.
+⋮----
+// payloadHash value is a different (all-zeros) 64-hex string.
+⋮----
+// payloadHash algorithm replaced with something other than sha256.
+⋮----
+// Signature in tlog body replaced with all-zeros base64.
+⋮----
+// Verifier cert in tlog body replaced with a different base64 blob.
+⋮----
+fn dsse_tlog_entry_rejects_tampered_body(
+⋮----
+// -----------------------------------------------------------------------
+// DSSE signature cardinality
+// -----------------------------------------------------------------------
+⋮----
+/// Build a `CheckedBundle` from the real fixture after setting the number
+/// of DSSE signatures in the envelope to `count` (by cloning / clearing
+/// the first entry).
+fn checked_bundle_with_dsse_sig_count(count: usize) -> Result<CheckedBundle, BundleErrorKind> {
+use sigstore_protobuf_specs::dev::sigstore::bundle::v1::bundle::Content;
+⋮----
+fn checked_bundle_rejects_wrong_dsse_sig_count(
+⋮----
+// Compare discriminants so we don't need PartialEq on BundleErrorKind.
+⋮----
+// Also check the count embedded in DsseInvalidSignatureCount.
+⋮----
+fn compute_pae_has_correct_structure(#[case] payload_type: &str, #[case] payload: &[u8]) {
+</file>
+
+<file path="src/bundle/verify/policy.rs">
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Verification constraints for certificate metadata.
+//!
+//! <https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#extension-values>
+⋮----
+use const_oid::ObjectIdentifier;
+use thiserror::Error;
+use tracing::warn;
+⋮----
+macro_rules! oids {
+⋮----
+macro_rules! impl_policy {
+⋮----
+pub enum PolicyError {
+⋮----
+extension: String,
+expected: String,
+actual: String,
+⋮----
+total: usize,
+errors: Vec<PolicyError>,
+⋮----
+AnyOf { total: usize },
+⋮----
+pub type PolicyResult = Result<(), PolicyError>;
+⋮----
+/// A policy that checks a single textual value against a X.509 extension.
+pub trait SingleX509ExtPolicy {
+fn new<S: AsRef<str>>(val: S) -> Self;
+fn name() -> &'static str;
+fn value(&self) -> &str;
+⋮----
+impl<T: SingleX509ExtPolicy + const_oid::AssociatedOid> VerificationPolicy for T {
+fn verify(&self, cert: &x509_cert::Certificate) -> PolicyResult {
+⋮----
+// Check for exactly one extension.
+⋮----
+// Parse raw string without DER encoding.
+⋮----
+/// An interface that all policies must conform to.
+pub trait VerificationPolicy {
+fn verify(&self, cert: &x509_cert::Certificate) -> PolicyResult;
+⋮----
+/// The "any of" policy, corresponding to a logical OR between child policies.
+///
+/// An empty list of child policies is considered trivially invalid.
+pub struct AnyOf<'a> {
+children: Vec<&'a dyn VerificationPolicy>,
+⋮----
+pub fn new<I>(policies: I) -> Self
+⋮----
+impl VerificationPolicy for AnyOf<'_> {
+fn verify(&self, cert: &x509_cert::Certificate) -> PolicyResult {
+⋮----
+/// The "all of" policy, corresponding to a logical AND between child policies.
+///
+/// An empty list of child policies is considered trivially invalid.
+pub struct AllOf<'a> {
+children: Vec<&'a dyn VerificationPolicy>,
+⋮----
+pub fn new<I>(policies: I) -> Option<Self>
+⋮----
+// Without this, we'd be able to construct an `AllOf` containing an empty list of child
+// policies. This is almost certainly not what the user wants and is a potential source
+// of API misuse, so we explicitly disallow it.
+⋮----
+impl VerificationPolicy for AllOf<'_> {
+fn verify(&self, cert: &x509_cert::Certificate) -> PolicyResult {
+⋮----
+/// Verifies the certificate's "identity", corresponding to the X.509v3 SAN.
+/// Identities are verified modulo an OIDC issuer, so the issuer's URI
+/// is also required.
+///
+/// Supported SAN types include emails, URIs, and Sigstore-specific "other names".
+pub struct Identity {
+identity: String,
+issuer: OIDCIssuer,
+⋮----
+impl Identity {
+pub fn new<A, B>(identity: A, issuer: B) -> Self
+⋮----
+impl VerificationPolicy for Identity {
+fn verify(&self, cert: &x509_cert::Certificate) -> PolicyResult {
+</file>
+
+<file path="src/bundle/verify/verifier.rs">
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Verifiers: async and blocking.
+⋮----
+use tracing::debug;
+⋮----
+use crate::trust::sigstore::SigstoreTrustRoot;
+⋮----
+/// Verifies that `signature` over `input_digest` (or PAE bytes for DSSE) is valid for
+/// `signing_key`, and that the bundle content is consistent with the provided `input_digest`.
+///
+/// For [`BundleContent::MessageSignature`], the signature is verified as a prehash signature
+/// directly over `input_digest`.  Message signatures are always prehashed with SHA-256, so any
+/// other digest algorithm is rejected.
+///
+/// For [`BundleContent::Dsse`], the signature is verified over the pre-computed PAE bytes stored
+/// in the content, and the subject digests from the in-toto statement are compared against
+/// `input_digest` to ensure the bundle describes the same artifact.  The bundle matches if *any*
+/// subject carries `input_digest` under its algorithm, matching the behaviour of sigstore-go and
+/// `gh attestation verify`.
+pub(crate) fn verify_bundle_content(
+⋮----
+// For DSSE, verify the signature over the PAE bytes, not the artifact hash.
+⋮----
+// Also verify that some in-toto statement subject matches the
+// artifact.  `ArtifactDigest` equality covers the algorithm as
+// well as the digest bytes.
+⋮----
+/// An asynchronous Sigstore verifier.
+///
+/// For synchronous usage, see [`Verifier`].
+pub struct Verifier {
+⋮----
+rekor_config: RekorConfiguration,
+cert_pool: CertificatePool,
+ctfe_keyring: Keyring,
+⋮----
+impl Verifier {
+/// Constructs a [`Verifier`].
+///
+/// For verifications against the public-good trust root, use [`Verifier::production()`].
+pub fn new<R: TrustRoot>(
+⋮----
+/// Verifies a SHA-256 input digest against the given Sigstore Bundle, ensuring conformance
+/// to the provided [`VerificationPolicy`].
+///
+/// This is a convenience wrapper over [`Verifier::verify_digest_with`] for artifacts hashed
+/// with SHA-256.  Bundles whose in-toto subjects use another digest algorithm (npm
+/// provenance attestations, for example, carry `sha512` subjects) must be verified
+/// with [`Verifier::verify_digest_with`].
+pub async fn verify_digest<P>(
+⋮----
+/// Verifies an input digest against the given Sigstore Bundle, ensuring conformance to the
+/// provided [`VerificationPolicy`].
+///
+/// `input_digest` carries both the artifact digest and the algorithm that produced it; the
+/// bundle's in-toto statement is matched under that algorithm.  A DSSE bundle verifies if
+/// *any* of its subjects carries `input_digest` — an attestation listing every artifact of a
+/// release verifies each of them, matching the behaviour of sigstore-go and
+/// `gh attestation verify`.
+///
+/// Bundles carrying a message signature rather than a DSSE envelope are always prehashed
+/// with SHA-256 and reject any other algorithm.
+pub async fn verify_digest_with<P>(
+⋮----
+// In order to verify an artifact, we need to achieve the following:
+//
+// 1) Verify that the signing certificate is signed by the certificate
+//    chain and that the signing certificate was valid at the time
+//    of signing.
+// 2) Verify that the signing certificate belongs to the signer.
+// 3) Verify that the artifact signature was signed by the public key in the
+//    signing certificate.
+// 4) Verify that the Rekor entry is consistent with the other signing
+//    materials (preventing CVE-2022-36056)
+// 5) Verify the inclusion proof supplied by Rekor for this artifact,
+//    if we're doing online verification.
+// 6) Verify the Signed Entry Timestamp (SET) supplied by Rekor for this
+//    artifact.
+// 7) Verify that the signing certificate was valid at the time of
+//    signing by comparing the expiry against the integrated timestamp.
+⋮----
+// 2) Verify that the signing certificate belongs to the signer.
+⋮----
+// 3) Verify that the signature was signed by the public key in the signing certificate
+⋮----
+// 4) Verify that the Rekor entry is consistent with the other signing
+//    materials
+⋮----
+// 5) Verify the inclusion proof supplied by Rekor for this artifact,
+//    if we're doing online verification.
+// TODO(tnytown): Merkle inclusion; sigstore-rs#285
+⋮----
+// 6) Verify the Signed Entry Timestamp (SET) supplied by Rekor for this
+//    artifact.
+// TODO(tnytown) SET verification; sigstore-rs#285
+⋮----
+// 7) Verify that the signing certificate was valid at the time of
+//    signing by comparing the expiry against the integrated timestamp.
+⋮----
+/// Verifies an input against the given Sigstore Bundle, ensuring conformance to the provided
+/// [`VerificationPolicy`].
+///
+/// The input is hashed with SHA-256.  Bundles whose in-toto subjects carry only another
+/// digest algorithm — npm provenance attestations, for example, carry `sha512` subjects —
+/// cannot be verified through here; hash the artifact yourself and use
+/// [`Verifier::verify_digest_with`].
+pub async fn verify<R, P>(
+⋮----
+// arbitrary buffer size, chosen to be a multiple of the digest size.
+⋮----
+impl Verifier {
+/// Constructs an [`Verifier`] against the public-good trust root.
+⋮----
+pub async fn production() -> SigstoreResult<Verifier> {
+⋮----
+pub mod blocking {
+⋮----
+/// A synchronous Sigstore verifier.
+pub struct Verifier {
+inner: AsyncVerifier,
+rt: tokio::runtime::Runtime,
+⋮----
+impl Verifier {
+/// Constructs a synchronous Sigstore verifier.
+///
+/// For verifications against the public-good trust root, use [`Verifier::production()`].
+pub fn new<R: TrustRoot>(
+⋮----
+/// Verifies a SHA-256 input digest against the given Sigstore Bundle, ensuring
+/// conformance to the provided [`VerificationPolicy`].
+///
+/// This is a convenience wrapper over [`Verifier::verify_digest_with`] for artifacts
+/// hashed with SHA-256.
+pub fn verify_digest<P>(
+⋮----
+/// Verifies an input digest against the given Sigstore Bundle, ensuring conformance to
+/// the provided [`VerificationPolicy`].
+///
+/// See [`super::Verifier::verify_digest_with`] for the matching semantics.
+pub fn verify_digest_with<P>(
+⋮----
+/// Verifies an input against the given Sigstore Bundle, ensuring conformance to the provided
+/// [`VerificationPolicy`].
+///
+/// The input is hashed with SHA-256.  Bundles whose in-toto subjects carry only another
+/// digest algorithm — npm provenance attestations, for example, carry `sha512` subjects
+/// — cannot be verified through here; hash the artifact yourself and use
+/// [`Verifier::verify_digest_with`].
+pub fn verify<R, P>(
+⋮----
+impl Verifier {
+/// Constructs a synchronous [`Verifier`] against the public-good trust root.
+⋮----
+pub fn production() -> SigstoreResult<Verifier> {
+⋮----
+mod tests {
+use rstest::rstest;
+⋮----
+use super::verify_bundle_content;
+⋮----
+/// Builds a real ECDSA P-256 signer and returns `(verification_key, sign_fn)` where
+/// `sign_fn(msg)` produces a valid signature over `msg`.
+fn make_signer() -> (
+⋮----
+// ── DSSE cases ────────────────────────────────────────────────────────────
+⋮----
+fn dsse_valid_signature_and_matching_digest() {
+⋮----
+/// npm provenance attestations describe their subject with a `sha512`
+/// digest and nothing else.
+⋮----
+fn dsse_valid_signature_and_matching_sha512_digest() {
+⋮----
+/// sigstore-rs#596: one attestation may list every artifact of a release as
+/// a subject, so a match against any subject — not just the first — counts.
+⋮----
+fn dsse_matches_any_subject(#[case] matching_index: usize) {
+⋮----
+/// A subject may carry several digests; a match under any one of them counts.
+⋮----
+fn dsse_matches_multi_digest_subject(#[case] digest: ArtifactDigest) {
+⋮----
+// No subject carries the presented digest.
+⋮----
+// The subject digest's bytes match, but under a different algorithm than
+// the caller's: an artifact must be bound under the algorithm it was
+// hashed with.  (The subject's first 32 bytes equal the caller's digest.)
+⋮----
+fn dsse_valid_signature_wrong_digest(#[case] subject_digests: Vec<ArtifactDigest>) {
+⋮----
+fn dsse_invalid_signature() {
+⋮----
+let bad_sig = vec![0u8; 64]; // garbage bytes
+⋮----
+// ── MessageSignature cases ────────────────────────────────────────────────
+⋮----
+// MessageSignature uses verify_prehash: the signature is produced over the full message
+// by the signer (which hashes internally), while verify_prehash takes the pre-computed
+// SHA-256 digest. We sign the raw message and pass its digest separately.
+⋮----
+fn message_signature_valid(#[case] scheme: SigningScheme) {
+⋮----
+// verify_prehash expects the SHA-256 digest of the original message.
+⋮----
+fn message_signature_invalid_signature(#[case] scheme: SigningScheme) {
+⋮----
+let bad_sig = vec![0u8; 64]; // garbage bytes
+⋮----
+fn message_signature_wrong_digest(#[case] scheme: SigningScheme) {
+⋮----
+// Pass a digest for a *different* message.
+⋮----
+/// Message signatures are prehashed with SHA-256 by construction, so a
+/// SHA-512 artifact digest can never be checked against one.
+⋮----
+fn message_signature_rejects_non_sha256_digest(#[case] scheme: SigningScheme) {
+⋮----
+// ── ArtifactDigest ────────────────────────────────────────────────────────
+⋮----
+fn artifact_digest_from_sha256_hasher_matches_finalized_digest() {
+// `verify_digest` funnels its `Sha256` hasher through this conversion, so
+// the wrapper and `verify_digest_with` must agree byte-for-byte.
+⋮----
+// ── Real fixture: npm provenance ──────────────────────────────────────────
+⋮----
+/// Verification of a real npm SLSA provenance bundle, whose
+/// in-toto subject carries a `sha512` digest and nothing else.
+///
+/// The trust root is pinned to a checked-in copy of the Sigstore Public Good
+/// Instance's `trusted_root.json`, so these tests never touch the network.
+/// The signing certificate is long expired by now; that is fine, and tested:
+/// validity is checked against the Rekor entry's `integratedTime`.
+⋮----
+mod npm_provenance {
+⋮----
+fn verifier() -> Verifier {
+⋮----
+fn bundle() -> Bundle {
+⋮----
+fn sha512(hex_digest: &str) -> ArtifactDigest {
+⋮----
+async fn verifies_sha512_only_subject() {
+⋮----
+async fn rejects_wrong_sha512_digest() {
+⋮----
+/// The SHA-256 `verify_digest` wrapper still reaches the same matching
+/// logic — and a SHA-256 digest never matches a `sha512`-only subject.
+⋮----
+async fn sha256_digest_does_not_match_sha512_subject() {
+⋮----
+async fn rejects_mismatched_identity() {
+</file>
+
+<file path="src/bundle/intoto.rs">
+// Copyright 2026 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! In-toto Statement v1 types used when parsing DSSE envelope payloads.
+⋮----
+use std::collections::BTreeMap;
+⋮----
+use tracing::warn;
+⋮----
+/// An in-toto Statement v1 as defined in <https://in-toto.io/Statement/v1>.
+///
+/// This is the JSON object carried inside the DSSE envelope payload field of a
+/// Sigstore Bundle v0.3.  The `payload` field of `io::intoto::Envelope` is
+/// base64-encoded in the JSON bundle but arrives as raw `Vec<u8>` after the
+/// protobuf-serde layer decodes it; these types are used to parse that raw
+/// JSON.
+⋮----
+pub(crate) struct InTotoStatementV1 {
+⋮----
+pub statement_type: String,
+pub subject: Vec<Subject>,
+⋮----
+pub predicate_type: String,
+⋮----
+pub predicate: Option<serde_json::Value>,
+⋮----
+impl InTotoStatementV1 {
+/// Parse an in-toto Statement v1 from raw JSON bytes.
+pub fn from_json(bytes: &[u8]) -> Result<Self> {
+⋮----
+/// Enforce that the statement satisfies the subset of the
+/// [in-toto Statement v1 spec](https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md)
+/// that Sigstore / cosign sign-v1 cares about:
+///
+/// - `_type` must be `https://in-toto.io/Statement/v1`
+/// - `predicateType` must be `https://sigstore.dev/cosign/sign/v1`
+/// - `subject` must be non-empty
+/// - `subject[0]` must carry a `sha256` digest entry
+///
+/// This validator is specific to the cosign SimpleSigning path, whose only
+/// consumer ([`subject_sha256_digest`](Self::subject_sha256_digest)) reads
+/// `subject[0]`'s `sha256` entry and nothing else.  Sigstore bundle
+/// verification does not go through here: it accepts any predicate type and
+/// matches against every subject, via
+/// [`subject_digests`](Self::subject_digests).
+///
+/// # What we currently ignore (and why)
+///
+/// - **Multiple subjects**: the spec allows any number of subjects.
+///   Go cosign and sigstore-go both iterate all subjects when matching
+///   against an artifact digest; we only consume `subject[0]` for now.
+///   A warning is emitted if more than one subject is present so that
+///   the behaviour is visible.
+/// - **Extra digest algorithms**: subject digest maps may contain
+///   entries beyond `sha256` (e.g. `sha512`).  We only read `sha256`
+///   and silently ignore the rest, matching Go cosign's behaviour.
+/// - **`predicate` field**: not inspected; callers that need to verify
+///   the predicate payload must do so themselves.
+pub fn validate_cosign_v1(&self) -> Result<()> {
+⋮----
+/// Return the digest map (algorithm → hex digest) of every subject, in
+/// statement order.
+///
+/// All subjects are returned: an artifact matches the statement if *any*
+/// subject carries its digest, which is the behaviour of sigstore-go and
+/// `gh attestation verify`.
+pub fn subject_digests(&self) -> impl Iterator<Item = &BTreeMap<String, String>> {
+⋮----
+/// Return the SHA-256 digest of the first subject as a hex string (no
+/// `sha256:` prefix), or an error if the subject list is empty or the
+/// digest is absent.
+///
+/// This is the single-subject, SHA-256-only accessor used by the cosign
+/// SimpleSigning path, where the subject is always an OCI image digest.
+/// Bundle verification uses [`Self::subject_digests`] instead.
+pub fn subject_sha256_digest(&self) -> Result<String> {
+⋮----
+/// An in-toto subject descriptor.
+⋮----
+pub(crate) struct Subject {
+/// Name of the artifact (may be absent in some cosign-produced statements).
+⋮----
+pub name: Option<String>,
+/// Map of digest algorithm → hex-encoded digest value.
+pub digest: BTreeMap<String, String>,
+/// Optional annotations.
+⋮----
+pub annotations: Option<serde_json::Value>,
+⋮----
+mod tests {
+⋮----
+use rstest::rstest;
+⋮----
+fn decode_in_toto_statement_from_real_bundle() {
+// Parse the bundle JSON to extract the raw DSSE payload bytes, then
+// parse those as an in-toto Statement v1.
+⋮----
+digest: BTreeMap::new(), // no sha256 key
+⋮----
+fn subject_sha256_digest_returns_err_for_missing_digest(#[case] statement: InTotoStatementV1) {
+⋮----
+fn subject_sha256_digest_returns_err_for_invalid_json() {
+// Simulates what callers do: deserialise raw bytes first, then call the method.
+// Invalid JSON must produce a deserialisation error before we even reach the method.
+⋮----
+fn validate_cosign_v1_type_enforcement(
+⋮----
+/// Builds a cosign-v1 statement whose subjects carry the given
+/// `(algorithm, digest)` pairs, one inner vec per subject.
+fn statement_with_subjects(subjects: Vec<Vec<(&str, &str)>>) -> InTotoStatementV1 {
+⋮----
+// `validate_cosign_v1` gates the cosign SimpleSigning path only, and stays
+// strict: `subject[0]` must carry a sha256 digest, because that is the one
+// entry its consumer reads.
+⋮----
+fn validate_cosign_v1_rejects_invalid_subject(#[case] subjects: Vec<Vec<(&str, &str)>>) {
+⋮----
+// Multiple subjects are accepted (with a warn!); only subject[0] is used.
+// Extra digest algorithms beyond sha256 are tolerated and ignored.
+⋮----
+fn validate_cosign_v1_accepts_tolerated_cases(#[case] subjects: Vec<Vec<(&str, &str)>>) {
+⋮----
+/// sigstore-rs#596: one attestation may list every artifact of a release as
+/// a subject, so every subject has to be visible to the matching logic.
+⋮----
+fn subject_digests_yields_every_subject() {
+⋮----
+/// The cosign SimpleSigning path always signs a single OCI image digest, so
+/// this accessor deliberately stays first-subject / sha256 only.
+⋮----
+fn subject_sha256_digest_reads_only_the_first_subject() {
+⋮----
+fn subject_sha256_digest_returns_err_for_sha512_only_subject() {
+</file>
+
+<file path="src/bundle/mod.rs">
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Sigstore bundle support.
+⋮----
+pub use sigstore_protobuf_specs::dev::sigstore::bundle::v1::Bundle;
+⋮----
+pub(crate) mod intoto;
+mod models;
+⋮----
+pub mod sign;
+⋮----
+pub mod verify;
+⋮----
+/// Adapts a [`digest::Update`] into an [`std::io::Write`], so that readers can be hashed
+/// with [`std::io::copy`].
+pub(crate) struct DigestWriter<'a, D>(pub(crate) &'a mut D);
+⋮----
+fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+⋮----
+fn flush(&mut self) -> std::io::Result<()> {
+</file>
+
+<file path="src/bundle/models.rs">
+use std::fmt::Display;
+use std::str::FromStr;
+⋮----
+// Known Sigstore bundle media types.
+⋮----
+pub enum Version {
+⋮----
+impl Display for Version {
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl FromStr for Version {
+type Err = ();
+⋮----
+fn from_str(s: &str) -> Result<Self, Self::Err> {
+⋮----
+fn decode_hex<S: AsRef<str>>(hex: S) -> Result<Vec<u8>, ()> {
+⋮----
+type Error = ();
+⋮----
+fn try_from(value: RekorInclusionProof) -> Result<Self, Self::Error> {
+⋮----
+/// Convert log entries returned from Rekor into Sigstore Bundle format entries.
+⋮----
+type Error = ();
+⋮----
+fn try_from(value: RekorLogEntry) -> Result<Self, Self::Error> {
+</file>
+
+<file path="src/bundle/sign.rs">
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Types for signing artifacts and producing Sigstore bundles.
+⋮----
+use ecdsa::signature::hazmat::PrehashSigner;
+use hex;
+use p256::NistP256;
+use p256::elliptic_curve::Generate;
+⋮----
+use sigstore_protobuf_specs::dev::sigstore::bundle::v1::bundle;
+⋮----
+use sigstore_protobuf_specs::dev::sigstore::rekor::v1::TransparencyLogEntry;
+use tokio::io::AsyncRead;
+use tokio_util::io::SyncIoBridge;
+use url::Url;
+⋮----
+use crate::bundle::DigestWriter;
+use crate::bundle::models::Version;
+use crate::crypto::certificate::der_to_pem;
+use crate::crypto::keyring::Keyring;
+⋮----
+use crate::fulcio::oauth::OauthTokenProvider;
+⋮----
+use crate::oauth::IdentityToken;
+⋮----
+use crate::rekor::apis::entries_api::create_log_entry;
+⋮----
+use crate::trust::TrustRoot;
+⋮----
+use crate::trust::sigstore::SigstoreTrustRoot;
+⋮----
+/// An asynchronous Sigstore signing session.
+///
+/// Sessions hold a provided user identity and key materials tied to that identity. A single
+/// session may be used to sign multiple items. For more information, see [`SigningSession::sign`].
+///
+/// This signing session operates asynchronously. To construct a synchronous [`blocking::SigningSession`],
+/// use [`SigningContext::blocking_signer()`].
+pub struct SigningSession<'ctx> {
+context: &'ctx SigningContext,
+identity_token: IdentityToken,
+private_key: ecdsa::SigningKey<NistP256>,
+certs: fulcio::CertificateResponse,
+⋮----
+async fn new(
+⋮----
+async fn materials(
+⋮----
+// SEQUENCE OF RelativeDistinguishedName
+⋮----
+// SET OF AttributeTypeAndValue
+⋮----
+// AttributeTypeAndValue, `emailAddress=...`
+⋮----
+// `Name` can only be built from an `RdnSequence` through DER (or the `hazmat` feature).
+⋮----
+/// Check if the session's identity token or key material is expired.
+///
+/// If the session is expired, it cannot be used for signing operations, and a new session
+/// must be created with a fresh identity token.
+pub fn is_expired(&self) -> bool {
+⋮----
+async fn sign_digest(&self, hasher: Sha256) -> SigstoreResult<SigningArtifact> {
+⋮----
+// Sign artifact.
+⋮----
+// Create the transparency log entry.
+⋮----
+// TODO(tnytown): Maybe run through the verification flow here? See sigstore-rs#296.
+⋮----
+/// Signs for the input with the session's identity. If the identity is expired,
+/// [`SigstoreError::ExpiredSigningSession`] is returned.
+pub async fn sign<R: AsyncRead + Unpin + Send + 'static>(
+⋮----
+pub mod blocking {
+⋮----
+/// A synchronous Sigstore signing session.
+///
+/// Sessions hold a provided user identity and key materials tied to that identity. A single
+/// session may be used to sign multiple items. For more information, see [`SigningSession::sign`].
+///
+/// This signing session operates synchronously, thus it cannot be used in an asynchronous context.
+/// To construct an asynchronous [`SigningSession`], use [`SigningContext::signer()`].
+pub struct SigningSession<'ctx> {
+inner: AsyncSigningSession<'ctx>,
+rt: tokio::runtime::Runtime,
+⋮----
+pub(crate) fn new(ctx: &'ctx SigningContext, token: IdentityToken) -> SigstoreResult<Self> {
+⋮----
+/// Check if the session's identity token or key material is expired.
+///
+/// If the session is expired, it cannot be used for signing operations, and a new session
+/// must be created with a fresh identity token.
+pub fn is_expired(&self) -> bool {
+⋮----
+/// Signs for the input with the session's identity. If the identity is expired,
+/// [`SigstoreError::ExpiredSigningSession`] is returned.
+pub fn sign<R: Read>(&self, mut input: R) -> SigstoreResult<SigningArtifact> {
+⋮----
+/// A Sigstore signing context.
+///
+/// Contexts hold Fulcio (CA) and Rekor (CT) configurations which signing sessions can be
+/// constructed against. Use [`SigningContext::production`] to create a context against
+/// the public-good Sigstore infrastructure.
+pub struct SigningContext {
+fulcio: FulcioClient,
+rekor_config: RekorConfiguration,
+ctfe_keyring: Keyring,
+⋮----
+impl SigningContext {
+/// Manually constructs a [`SigningContext`] from its constituent data.
+pub fn new(
+⋮----
+/// Returns a [`SigningContext`] configured against the public-good production Sigstore
+/// infrastructure.
+⋮----
+pub async fn async_production() -> SigstoreResult<Self> {
+⋮----
+/// Returns a [`SigningContext`] configured against the public-good production Sigstore
+/// infrastructure.
+///
+/// Async callers should use [`SigningContext::async_production`].
+⋮----
+pub fn production() -> SigstoreResult<Self> {
+⋮----
+/// Configures and returns a [`SigningSession`] with the held context.
+pub async fn signer(
+⋮----
+/// Configures and returns a [`blocking::SigningSession`] with the held context.
+///
+/// Async contexts must use [`SigningContext::signer`].
+pub fn blocking_signer(
+⋮----
+/// A signature and its associated metadata.
+pub struct SigningArtifact {
+input_digest: Vec<u8>,
+cert: Vec<u8>,
+signature: Vec<u8>,
+log_entry: TransparencyLogEntry,
+⋮----
+impl SigningArtifact {
+/// Consumes the signing artifact and produces a Sigstore [`Bundle`].
+///
+/// The resulting bundle can be serialized with [`serde_json`].
+pub fn to_bundle(self) -> Bundle {
+// NOTE: We explicitly only include the leaf certificate in the bundle's "chain"
+// here: the specs explicitly forbid the inclusion of the root certificate,
+// and discourage inclusion of any intermediates (since they're in the root of
+// trust already).
+</file>
+
+<file path="src/crypto/backend/aws_lc.rs">
+// Copyright 2026 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Crypto backend implemented with `aws-lc-rs`.
+//!
+//! This module is compiled when `rustls-tls` is enabled and `native-tls` is not.
+⋮----
+pub(crate) fn fill_random(buf: &mut [u8]) {
+⋮----
+pub(crate) fn verify_spki(scheme: VerifyScheme, spki: &[u8], msg: &[u8], sig: &[u8]) -> bool {
+⋮----
+pub(crate) fn verify_spki_prehash(
+⋮----
+pub(crate) fn verify_p256_point(point: &[u8], msg: &[u8], sig: &[u8]) -> bool {
+⋮----
+pub(crate) fn ecdsa_generate(curve: EcdsaCurve) -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>)> {
+⋮----
+pub(crate) fn ecdsa_spki_from_pkcs8(der: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// ECDSA private key imported from PKCS#8.
+///
+/// Construction parses the key and runs the `aws-lc-rs` key check once.
+/// [`Self::sign`] reuses that key.
+pub(crate) struct EcdsaSigningKey {
+key: EcdsaKeyPair,
+⋮----
+impl EcdsaSigningKey {
+/// Import and validate a PKCS#8 ECDSA private key for `curve`.
+pub(crate) fn from_pkcs8(curve: EcdsaCurve, pkcs8: &[u8]) -> Result<Self> {
+⋮----
+/// Sign `msg` and return an ASN.1 DER signature.
+pub(crate) fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn rsa_generate(bits: usize) -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>)> {
+⋮----
+pub(crate) fn rsa_from_pkcs8(der: &[u8]) -> Result<(Vec<u8>, usize)> {
+⋮----
+pub(crate) fn rsa_from_pkcs1(der: &[u8]) -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>, usize)> {
+⋮----
+pub(crate) fn rsa_sign(pkcs8: &[u8], pss: bool, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn ed25519_generate() -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>)> {
+⋮----
+pub(crate) fn ed25519_spki_from_pkcs8(der: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn ed25519_sign(pkcs8: &[u8], msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn verification_algs()
+⋮----
+fn verify_alg(
+⋮----
+fn scheme_alg(
+⋮----
+fn ecdsa_signing_alg(curve: EcdsaCurve) -> &'static aws_lc_rs::signature::EcdsaSigningAlgorithm {
+⋮----
+fn ecdsa_curve_from_pkcs8(der: &[u8]) -> Result<EcdsaCurve> {
+⋮----
+use pkcs8::PrivateKeyInfoRef;
+use x509_cert::der::Decode;
+⋮----
+fn rsa_key_size(bits: usize) -> Result<KeySize> {
+</file>
+
+<file path="src/crypto/backend/mod.rs">
+// Copyright 2026 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Crypto operations selected by the TLS feature.
+//!
+//! `native-tls` uses OpenSSL. `rustls-tls` uses `aws-lc-rs`. Enabling both
+//! compiles the OpenSSL implementation; `aws-lc-rs` stays in the dependency
+//! graph because Cargo features are additive.
+⋮----
+mod openssl;
+⋮----
+mod aws_lc;
+⋮----
+/// Whether `spki` may be handed to the backend for `scheme`. Neither OpenSSL
+/// nor aws-lc rejects small-order Ed25519 keys, so those are refused here for
+/// any caller, not only for keys built through `CosignVerificationKey`.
+fn backend_accepts_key(scheme: VerifyScheme, spki: &[u8]) -> bool {
+⋮----
+/// Elliptic curve used by ECDSA key generation and signing.
+⋮----
+pub(crate) enum EcdsaCurve {
+⋮----
+/// Signature scheme for a SubjectPublicKeyInfo public key.
+⋮----
+pub(crate) enum VerifyScheme {
+⋮----
+impl VerifyScheme {
+/// Scheme used to verify a signature with this cosign public key.
+pub(crate) fn from_cosign_key(key: &crate::crypto::CosignVerificationKey) -> Self {
+use crate::crypto::CosignVerificationKey;
+⋮----
+mod tests {
+//! Tests for the crypto backend selected by the TLS feature.
+//!
+//! These call the functions re-exported by the parent module, so the same
+//! cases run against OpenSSL or `aws-lc-rs` depending on which one is compiled.
+⋮----
+use rstest::rstest;
+use sha2::Digest;
+⋮----
+fn ecdsa_scheme(curve: EcdsaCurve) -> VerifyScheme {
+⋮----
+fn message_digest(curve: EcdsaCurve, msg: &[u8]) -> Vec<u8> {
+⋮----
+fn sign_pkcs8(curve: EcdsaCurve, pkcs8: &[u8], msg: &[u8]) -> crate::errors::Result<Vec<u8>> {
+⋮----
+fn p256_point(spki: &[u8]) -> Vec<u8> {
+use x509_cert::der::Decode;
+use x509_cert::spki::SubjectPublicKeyInfoOwned;
+⋮----
+fn rsa_2048() -> &'static (zeroize::Zeroizing<Vec<u8>>, Vec<u8>) {
+use std::sync::OnceLock;
+⋮----
+fn fill_random(#[case] len: usize) {
+⋮----
+fn ecdsa_generate(#[case] curve: EcdsaCurve) {
+⋮----
+fn ecdsa_spki_from_pkcs8(#[case] curve: EcdsaCurve) {
+⋮----
+fn ecdsa_spki_from_pkcs8_rejects(#[case] der: &[u8]) {
+⋮----
+fn ecdsa_sign(#[case] curve: EcdsaCurve, #[case] intact: bool) {
+⋮----
+fn ecdsa_sign_rejects(#[case] pkcs8: &[u8]) {
+⋮----
+fn ecdsa_signing_key_reused(#[case] curve: EcdsaCurve) {
+⋮----
+fn ecdsa_signing_key_rejects_curve_mismatch() {
+⋮----
+fn verify_spki_prehash(#[case] curve: EcdsaCurve, #[case] intact: bool) {
+⋮----
+fn verify_spki_rejects_key(#[case] spki: &[u8]) {
+⋮----
+fn verify_p256_point(#[case] intact: bool) {
+⋮----
+fn rsa_generate(#[case] bits: usize) {
+⋮----
+fn rsa_generate_rejects(#[case] bits: usize) {
+⋮----
+fn rsa_from_pkcs8_rejects(#[case] der: &[u8]) {
+⋮----
+fn rsa_from_pkcs1() {
+⋮----
+fn rsa_from_pkcs1_rejects(#[case] der: &[u8]) {
+⋮----
+fn rsa_sign(#[case] pss: bool, #[case] intact: bool) {
+⋮----
+fn rsa_sign_rejects(#[case] pkcs8: &[u8]) {
+⋮----
+fn ed25519_sign(#[case] intact: bool) {
+⋮----
+fn ed25519_rejects(#[case] der: &[u8]) {
+⋮----
+fn ed25519_verify_rejects_identity_key() {
+// The identity point is a small-order key and must be refused by the
+// backend verify path.
+⋮----
+fn verification_algs() {
+</file>
+
+<file path="src/crypto/backend/openssl.rs">
+// Copyright 2026 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Crypto backend implemented with OpenSSL.
+//!
+//! This module is compiled when `native-tls` is enabled. If `rustls-tls` is
+//! also enabled, this implementation is still the one that runs.
+⋮----
+use openssl::hash::MessageDigest;
+use openssl::md::Md;
+use openssl::nid::Nid;
+⋮----
+use openssl::pkey_ctx::PkeyCtx;
+use openssl::rand::rand_bytes;
+⋮----
+use zeroize::Zeroizing;
+⋮----
+pub(crate) fn fill_random(buf: &mut [u8]) {
+⋮----
+pub(crate) fn verify_spki(scheme: VerifyScheme, spki: &[u8], msg: &[u8], sig: &[u8]) -> bool {
+⋮----
+pub(crate) fn verify_spki_prehash(
+⋮----
+/// Public exponent accepted by `aws-lc-rs`: odd, greater than 1, and at most
+/// 33 bits. A longer exponent makes verification expensive.
+fn acceptable_rsa_public_exponent(exponent: &BigNumRef) -> bool {
+⋮----
+fn key_matches_scheme(scheme: VerifyScheme, pkey: &PKey<Public>) -> bool {
+⋮----
+pub(crate) fn verify_p256_point(point: &[u8], msg: &[u8], sig: &[u8]) -> bool {
+⋮----
+pub(crate) fn ecdsa_generate(curve: EcdsaCurve) -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>)> {
+⋮----
+pub(crate) fn ecdsa_spki_from_pkcs8(der: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// ECDSA private key imported from PKCS#8.
+///
+/// Construction parses the key and runs `EC_KEY_check_key` once. [`Self::sign`]
+/// reuses that key.
+pub(crate) struct EcdsaSigningKey {
+curve: EcdsaCurve,
+key: PKey<Private>,
+⋮----
+impl EcdsaSigningKey {
+/// Import and validate a PKCS#8 ECDSA private key for `curve`.
+pub(crate) fn from_pkcs8(curve: EcdsaCurve, pkcs8: &[u8]) -> Result<Self> {
+⋮----
+/// Sign `msg` and return an ASN.1 DER signature.
+pub(crate) fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn rsa_generate(bits: usize) -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>)> {
+⋮----
+pub(crate) fn rsa_from_pkcs8(der: &[u8]) -> Result<(Vec<u8>, usize)> {
+⋮----
+pub(crate) fn rsa_from_pkcs1(der: &[u8]) -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>, usize)> {
+⋮----
+pub(crate) fn rsa_sign(pkcs8: &[u8], pss: bool, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn ed25519_generate() -> Result<(zeroize::Zeroizing<Vec<u8>>, Vec<u8>)> {
+⋮----
+pub(crate) fn ed25519_spki_from_pkcs8(der: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn ed25519_sign(pkcs8: &[u8], msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+pub(crate) fn verification_algs() -> &'static [&'static dyn SignatureVerificationAlgorithm] {
+⋮----
+/// OpenSSL 3.0 rejects Ed25519 PKCS#8 documents that carry the optional
+/// public key (RFC 8410 `OneAsymmetricKey` version 1). Those keys are what
+/// `aws-lc-rs` writes, so fall back to the raw 32-byte seed.
+fn ed25519_pkey(der: &[u8]) -> std::result::Result<PKey<openssl::pkey::Private>, String> {
+⋮----
+use x509_cert::der::Decode;
+⋮----
+fn ed25519_seed(der: &[u8]) -> Option<Zeroizing<[u8; 32]>> {
+use const_oid::db::rfc8410::ID_ED_25519;
+use pkcs8::PrivateKeyInfoRef;
+use x509_cert::der::Decode;
+⋮----
+fn material_from_private<T: HasPrivate>(
+⋮----
+fn curve_nid(curve: EcdsaCurve) -> Nid {
+⋮----
+fn curve_digest(curve: EcdsaCurve) -> MessageDigest {
+⋮----
+fn verify_message(scheme: VerifyScheme, pkey: &PKey<Public>, msg: &[u8], sig: &[u8]) -> bool {
+⋮----
+fn rsa_verifier<'a>(
+⋮----
+fn scheme_digest(scheme: VerifyScheme) -> Option<MessageDigest> {
+⋮----
+fn verify_digest(scheme: VerifyScheme, pkey: &PKey<Public>, digest: &[u8], sig: &[u8]) -> bool {
+⋮----
+fn scheme_md(scheme: VerifyScheme) -> Option<&'static openssl::md::MdRef> {
+⋮----
+fn p256_from_point(point: &[u8]) -> std::result::Result<PKey<Public>, openssl::error::ErrorStack> {
+⋮----
+fn ec_from_point(
+⋮----
+struct OpenSslAlgorithm {
+public_key_alg_id: AlgorithmIdentifier,
+signature_alg_id: AlgorithmIdentifier,
+kind: CertAlg,
+⋮----
+enum CertAlg {
+⋮----
+impl SignatureVerificationAlgorithm for OpenSslAlgorithm {
+fn verify_signature(
+⋮----
+fn public_key_alg_id(&self) -> AlgorithmIdentifier {
+⋮----
+fn signature_alg_id(&self) -> AlgorithmIdentifier {
+⋮----
+fn cert_public_key(
+⋮----
+fn ec_point_key(
+⋮----
+fn rsa_public_key(
+⋮----
+fn cert_verify(pkey: &PKey<Public>, kind: CertAlg, message: &[u8], signature: &[u8]) -> bool {
+⋮----
+/// Digest used to pre-hash the message before verification. Returns `None`
+/// for algorithms that verify the raw message instead of a digest
+fn cert_digest(kind: CertAlg) -> Option<MessageDigest> {
+⋮----
+macro_rules! alg {
+⋮----
+mod tests {
+use openssl::bn::BigNum;
+use openssl::pkey::PKey;
+use openssl::rsa::Rsa;
+⋮----
+fn public_key(exponent: &[u8]) -> PKey<openssl::pkey::Public> {
+⋮----
+fn exponent_accepted(exponent: &[u8]) -> bool {
+⋮----
+fn rsa_public_exponent_matches_aws_lc() {
+</file>
+
+<file path="src/crypto/merkle/mod.rs">
+pub mod proof_verification;
+pub mod rfc6962;
+⋮----
+use crate::errors::SigstoreError;
+use crate::errors::SigstoreError::UnexpectedError;
+use digest::Output;
+pub use proof_verification::MerkleProofError;
+pub(crate) use proof_verification::MerkleProofVerifier;
+⋮----
+/// Many rekor models have hex-encoded hashes, this functions helps to avoid repetition.
+⋮----
+pub(crate) fn hex_to_hash_output(
+</file>
+
+<file path="src/crypto/merkle/proof_verification.rs">
+use super::rfc6962::Rfc6269HasherTrait;
+⋮----
+use hex::ToHex;
+use std::cmp::Ordering;
+use std::fmt::Debug;
+⋮----
+pub enum MerkleProofError {
+MismatchedRoot { expected: String, got: String },
+⋮----
+NewTreeSmaller { new: u64, old: u64 },
+WrongProofSize { got: u64, want: u64 },
+⋮----
+pub(crate) trait MerkleProofVerifier<O>: Rfc6269HasherTrait<O>
+⋮----
+/// Used to verify hashes.
+fn verify_match(a: &O, b: &O) -> Result<(), ()> {
+⋮----
+/// `verify_inclusion` verifies the correctness of the inclusion proof for the leaf
+/// with the specified `leaf_hash` and `index`, relatively to the tree of the given `tree_size`
+/// and `root_hash`. Requires `0 <= index < tree_size`.
+⋮----
+fn verify_inclusion(
+index: u64,    // leaf index, m in RFC
+leaf_hash: &O, // d(m) leaf hash
+⋮----
+proof_hashes: &[O], // PATH(m, D[n]) audit path
+root_hash: &O,      // MTH(D[n])
+⋮----
+/// `root_from_inclusion_proof` calculates the expected root hash for a tree of the
+/// given size, provided a leaf index and hash with the corresponding inclusion
+/// proof. Requires `0 <= index < tree_size`.
+fn root_from_inclusion_proof(
+index: u64,    // leaf index, m in RFC
+leaf_hash: &O, // d(m) leaf hash
+⋮----
+proof_hashes: &[O], // PATH(m, D[n]) audit path
+⋮----
+// `verify_consistency` checks that the passed-in consistency proof is valid
+// between the passed in tree sizes, with respect to the corresponding root
+// hashes. Requires `0 <= old_size <= new_size`..
+⋮----
+fn verify_consistency(
+⋮----
+// when sizes are equal and the proof is empty we can just verify the roots
+⋮----
+// the proof cannot be empty if the sizes are equal or the previous size was zero
+⋮----
+// any proof is accepted if old_size == 0 and the hash is the expected empty hash
+⋮----
+// find the largest power of two smaller than new_size.
+// - shift: power of two (k in RFC-6962)
+// - inner: number of hashes in the proof that correspond to the inner part, the hashes
+//   needed to reconstruct the subtree up to the divergence point
+// - border: number of hashes in the proof that correspond to the border part, the hashes
+//   needed to be reconstructed
+⋮----
+// The proof includes the root hash for the sub-tree of size 2^shift.
+// Unless old_size is that very 2^shift.
+// - start: offsef into the proof array where the actual path hashes begin
+// - seed: starting hash for reconstructing the old tree root
+⋮----
+// smaller tree is a perfect subtree
+⋮----
+// seed: use first hash for the proof
+// start: 1, skip the first hash as we are using it as the seed
+⋮----
+// check that the proof has the correct number of hashes. This prevents too short or too
+// long proofs which could indicate tampering or errors. Needed after unwinding from the
+// recursive proof algorithm.
+⋮----
+// mask determines which direction (left or right) to combine the hashes as you walk up
+// the tree from the seed hash, encoding the path from the subtree to the tree root.
+// It skips the bits that are always zero due to the subtree's alignment.
+// if:
+// - mask is 0 (old_size is power of two): take the hash as is without combining.
+// Else, take bit matching the level, starting with less significant bits:
+// - mask bit matching the level is 0: propagate hash
+// - mask bit matching the level is 1: combine with proof
+⋮----
+// verify the old hash is correct
+⋮----
+// verify the new hash is correct
+⋮----
+/// `chain_inner` computes a subtree hash for a node on or below the tree's right
+/// border. Assumes `proof_hashes` are ordered from lower levels to upper, and
+/// `seed` is the initial subtree/leaf hash on the path located at the specified
+/// `index` on its level.
+fn chain_inner(seed: &O, proof_hashes: &[O], index: u64) -> O {
+⋮----
+// mask bit is 0: hash( seed || proof_hash )
+⋮----
+// mask bit is 1: hash( proof_hash || seed )
+⋮----
+/// `chain_inner_right` computes a subtree hash like `chain_inner`, but only takes
+/// hashes to the left from the path into consideration, which effectively means
+/// the result is a hash of the corresponding earlier version of this subtree.
+fn chain_inner_right(seed: &O, proof_hashes: &[O], index: u64) -> O {
+⋮----
+// mask bit is 1: hash( proof_hash || seed )
+⋮----
+// propagate the seed upwards
+⋮----
+/// `chain_border_right` chains proof hashes along tree borders. This differs from
+/// inner chaining because `proof` contains only left-side subtree hashes.
+/// Used to finish the path up to the root after the walk done using the mask.
+fn chain_border_right(seed: &O, proof_hashes: &[O]) -> O {
+// always combine as hash( proof_hash || seed )
+⋮----
+/// `decomp_inclusion_proof` breaks down inclusion proof for a leaf at the specified
+/// `index` in a tree of the specified `size` into 2 components. The splitting
+/// point between them is where paths to leaves `index` and `tree_size-1` diverge.
+/// Returns lengths of the bottom and upper proof parts correspondingly. The sum
+/// of the two determines the correct length of the inclusion proof.
+fn decomp_inclusion_proof(index: u64, tree_size: u64) -> (u64, u64) {
+⋮----
+// `inner_proof_size` computes the number of inner levels (hashes) required in the audit path
+// given a leaf at index in a tree of tree_size
+fn inner_proof_size(index: u64, tree_size: u64) -> u64 {
+// return the position of the highest differing bit, which is the number of inner proof
+// steps.
+⋮----
+mod test_verify {
+use crate::crypto::merkle::rfc6962::Rfc6269HasherTrait;
+⋮----
+use hex_literal::hex;
+⋮----
+struct InclusionProofTestVector<'a> {
+leaf: u64,
+size: u64,
+proof: &'a [[u8; 32]],
+⋮----
+struct ConsistencyTestVector<'a> {
+size1: u64,
+size2: u64,
+proof: &'a [[u8; 32]],
+⋮----
+// InclusionProbe is a parameter set for inclusion proof verification.
+⋮----
+struct InclusionProbe {
+leaf_index: u64,
+tree_size: u64,
+root: [u8; 32],
+leaf_hash: [u8; 32],
+proof: Vec<[u8; 32]>,
+desc: &'static str,
+⋮----
+// ConsistencyProbe is a parameter set for consistency proof verification.
+⋮----
+struct ConsistencyProbe<'a> {
+size1: u64,
+size2: u64,
+root1: &'a [u8; 32],
+root2: &'a [u8; 32],
+proof: Vec<[u8; 32]>,
+desc: &'static str,
+⋮----
+fn corrupt_inclusion_proof(
+⋮----
+// Wrong leaf index.
+⋮----
+leaf_index: leaf_index.wrapping_sub(1), // avoid panic due to underflow
+⋮----
+}, // Wrong tree height.
+⋮----
+}, // Wrong leaf or root.
+⋮----
+}, // Add garbage at the end.
+⋮----
+}, // Add garbage at the front.
+⋮----
+fn verifier_check(
+⋮----
+// returns Err if any probe is accepted
+⋮----
+fn verifier_consistency_check(
+⋮----
+// Verify original consistency proof.
+⋮----
+// For simplicity test only non-trivial proofs that have root1 != root2, size1 != 0 and size1 != size2.
+⋮----
+fn corrupt_consistency_proof<'a>(
+⋮----
+// Wrong size1.
+⋮----
+// Wrong tree height.
+⋮----
+// Wrong root.
+⋮----
+// Empty proof.
+⋮----
+// Add garbage at the end.
+⋮----
+// Add garbage at the front.
+⋮----
+// add probes with proves that have a flipped 3th bit of i-th byte of the i-th hash
+⋮----
+fn test_verify_inclusion_single_entry() {
+⋮----
+fn test_verify_inclusion() {
+⋮----
+fn test_verify_consistency() {
+⋮----
+// Same sizes but the root hashes differ.
+⋮----
+// Sizes that are always consistent.
+⋮----
+// Time travel to the past.
+⋮----
+// Empty proof.
+⋮----
+// Roots don't match with equal size, append-only violated.
+⋮----
+// Roots match but the proof is not empty.
+</file>
+
+<file path="src/crypto/merkle/rfc6962.rs">
+use digest::Output;
+⋮----
+/// This is the prefix that gets added to the data before the hash is calculated.
+⋮----
+enum Rfc6269HashPrefix {
+⋮----
+/// Trait that represents the [Merkle tree operations as defined in RFC6962](https://www.rfc-editor.org/rfc/rfc6962.html#section-2.1).
+pub(crate) trait Rfc6269HasherTrait<O> {
+/// Hashing an empty root is equivalent to hashing an empty string.
+fn empty_root() -> O;
+/// Leaf hashes are calculated the following way: `hash(0x00 || leaf)`.
+fn hash_leaf(leaf: impl AsRef<[u8]>) -> O;
+/// The hash of nodes with children is calculated recursively as: `hash(0x01 || left || right)`.
+fn hash_children(left: impl AsRef<[u8]>, right: impl AsRef<[u8]>) -> O;
+⋮----
+fn empty_root() -> Output<T> {
+⋮----
+fn hash_leaf(leaf: impl AsRef<[u8]>) -> Output<T> {
+⋮----
+fn hash_children(left: impl AsRef<[u8]>, right: impl AsRef<[u8]>) -> Output<T> {
+⋮----
+/// RFC6962 uses SHA-256 as the default hash-function.
+pub(crate) type Rfc6269Default = Sha256;
+⋮----
+/// These tests were taken from the [transparency-dev Merkle implementation](https://github.com/transparency-dev/merkle/blob/036047b5d2f7faf3b1ee643d391e60fe5b1defcf/rfc6962/rfc6962_test.go).
+⋮----
+mod test_rfc6962 {
+use crate::crypto::merkle::Rfc6269Default;
+use crate::crypto::merkle::rfc6962::Rfc6269HasherTrait;
+use hex_literal::hex;
+⋮----
+struct TestCase {
+pub desc: String,
+pub got: [u8; 32],
+pub want: [u8; 32],
+⋮----
+fn test_hasher() {
+⋮----
+fn test_collisions() {
+</file>
+
+<file path="src/crypto/signing_key/ecdsa/ec.rs">
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! # ECDSA Keys
+//!
+//! This module provides ECDSA key pair operations.
+//! The curve is selected at runtime rather than via generic type parameters.
+//! There are two main types:
+//! * [`EcdsaKeys`]: provides key pair operations (P-256, P-384, P-521)
+//! * [`EcdsaSigner`]: provides signing operations
+//!
+//! The [`EcdsaKeys`] struct is wrapped in the [`super::ECDSAKeys`] enum,
+//! which in turn is wrapped in [`super::super::SigStoreKeyPair`].
+//!
+//! The [`super::super::SigStoreSigner`] enum includes variants for each
+//! supported curve/hash combination:
+//! * `ECDSA_P256_SHA256_ASN1`
+//! * `ECDSA_P384_SHA384_ASN1`
+//! * `ECDSA_P521_SHA512_ASN1`
+//!
+//! # EC Key Pair Operations
+//!
+//! *Not recommended to use this module directly. Use [`super::ECDSAKeys`] or
+//! [`super::super::SigStoreKeyPair`] for key pairs and
+//! [`super::super::SigStoreSigner`] for signing instead.*
+//!
+//! When generating an EC key pair, a specific elliptic curve must be chosen.
+//! Supported curves are [`super::EllipticCurve::P256`],
+//! [`super::EllipticCurve::P384`], and [`super::EllipticCurve::P521`].
+//!
+//! For example, using P-256 with `ECDSA_P256_SHA256_ASN1` as the signing scheme:
+//!
+//! ```rust
+//! use sigstore::crypto::signing_key::{ecdsa::{ec::{EcdsaKeys, EcdsaSigner}, EllipticCurve}, KeyPair, Signer};
+//!
+//! let ec_key_pair = EcdsaKeys::new(EllipticCurve::P256).unwrap();
+//!
+//! // export the pem encoded public key.
+//! let pubkey = ec_key_pair.public_key_to_pem().unwrap();
+//!
+//! // export the private key using sigstore encryption.
+//! let privkey = ec_key_pair.private_key_to_encrypted_pem(b"password").unwrap();
+//!
+//! // sign with the new key.
+//! let ec_signer = EcdsaSigner::from_ecdsa_keys(&ec_key_pair).unwrap();
+//!
+//! let signature = ec_signer.sign(b"some message").unwrap();
+//! ```
+⋮----
+use pkcs8::PrivateKeyInfoRef;
+use x509_cert::der::Decode;
+⋮----
+use super::EllipticCurve;
+⋮----
+fn backend_curve(curve: EllipticCurve) -> crate::crypto::backend::EcdsaCurve {
+⋮----
+/// Detect the [`EllipticCurve`] from a PKCS#8 DER blob by inspecting the
+/// named-curve OID embedded in the `AlgorithmIdentifier` parameters.
+fn curve_from_pkcs8_der(der: &[u8]) -> Result<EllipticCurve> {
+⋮----
+/// An ECDSA key pair.  Supports P-256, P-384, and P-521.
+⋮----
+pub struct EcdsaKeys {
+/// The curve this key uses.
+pub(crate) curve: EllipticCurve,
+/// PKCS#8 DER encoding of the private key (used for cloning / export).
+pkcs8_der: zeroize::Zeroizing<Vec<u8>>,
+/// DER-encoded SubjectPublicKeyInfo (cached).
+spki_der: Vec<u8>,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl EcdsaKeys {
+/// Create a new `EcdsaKeys` object for the given elliptic curve.
+/// The secret key (private key) will be randomly generated.
+pub fn new(curve: EllipticCurve) -> Result<Self> {
+⋮----
+/// Build an `EcdsaKeys` from raw PKCS#8 DER bytes.
+/// The elliptic curve is detected automatically from the key's OID.
+pub fn from_pkcs8_der(der: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `EcdsaKeys` from encrypted pkcs8 PEM-encoded private key.
+/// The label should be [`COSIGN_PRIVATE_KEY_PEM_LABEL`] or
+/// [`SIGSTORE_PRIVATE_KEY_PEM_LABEL`].
+/// The elliptic curve is detected automatically from the key's OID.
+pub fn from_encrypted_pem(pem_data: &[u8], password: &[u8]) -> Result<Self> {
+⋮----
+// The KDF payload is a PKCS#8 blob.
+⋮----
+/// Builds a `EcdsaKeys` from a pkcs8 PEM-encoded private key.
+/// The label of PEM should be [`PRIVATE_KEY_PEM_LABEL`].
+/// The elliptic curve is detected automatically from the key's OID.
+pub fn from_pem(pem_data: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `EcdsaKeys` from a pkcs8 asn.1 private key.
+/// The elliptic curve is detected automatically from the key's OID.
+pub fn from_der(der: &[u8]) -> Result<Self> {
+⋮----
+/// Return a signer backed by this key pair.
+pub fn to_signer(&self) -> Result<EcdsaSigner> {
+⋮----
+/// Convert the [`EcdsaKeys`] into [`super::ECDSAKeys`].
+pub fn to_wrapped_ecdsa_keys(&self) -> Result<super::ECDSAKeys> {
+⋮----
+impl KeyPair for EcdsaKeys {
+/// Return the public key in PEM-encoded SPKI format.
+fn public_key_to_pem(&self) -> Result<String> {
+⋮----
+/// Return the public key in asn.1 SPKI format.
+fn public_key_to_der(&self) -> Result<Vec<u8>> {
+⋮----
+/// Return the encrypted private key in PEM-encoded format.
+fn private_key_to_encrypted_pem(&self, password: &[u8]) -> Result<zeroize::Zeroizing<String>> {
+⋮----
+/// Return the private key in pkcs8 PEM-encoded format.
+fn private_key_to_pem(&self) -> Result<zeroize::Zeroizing<String>> {
+⋮----
+/// Return the private key in asn.1 pkcs8 format.
+fn private_key_to_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>> {
+⋮----
+/// Derive the relative [`CosignVerificationKey`].
+fn to_verification_key(&self, signing_scheme: &SigningScheme) -> Result<CosignVerificationKey> {
+⋮----
+/// An ECDSA signer.
+pub struct EcdsaSigner {
+key_pair: EcdsaKeys,
+/// Backend key imported once by [`Self::from_ecdsa_keys`].
+signing_key: crate::crypto::backend::EcdsaSigningKey,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl EcdsaSigner {
+/// Create a new `EcdsaSigner` from the given `EcdsaKeys`.
+///
+/// The PKCS#8 private key is imported and validated once. Later
+/// [`Signer::sign`] calls reuse that parsed key.
+pub fn from_ecdsa_keys(keys: &EcdsaKeys) -> Result<Self> {
+⋮----
+/// Return the ref to the keypair inside the signer.
+pub fn ecdsa_keys(&self) -> &EcdsaKeys {
+⋮----
+impl Signer for EcdsaSigner {
+/// Sign the given message and generate an ASN.1 DER-encoded ECDSA signature.
+fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// Return the ref to the keypair inside the signer.
+fn key_pair(&self) -> &dyn KeyPair {
+⋮----
+mod tests {
+use std::fs;
+⋮----
+use rstest::rstest;
+⋮----
+use crate::crypto::signing_key::ecdsa::EllipticCurve;
+use crate::crypto::signing_key::ed25519::Ed25519Keys;
+⋮----
+/// This test will try to read an unencrypted ecdsa
+/// private key file, which is generated by `sigstore`.
+⋮----
+fn ecdsa_from_unencrypted_pem() {
+⋮----
+/// This test will try to read an encrypted ecdsa
+/// private key file, which is generated by `sigstore`.
+⋮----
+fn ecdsa_from_encrypted_pem(#[case] keypath: &str, #[case] password: &[u8]) {
+⋮----
+/// This test will try to encrypt a ecdsa keypair and
+/// return the pem-encoded contents.
+⋮----
+fn ecdsa_to_encrypted_pem(#[case] password: &[u8]) {
+⋮----
+/// This test will ensure that an unencrypted
+/// keypair will fail to read if a non-empty
+/// password is given.
+⋮----
+fn ecdsa_error_unencrypted_pem_password() {
+⋮----
+/// This test will generate a EcdsaKeys, encode the private key
+/// into pem, and decode a new key from the generated pem-encoded
+/// private key.
+⋮----
+fn ecdsa_to_and_from_pem() {
+⋮----
+/// This test will generate a EcdsaKeys, encode the private key
+/// into pem, and decode a new key from the generated pem-encoded
+/// private key.
+⋮----
+fn ecdsa_to_and_from_encrypted_pem(#[case] password: &[u8]) {
+⋮----
+/// This test will generate a EcdsaKeys, encode the private key
+/// into der, and decode a new key from the generated der-encoded
+/// private key.
+⋮----
+fn ecdsa_to_and_from_der() {
+⋮----
+/// This test will generate a ecdsa-P256 keypair.
+/// And then use the verification key interface to instantiate
+/// a VerificationKey object.
+⋮----
+fn ecdsa_generate_public_key() {
+⋮----
+/// This test will generate a ecdsa-P256 keypair.
+/// And then derive a `CosignVerificationKey` from it.
+⋮----
+fn ecdsa_derive_verification_key() {
+⋮----
+/// This test will do the following things:
+/// * Generate a ecdsa-P256 keypair.
+/// * Sign the MESSAGE with the private key using ECDSA_P256_SHA256_ASN1,
+///   then generate a signature.
+/// * Verify the signature using the public key.
+⋮----
+fn ecdsa_sign_and_verify() {
+⋮----
+/// Verify that `curve_from_pkcs8_der` correctly detects the curve for each
+/// supported elliptic curve.
+⋮----
+fn curve_from_pkcs8_der_detects_curve(#[case] curve: EllipticCurve) {
+⋮----
+/// Verify that `curve_from_pkcs8_der` returns an error on garbage input.
+⋮----
+fn curve_from_pkcs8_der_invalid_der() {
+⋮----
+/// Verify that `curve_from_pkcs8_der` returns an error when the OID is not
+/// one of the three supported EC curves (e.g. an Ed25519 key).
+⋮----
+fn curve_from_pkcs8_der_unsupported_oid() {
+</file>
+
+<file path="src/crypto/signing_key/ecdsa/mod.rs">
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! # ECDSA Key Enums
+//!
+//! This module provides [`ECDSAKeys`], a curve-tagged enum that wraps
+//! [`EcdsaKeys`] for each supported elliptic curve. The curve is selected
+//! at runtime rather than via generic type parameters.
+//!
+//! # EC Key Pair Operations
+//!
+//! Three elliptic curves are supported:
+//! * `P256`: P-256, also known as secp256r1 or prime256v1 (paired with SHA-256)
+//! * `P384`: P-384, also known as secp384r1 (paired with SHA-384)
+//! * `P521`: P-521, also known as secp521r1 (paired with SHA-512)
+//!
+//! We take `P256` as an example to show the operations:
+//! ```rust
+//! use sigstore::crypto::signing_key::ecdsa::{ECDSAKeys, EllipticCurve};
+//! use sigstore::crypto::Signature;
+//!
+//! // generate a new EC-P256 key pair
+//! let ec_key_pair = ECDSAKeys::new(EllipticCurve::P256).unwrap();
+//!
+//! // export the pem encoded public key.
+//! // here `as_inner()` returns a reference to the [`KeyPair`] trait object
+//! // underlying this [`ECDSAKeys`] for key pair operations.
+//! let pubkey = ec_key_pair.as_inner().public_key_to_pem().unwrap();
+//!
+//! // export the private key using sigstore encryption.
+//! let privkey = ec_key_pair.as_inner().private_key_to_encrypted_pem(b"password").unwrap();
+//!
+//! // also, we can import an [`ECDSAKeys`] of unknown elliptic curve using
+//! // functions with the prefix `ECDSAKeys::from_`. These functions try to
+//! // decode the given ECDSA private key (in PKCS#8 format) against each
+//! // supported curve in order, returning the first that succeeds.
+//! // For example:
+//! // let ec_key_pair_import = ECDSAKeys::from_pem(PEM_CONTENT).unwrap();
+//!
+//! // convert this EC key into a [`sigstore::crypto::signing_key::SigStoreSigner`]
+//! // enum to sign some data. The digest algorithm is chosen automatically
+//! // based on the curve (P-256→SHA-256, P-384→SHA-384, P-521→SHA-512).
+//! let ec_signer = ec_key_pair.to_sigstore_signer().unwrap();
+//!
+//! // test message to be signed
+//! let message = b"some message";
+//!
+//! // sign the message
+//! let signature_data = ec_signer.sign(message).unwrap();
+//!
+//! // export the [`sigstore::crypto::verification_key::CosignVerificationKey`]
+//! // from the [`sigstore::crypto::signing_key::SigStoreSigner`],
+//! // which is used to verify the signature.
+//! let verification_key = ec_signer.to_verification_key().unwrap();
+//!
+//! // verify
+//! assert!(verification_key.verify_signature(Signature::Raw(&signature_data), message).is_ok());
+//! ```
+⋮----
+pub mod ec;
+⋮----
+/// The elliptic curves supported for ECDSA operations.
+⋮----
+pub enum EllipticCurve {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+/// An ECDSA key pair for one of the supported curves.
+pub enum ECDSAKeys {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl ECDSAKeys {
+/// Create a new key pair for the given curve.
+pub fn new(curve: EllipticCurve) -> Result<Self> {
+⋮----
+/// Return a reference to the inner [`KeyPair`] trait object.
+pub fn as_inner(&self) -> &dyn KeyPair {
+⋮----
+pub(crate) fn inner(&self) -> &EcdsaKeys {
+⋮----
+/// Build an [`ECDSAKeys`] from encrypted pkcs8 PEM-encoded private key.
+/// The elliptic curve is detected automatically from the key's OID.
+pub fn from_encrypted_pem(private_key: &[u8], password: &[u8]) -> Result<Self> {
+⋮----
+/// Build an [`ECDSAKeys`] from a pkcs8 PEM-encoded private key.
+/// The elliptic curve is detected automatically from the key's OID.
+pub fn from_pem(pem_data: &[u8]) -> Result<Self> {
+⋮----
+/// Build an [`ECDSAKeys`] from pkcs8 DER bytes.
+/// The elliptic curve is detected automatically from the key's OID.
+pub fn from_der(private_key: &[u8]) -> Result<Self> {
+⋮----
+/// Build a [`SigStoreSigner`] from this key pair using the default scheme
+/// for each curve (P256→SHA256, P384→SHA384, P521→SHA512).
+pub fn to_sigstore_signer(&self) -> Result<SigStoreSigner> {
+</file>
+
+<file path="src/crypto/signing_key/rsa/keypair.rs">
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! # RSA Key Pair
+//!
+//! This module provides RSA key pair operations.
+//! [`RSAKeys`] implements the [`KeyPair`] trait and provides import and
+//! export operations from/to DER and PEM bytes.
+//!
+//! Supported key sizes are 2048, 3072, and 4096 bits.
+//!
+//! # RSA Key Pair Operations
+//!
+//! For example, we generate an RSA key pair and export:
+//!
+//! ```rust
+//! use sigstore::crypto::signing_key::{rsa::keypair::RSAKeys, KeyPair};
+//!
+//! let rsa_keys = RSAKeys::new(2048).unwrap();
+//!
+//! // export the pem encoded public key.
+//! let pubkey = rsa_keys.public_key_to_pem().unwrap();
+//!
+//! // export the private key using sigstore encryption.
+//! let privkey_pem = rsa_keys.private_key_to_encrypted_pem(b"password").unwrap();
+//!
+//! // import the key pair from the encrypted pem.
+//! let rsa_keys2 = RSAKeys::from_encrypted_pem(privkey_pem.as_bytes(), b"password").unwrap();
+//! ```
+⋮----
+/// An RSA key pair.
+⋮----
+pub struct RSAKeys {
+/// PKCS#8 DER-encoded private key.
+pub(super) pkcs8_der: zeroize::Zeroizing<Vec<u8>>,
+/// DER-encoded SubjectPublicKeyInfo.
+spki_der: Vec<u8>,
+⋮----
+impl RSAKeys {
+/// Create a new `RSAKeys` object.
+/// The private key will be randomly generated.
+/// `bit_size` must be 2048, 3072, or 4096.
+pub fn new(bit_size: usize) -> Result<Self> {
+⋮----
+/// Builds a `RSAKeys` from a pkcs8 asn.1 private key.
+pub fn from_pkcs8_der(der: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `RSAKeys` from encrypted pkcs8 PEM-encoded private key.
+/// The label should be [`COSIGN_PRIVATE_KEY_PEM_LABEL`] or
+/// [`SIGSTORE_PRIVATE_KEY_PEM_LABEL`].
+pub fn from_encrypted_pem(encrypted_pem: &[u8], password: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `RSAKeys` from a pkcs8 PEM-encoded private key.
+/// The label of PEM should be [`PRIVATE_KEY_PEM_LABEL`] or
+/// [`RSA_PRIVATE_KEY_PEM_LABEL`].
+pub fn from_pem(pem_data: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `RSAKeys` from a pkcs8 asn.1 private key.
+/// Alias for [`RSAKeys::from_pkcs8_der`].
+pub fn from_der(der: &[u8]) -> Result<Self> {
+⋮----
+/// `to_sigstore_signer` will create the [`crate::crypto::SigStoreSigner`] using
+/// this RSA key pair.
+pub fn to_sigstore_signer(
+⋮----
+/// Validate that the RSA public modulus length (in bytes) is 256, 384, or 512
+/// (i.e. 2048, 3072, or 4096 bit key).
+fn modulus_to_key_size(modulus_len: usize) -> Result<()> {
+⋮----
+impl KeyPair for RSAKeys {
+/// Return the public key in PEM-encoded SPKI format.
+fn public_key_to_pem(&self) -> Result<String> {
+⋮----
+/// Return the public key in asn.1 SPKI format.
+fn public_key_to_der(&self) -> Result<Vec<u8>> {
+⋮----
+/// Return the encrypted asn.1 pkcs8 private key.
+fn private_key_to_encrypted_pem(&self, password: &[u8]) -> Result<zeroize::Zeroizing<String>> {
+⋮----
+/// Return the private key in pkcs8 PEM-encoded format.
+fn private_key_to_pem(&self) -> Result<zeroize::Zeroizing<String>> {
+⋮----
+/// Return the private key in asn.1 pkcs8 format.
+fn private_key_to_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>> {
+⋮----
+/// Derive the relative [`crate::crypto::CosignVerificationKey`].
+fn to_verification_key(&self, signing_scheme: &SigningScheme) -> Result<CosignVerificationKey> {
+⋮----
+mod tests {
+use std::fs;
+⋮----
+use rstest::rstest;
+⋮----
+use super::RSAKeys;
+⋮----
+/// This test will try to read an unencrypted rsa
+/// private key file, which is generated by `sigstore`.
+⋮----
+fn rsa_from_unencrypted_pem() {
+⋮----
+/// This test will try to read an encrypted rsa
+/// private key file, which is generated by `sigstore`.
+⋮----
+fn rsa_from_encrypted_pem(#[case] keypath: &str, #[case] password: &[u8]) {
+⋮----
+/// This test will try to encrypt a rsa keypair and
+/// return the pem-encoded contents. The bit size
+/// of the rsa key is [`KEY_SIZE`].
+⋮----
+fn rsa_to_encrypted_pem(#[case] password: &[u8]) {
+⋮----
+/// This test will ensure that an unencrypted
+/// keypair will fail to read if a non-empty
+/// password is given.
+⋮----
+fn rsa_error_unencrypted_pem_password() {
+⋮----
+/// This test will generate a RSAKeys, encode the private key
+/// into pem, and decode a new key from the generated pem-encoded
+/// private key.
+⋮----
+fn rsa_to_and_from_pem() {
+⋮----
+/// This test will generate a RSAKeys, encode the private key
+/// into encrypted pem, and decode a new key from the generated
+/// pem-encoded private key.
+⋮----
+fn rsa_to_and_from_encrypted_pem(#[case] password: &[u8]) {
+⋮----
+/// This test will generate a RSAKeys, encode the private key
+/// into der, and decode a new key from the generated der-encoded
+/// private key.
+⋮----
+fn rsa_to_and_from_der() {
+⋮----
+/// This test will generate a rsa keypair.
+/// And then use the verification key interface to instantiate
+/// a [`CosignVerificationKey`] object from both PEM and DER.
+⋮----
+fn rsa_generate_public_key() {
+⋮----
+/// This test will generate a rsa keypair.
+/// And then derive a [`CosignVerificationKey`] from it
+/// using [`crate::crypto::signing_key::KeyPair::to_verification_key`].
+⋮----
+fn rsa_derive_verification_key() {
+⋮----
+/// This test will do the following things:
+/// * Generate a rsa keypair.
+/// * Sign the MESSAGE with `RSA_PSS_SHA256`
+/// * Verify the signature using the public key.
+⋮----
+fn rsa_sign_and_verify() {
+</file>
+
+<file path="src/crypto/signing_key/rsa/mod.rs">
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! # RSA Signer
+//!
+//! RSA Signer supports the following padding schemes:
+//! * `PSS`
+//! * `PKCS#1 v1.5`
+//!
+//! And the following digest algorithms:
+//! * `Sha256`
+//!
+//! Per the Sigstore algorithm registry only SHA-256 is required for RSA,
+//! so `RSA_PSS_SHA384`, `RSA_PSS_SHA512`, `RSA_PKCS1_SHA384`, and
+//! `RSA_PKCS1_SHA512` have been removed.
+//!
+//! # RSA Signer Operation
+//!
+//! A [`RSASigner`] can be derived from a [`RSAKeys`]
+//! ```rust
+//! use sigstore::crypto::signing_key::{rsa::{RSASigner, keypair::RSAKeys, DigestAlgorithm, PaddingScheme}, KeyPair, Signer};
+//! use sigstore::crypto::Signature;
+//!
+//! let rsa_keys = RSAKeys::new(2048).unwrap();
+//!
+//! // create a signer
+//! let signer = RSASigner::from_rsa_keys(&rsa_keys, DigestAlgorithm::Sha256, PaddingScheme::PSS);
+//!
+//! // test message to be signed
+//! let message = b"some message";
+//!
+//! // sign
+//! let signature_data = signer.sign(message).unwrap();
+//!
+//! // export the [`CosignVerificationKey`] from the [`RSASigner`], which
+//! // is used to verify the signature.
+//! let verification_key = signer.to_verification_key().unwrap();
+//!
+//! // verify
+//! assert!(verification_key.verify_signature(Signature::Raw(&signature_data), message).is_ok());
+//! ```
+⋮----
+use self::keypair::RSAKeys;
+⋮----
+pub mod keypair;
+⋮----
+/// Different digest algorithms used in
+/// RSA-based signing algorithm.
+pub enum DigestAlgorithm {
+⋮----
+/// Different padding schemes used in
+/// RSA-based signing algorithm.
+/// * `PSS`: Probabilistic Signature Scheme, more secure than `PKCS1v15`.
+/// * `PKCS1v15`: also known as simply PKCS1, is a simple padding
+///   scheme developed for use with RSA keys.
+pub enum PaddingScheme {
+⋮----
+/// RSA signing scheme families:
+/// * `PKCS1v15`: PKCS#1 1.5 padding for RSA signatures.
+/// * `PSS`: RSA PSS padding for RSA signatures.
+///
+/// Both schemes support the following digest algorithms:
+/// * `Sha256`
+pub struct RSASigner {
+pub(crate) digest: DigestAlgorithm,
+pub(crate) padding: PaddingScheme,
+key_pair: RSAKeys,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl RSASigner {
+/// Create a new `RSASigner` from an [`RSAKeys`] key pair, digest algorithm,
+/// and padding scheme.
+pub fn new(key_pair: RSAKeys, digest: DigestAlgorithm, padding: PaddingScheme) -> Self {
+⋮----
+/// Create a new `RSASigner` from a reference to an [`RSAKeys`] key pair.
+pub fn from_rsa_keys(
+⋮----
+/// Return the ref to the [`RSAKeys`] inside the `RSASigner`.
+pub fn rsa_keys(&self) -> &RSAKeys {
+⋮----
+/// Return the related [`CosignVerificationKey`] of this `RSASigner`.
+pub fn to_verification_key(&self) -> Result<CosignVerificationKey> {
+use crate::crypto::SigningScheme;
+⋮----
+impl Signer for RSASigner {
+/// `sign` will sign the given data, and return the signature.
+fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// Return the ref to the [`KeyPair`] trait object inside the `RSASigner`.
+fn key_pair(&self) -> &dyn KeyPair {
+⋮----
+mod tests {
+use rstest::rstest;
+⋮----
+fn rsa_schemes(
+</file>
+
+<file path="src/crypto/signing_key/ed25519.rs">
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! # Ed25519 Keys
+//!
+//! This module provides Ed25519 key pair operations.
+//! There are two main types:
+//! * [`Ed25519Keys`]: provides key pair operations
+//! * [`Ed25519Signer`]: provides signing operations
+//!
+//! The `signing_key` module wraps [`Ed25519Keys`] into [`super::SigStoreKeyPair`],
+//! and [`Ed25519Signer`] into [`SigStoreSigner`].
+//!
+//! # Ed25519 Key Operations
+//!
+//! ```rust
+//! use sigstore::crypto::signing_key::ed25519::Ed25519Keys;
+//! use sigstore::crypto::{signing_key::KeyPair, Signature};
+//!
+//! // generate a new Ed25519 key pair
+//! let ed25519_key_pair = Ed25519Keys::new().unwrap();
+//!
+//! // export the pem encoded public key.
+//! let pubkey = ed25519_key_pair.public_key_to_pem().unwrap();
+//!
+//! // export the private key using sigstore encryption.
+//! let privkey = ed25519_key_pair.private_key_to_encrypted_pem(b"password").unwrap();
+//!
+//! // also, we can import an Ed25519 key using functions with the prefix
+//! // `Ed25519Keys::from_`. These functions treat the given data as an
+//! // Ed25519 private key in PKCS#8 format. For example:
+//! // let ed25519_key_pair_import = Ed25519Keys::from_pem(PEM_CONTENT).unwrap();
+//!
+//! // convert this Ed25519 key into a [`super::SigStoreSigner`] enum to sign some data.
+//! let ed25519_signer = ed25519_key_pair.to_sigstore_signer().unwrap();
+//!
+//! // test message to be signed
+//! let message = b"some message";
+//!
+//! // sign the message
+//! let signature = ed25519_signer.sign(message).unwrap();
+//!
+//! // export the [`sigstore::crypto::verification_key::CosignVerificationKey`] from the
+//! // [`super::SigStoreSigner`], which is used to verify the signature.
+//! let verification_key = ed25519_signer.to_verification_key().unwrap();
+//!
+//! // verify
+//! assert!(verification_key.verify_signature(Signature::Raw(&signature), message).is_ok());
+//! ```
+⋮----
+/// An Ed25519 key pair.
+⋮----
+pub struct Ed25519Keys {
+/// PKCS#8 DER encoding of the private key.
+pkcs8_der: zeroize::Zeroizing<Vec<u8>>,
+/// DER-encoded SubjectPublicKeyInfo.
+spki_der: Vec<u8>,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl Ed25519Keys {
+/// Create a new `Ed25519Keys` object.
+/// The private key will be randomly generated.
+pub fn new() -> Result<Self> {
+⋮----
+/// Build from raw PKCS#8 DER bytes.
+pub fn from_pkcs8_der(der: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `Ed25519Keys` from encrypted pkcs8 PEM-encoded private key.
+/// The label should be [`COSIGN_PRIVATE_KEY_PEM_LABEL`] or
+/// [`SIGSTORE_PRIVATE_KEY_PEM_LABEL`].
+pub fn from_encrypted_pem(encrypted_pem: &[u8], password: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `Ed25519Keys` from a pkcs8 PEM-encoded private key.
+/// The label of PEM should be [`PRIVATE_KEY_PEM_LABEL`].
+pub fn from_pem(pem_data: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `Ed25519Keys` from a pkcs8 asn.1 private key.
+pub fn from_der(der: &[u8]) -> Result<Self> {
+⋮----
+/// Create a new `Ed25519Keys` object from a given `Ed25519Keys` object.
+pub fn from_ed25519key(key: &Ed25519Keys) -> Result<Self> {
+⋮----
+/// `to_sigstore_signer` will create the [`SigStoreSigner`] using
+/// this Ed25519 private key.
+pub fn to_sigstore_signer(&self) -> Result<SigStoreSigner> {
+⋮----
+impl KeyPair for Ed25519Keys {
+/// Return the public key in PEM-encoded SPKI format.
+fn public_key_to_pem(&self) -> Result<String> {
+⋮----
+/// Return the public key in asn.1 SPKI format.
+fn public_key_to_der(&self) -> Result<Vec<u8>> {
+⋮----
+/// Return the encrypted asn.1 pkcs8 private key.
+fn private_key_to_encrypted_pem(&self, password: &[u8]) -> Result<zeroize::Zeroizing<String>> {
+⋮----
+/// Return the private key in pkcs8 PEM-encoded format.
+fn private_key_to_pem(&self) -> Result<zeroize::Zeroizing<String>> {
+⋮----
+/// Return the private key in asn.1 pkcs8 format.
+fn private_key_to_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>> {
+⋮----
+/// Derive the relative [`CosignVerificationKey`].
+fn to_verification_key(
+⋮----
+/// An Ed25519 signer.
+⋮----
+pub struct Ed25519Signer {
+key_pair: Ed25519Keys,
+⋮----
+impl Ed25519Signer {
+/// Create a new `Ed25519Signer` from the given `Ed25519Keys`.
+pub fn from_ed25519_keys(ed25519_keys: &Ed25519Keys) -> Result<Self> {
+⋮----
+/// Return the ref to the keypair inside the signer.
+pub fn ed25519_keys(&self) -> &Ed25519Keys {
+⋮----
+impl Signer for Ed25519Signer {
+/// Return the ref to the keypair inside the signer.
+fn key_pair(&self) -> &dyn KeyPair {
+⋮----
+/// Sign the given message using Ed25519.
+fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+mod tests {
+use std::fs;
+⋮----
+use rstest::rstest;
+⋮----
+/// This test will try to read an unencrypted ed25519
+/// private key file, which is generated by `sigstore`.
+⋮----
+fn ed25519_from_unencrypted_pem() {
+⋮----
+/// This test will try to read an encrypted ed25519
+/// private key file, which is generated by `sigstore`.
+⋮----
+fn ed25519_from_encrypted_pem(#[case] keypath: &str, #[case] password: &[u8]) {
+⋮----
+/// This test will try to encrypt an ed25519 keypair and
+/// return the pem-encoded contents.
+⋮----
+fn ed25519_to_encrypted_pem(#[case] password: &[u8]) {
+⋮----
+/// This test will ensure that an unencrypted
+/// keypair will fail to read if a non-empty
+/// password is given.
+⋮----
+fn ed25519_error_unencrypted_pem_password() {
+⋮----
+/// This test will generate an Ed25519Keys, encode the private key
+/// into pem, and decode a new key from the generated pem-encoded
+/// private key.
+⋮----
+fn ed25519_to_and_from_pem() {
+⋮----
+/// This test will generate an Ed25519Keys, encode the private key
+/// into pem, and decode a new key from the generated pem-encoded
+/// private key.
+⋮----
+fn ed25519_to_and_from_encrypted_pem(#[case] password: &[u8]) {
+⋮----
+/// This test will generate an Ed25519Keys, encode the private key
+/// into der, and decode a new key from the generated der-encoded
+/// private key.
+⋮----
+fn ed25519_to_and_from_der() {
+⋮----
+/// This test will generate a ed25519 keypair.
+/// And then use the verification key interface to instantiate
+/// a VerificationKey object.
+⋮----
+fn ed25519_generate_public_key() {
+⋮----
+/// This test will generate a ed25519 keypair.
+/// And then derive a `CosignVerificationKey` from it.
+⋮----
+fn ed25519_derive_verification_key() {
+⋮----
+/// This test will do the following things:
+/// * Generate an ed25519 keypair.
+/// * Sign the MESSAGE with the private key,
+///   then generate a signature.
+/// * Verify the signature using the public key.
+⋮----
+fn ed25519_sign_and_verify() {
+</file>
+
+<file path="src/crypto/signing_key/kdf.rs">
+//
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Key Derivation Function for Sigstore
+//!
+//! This is the Rust version of KDF used in Sigstore.
+//! Please refer to <https://github.com/theupdateframework/go-tuf/blob/master/encrypted/encrypted.go>
+//! for golang version.
+⋮----
+/// Salt bit length used in scrypt algorithm.
+⋮----
+/// KDF name for scrypt.
+⋮----
+/// Scrypt algorithm parameter log2(n)
+⋮----
+/// Scrypt algorithm parameter r
+⋮----
+/// Scrypt algorithm parameter p
+⋮----
+/// Secret box name
+⋮----
+/// Key length for secretbox
+⋮----
+/// Nonce length for secretbox
+⋮----
+/// Parameters for scrypt algorithm.
+⋮----
+pub struct ScryptParams {
+⋮----
+n: u32,
+r: u32,
+p: u32,
+⋮----
+/// Key Derivation Function.
+/// Using scrypt algorithm from a password.
+⋮----
+struct ScryptKDF {
+name: String,
+params: ScryptParams,
+⋮----
+salt: Vec<u8>,
+⋮----
+/// Help to serialize `salt` to base64
+fn to_base64<S>(v: &[u8], serializer: S) -> std::result::Result<S::Ok, S::Error>
+⋮----
+/// Help to deserialize `salt` from base64
+fn from_base64<'de, D>(deserializer: D) -> std::result::Result<Vec<u8>, D::Error>
+⋮----
+impl Default for ScryptKDF {
+/// Create a new Key derivation function object
+fn default() -> Self {
+⋮----
+impl ScryptKDF {
+/// Derivate a new key from the given password
+fn key(&self, password: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// Check whether the given params is as the default,
+/// to avoid a DoS attack.
+fn check_params(&self) -> Result<()> {
+⋮----
+/// Secretbox is used to seal the given secret
+⋮----
+struct SecretBoxCipher {
+name: String,
+⋮----
+nonce: Vec<u8>,
+⋮----
+encrypted: bool,
+⋮----
+impl Default for SecretBoxCipher {
+fn default() -> Self {
+⋮----
+impl SecretBoxCipher {
+/// Seal the plaintext using the key and nonce.
+fn encrypt(&mut self, plaintext: &[u8], key: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// Unseal the ciphertext using the key
+fn decrypt(&self, ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// `Data` is all content of a encrypted private key.
+⋮----
+struct Data {
+kdf: ScryptKDF,
+cipher: SecretBoxCipher,
+⋮----
+cipher_text: Vec<u8>,
+⋮----
+/// Generate a random Vec<u8> of given length.
+fn generate_random(len: u32) -> Vec<u8> {
+⋮----
+/// Encrypt the given plaintext using a derived key from
+/// password. In sigstore, it is used to encrypt the
+/// private key.
+pub fn encrypt(plaintext: &[u8], password: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// Encrypt the given plaintext using a derived key from
+/// password. In sigstore, it is used to decrypt the
+/// private key.
+pub fn decrypt(ciphertext: &[u8], password: &[u8]) -> Result<Vec<u8>> {
+⋮----
+mod tests {
+use assert_json_diff::assert_json_eq;
+use serde_json::json;
+⋮----
+use crate::crypto::signing_key::kdf::Data;
+⋮----
+/// This test will firstly deserialize the given KDF
+/// payload generated from cosign in golang, and then
+/// serialize the generated object into a new string.
+⋮----
+fn serde_kdf() {
+</file>
+
+<file path="src/crypto/signing_key/mod.rs">
+//
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! # Keys Interface
+//!
+//! This mod includes asymmetric key pair generation, exporting/importing,
+//! signing and verification key derivation. All the above features are
+//! given by two enums:
+//! * [`SigStoreKeyPair`]: an abstraction for asymmetric encryption key pairs.
+//! * [`SigStoreSigner`]: an abstraction for digital signing algorithms.
+//!
+//! The [`SigStoreKeyPair`] now includes the key types of the following algorithms:
+//! * [`SigStoreKeyPair::RSA`]: RSA key pair
+//! * [`SigStoreKeyPair::ECDSA`]: Elliptic curve key pair
+//! * [`SigStoreKeyPair::ED25519`]: Edwards curve-25519 key pair
+//!
+//! The [`SigStoreSigner`] now includes the following signing schemes:
+//! * [`SigStoreSigner::RSA_PSS_SHA256`]: RSA signatures using PSS padding and SHA-256.
+//! * [`SigStoreSigner::RSA_PKCS1_SHA256`]: RSA signatures using PKCS#1v1.5 padding and SHA-256.
+//! * [`SigStoreSigner::ECDSA_P256_SHA256_ASN1`]: ASN.1 DER-encoded ECDSA
+//!   signatures using the P-256 curve and SHA-256.
+//! * [`SigStoreSigner::ECDSA_P384_SHA384_ASN1`]: ASN.1 DER-encoded ECDSA
+//!   signatures using the P-384 curve and SHA-384.
+//! * [`SigStoreSigner::ED25519`]: ECDSA signature using SHA2-512
+//!   as the digest function and curve edwards25519.
+//!
+//! # Simple Usages
+//!
+//! ```rust
+//! use sigstore::crypto::signing_key::SigStoreSigner;
+//! use sigstore::crypto::SigningScheme;
+//! use sigstore::crypto::Signature;
+//!
+//! let test_data = b"test message";
+//! // generate a key pair for ECDSA_P256_SHA256_ASN1
+//! let signer = SigningScheme::ECDSA_P256_SHA256_ASN1.create_signer().unwrap();
+//!
+//! // signing some message and get the message
+//! let sig = signer.sign(test_data).unwrap();
+//!
+//! // get the public key to verify
+//! let verification_key = signer.to_verification_key().unwrap();
+//!
+//! // do verification
+//! let res = verification_key.verify_signature(
+//!     Signature::Raw(&sig),
+//!     test_data,
+//! );
+//!
+//! assert!(res.is_ok());
+//! ```
+//!
+//! More use cases please refer to <`https://github.com/sigstore/sigstore-rs/tree/main/examples/key_interface`>
+⋮----
+use zeroize::Zeroizing;
+⋮----
+pub mod ecdsa;
+pub mod ed25519;
+pub mod kdf;
+pub mod rsa;
+⋮----
+/// The label for pem of cosign generated encrypted private keys.
+⋮----
+/// The label for pem of public keys.
+⋮----
+/// The label for pem of sigstore generated encrypted private keys.
+⋮----
+/// The label for pem of private keys.
+⋮----
+/// The label for pem of RSA private keys.
+⋮----
+/// Every signing scheme must implement this interface.
+/// All private export methods using the wrapper `Zeroizing`.
+/// It will tell the compiler when the
+/// result der object is dropped, the relative memory will
+/// be flushed to zero to avoid leaving the private key in
+/// the ram.
+pub trait KeyPair {
+/// `public_key_to_pem` will export the PEM-encoded public key.
+fn public_key_to_pem(&self) -> Result<String>;
+⋮----
+/// `public_key_to_der` will export the asn.1 PKIX public key.
+fn public_key_to_der(&self) -> Result<Vec<u8>>;
+⋮----
+/// `private_key_to_encrypted_pem` will export the encrypted asn.1 pkcs8 private key.
+/// This encryption follows the go-lang version in
+/// <https://github.com/sigstore/cosign/blob/main/pkg/cosign/keys.go#L139> using nacl secretbox.
+fn private_key_to_encrypted_pem(&self, password: &[u8]) -> Result<Zeroizing<String>>;
+⋮----
+/// `private_key_to_pem` will export the PEM-encoded pkcs8 private key.
+fn private_key_to_pem(&self) -> Result<Zeroizing<String>>;
+⋮----
+/// `private_key_to_der` will export the asn.1 pkcs8 private key.
+fn private_key_to_der(&self) -> Result<Zeroizing<Vec<u8>>>;
+⋮----
+/// `to_verification_key` will derive the `CosignVerificationKey` from
+/// the public key.
+fn to_verification_key(
+        &self,
+        signature_digest_algorithm: &SigningScheme,
+    ) -> Result<CosignVerificationKey>;
+⋮----
+/// Wrapper for different kinds of keys.
+pub enum SigStoreKeyPair {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+/// This macro helps to reduce duplicated code.
+macro_rules! sigstore_keypair_from {
+⋮----
+/// This macro helps to reduce duplicated code.
+macro_rules! sigstore_keypair_code {
+⋮----
+impl SigStoreKeyPair {
+/// Builds a `SigStoreKeyPair` from pkcs8 PEM-encoded private key.
+pub fn from_pem(pem_data: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `SigStoreKeyPair` from pkcs8 DER-encoded private key.
+pub fn from_der(private_key: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `SigStoreKeyPair` from encrypted pkcs8 PEM-encoded private key.
+pub fn from_encrypted_pem(pem_data: &[u8], password: &[u8]) -> Result<Self> {
+⋮----
+/// `public_key_to_pem` will export the PEM-encoded public key.
+pub fn public_key_to_pem(&self) -> Result<String> {
+⋮----
+/// `public_key_to_der` will export the asn.1 PKIX public key.
+pub fn public_key_to_der(&self) -> Result<Vec<u8>> {
+⋮----
+/// `private_key_to_encrypted_pem` will export the encrypted asn.1 pkcs8 private key.
+/// This encryption follows the go-lang version in
+/// <https://github.com/sigstore/cosign/blob/main/pkg/cosign/keys.go#L139> using nacl secretbox.
+pub fn private_key_to_encrypted_pem(&self, password: &[u8]) -> Result<Zeroizing<String>> {
+⋮----
+/// `private_key_to_pem` will export the PEM-encoded pkcs8 private key.
+pub fn private_key_to_pem(&self) -> Result<Zeroizing<String>> {
+⋮----
+/// `private_key_to_der` will export the asn.1 pkcs8 private key.
+pub fn private_key_to_der(&self) -> Result<Zeroizing<Vec<u8>>> {
+⋮----
+/// `to_verification_key` will derive the `CosignVerificationKey` from
+/// the public key.
+pub fn to_verification_key(
+⋮----
+/// Convert this KeyPair into a [`SigStoreSigner`] due to the given
+/// signing scheme. If the key type does not match the given
+/// signing scheme, an error will occur.
+pub fn to_sigstore_signer(&self, signing_scheme: &SigningScheme) -> Result<SigStoreSigner> {
+⋮----
+/// `Signer` trait is an abstraction of a specific set of asymmetric
+/// private key, hash function and (if needs) padding algorithm. This
+/// trait helps to construct the `SigStoreSigner` enum.
+pub trait Signer {
+/// Return the ref to the keypair inside the signer
+fn key_pair(&self) -> &dyn KeyPair;
+⋮----
+/// `sign` will sign the given data, and return the signature.
+fn sign(&self, msg: &[u8]) -> Result<Vec<u8>>;
+⋮----
+pub enum SigStoreSigner {
+⋮----
+impl SigStoreSigner {
+/// Return the inner `Signer` of the enum. This function
+/// is useful in the inner interface conversion.
+fn as_inner(&self) -> &dyn Signer {
+⋮----
+/// `sign` will sign the given data, and return the signature.
+pub fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
+⋮----
+/// `to_verification_key` will derive the verification_key for the `SigStoreSigner`.
+pub fn to_verification_key(&self) -> Result<CosignVerificationKey> {
+⋮----
+/// `key_pair` will return the reference of the `SigStoreKeyPair` enum due to `SigStoreSigner`.
+pub fn to_sigstore_keypair(&self) -> Result<SigStoreKeyPair> {
+⋮----
+mod tests {
+use rstest::rstest;
+⋮----
+/// This is a test MESSAGE used to be signed by all signing test.
+⋮----
+/// This test will do the following things:
+/// * Randomly generate a key pair due to the given signing scheme.
+/// * Signing the MESSAGE and generate a signature using
+/// the private key.
+/// * Derive the verification key using both `from_sigstore_signer`
+/// and `to_verification_key`.
+/// * Verify the signature with the public key.
+⋮----
+fn sigstore_signing(#[case] signing_scheme: SigningScheme) {
+</file>
+
+<file path="src/crypto/certificate_pool.rs">
+//
+// Copyright 2022 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+use const_oid::db::rfc5280::ID_KP_CODE_SIGNING;
+⋮----
+/// A collection of trusted root certificates.
+⋮----
+pub(crate) struct CertificatePool {
+trusted_roots: Vec<TrustAnchor<'static>>,
+intermediates: Vec<CertificateDer<'static>>,
+⋮----
+impl CertificatePool {
+/// Builds a `CertificatePool` instance using the provided list of [`Certificate`].
+pub(crate) fn from_certificates<'r, 'i, R, I>(
+⋮----
+/// Ensures the given certificate has been issued by one of the trusted root certificates
+/// An `Err` is returned when the verification fails.
+///
+/// **Note well:** certificates issued by Fulcio are, by design, valid only
+/// for a really limited amount of time.
+/// Because of that the validity checks performed by this method are more
+/// relaxed. The validity checks are done inside of
+/// [`crate::crypto::verify_validity`] and [`crate::crypto::verify_expiration`].
+pub(crate) fn verify_pem_cert(
+⋮----
+/// Ensures the given certificate has been issued by one of the trusted root certificates
+/// An `Err` is returned when the verification fails.
+///
+/// **Note well:** certificates issued by Fulcio are, by design, valid only
+/// for a really limited amount of time.
+/// Because of that the validity checks performed by this method are more
+/// relaxed. The validity checks are done inside of
+/// [`crate::crypto::verify_validity`] and [`crate::crypto::verify_expiration`].
+pub(crate) fn verify_der_cert(
+⋮----
+pub(crate) fn verify_cert_with_time<'a, 'cert>(
+</file>
+
+<file path="src/crypto/certificate.rs">
+//
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+use const_oid::db::rfc5912::ID_KP_CODE_SIGNING;
+use thiserror::Error;
+⋮----
+/// Encodes certificate DER bytes as PEM.
+///
+/// Use this function with the original DER, and not `EncodePem::to_pem` on a decoded
+/// [`Certificate`]: x509-cert does not re-encode every certificate byte for byte. For example, it
+/// writes validity times before 2050 as UTCTime, also when the certificate uses GeneralizedTime.
+/// The changed bytes do not match the issuer signature or the transparency log entry.
+⋮----
+pub(crate) fn der_to_pem(cert_der: &[u8]) -> x509_cert::der::Result<String> {
+⋮----
+/// Ensure the given certificate can be trusted for verifying cosign
+/// signatures.
+///
+/// The following checks are performed against the given certificate:
+/// * The certificate has the right set of key usages
+/// * The certificate cannot be used before the current time
+pub(crate) fn is_trusted(certificate: &Certificate, integrated_time: i64) -> Result<()> {
+⋮----
+pub(crate) fn verify_key_usages(certificate: &Certificate) -> Result<()> {
+⋮----
+// code signing
+⋮----
+pub(crate) fn verify_has_san(certificate: &Certificate) -> Result<()> {
+⋮----
+pub(crate) fn verify_validity(certificate: &Certificate) -> Result<()> {
+// Comment taken from cosign verification code:
+// THIS IS IMPORTANT: WE DO NOT CHECK TIMES HERE
+// THE CERTIFICATE IS TREATED AS TRUSTED FOREVER
+// WE CHECK THAT THE SIGNATURES WERE CREATED DURING THIS WINDOW
+⋮----
+fn verify_expiration(certificate: &Certificate, integrated_time: i64) -> Result<()> {
+⋮----
+pub enum ExtensionErrorKind {
+⋮----
+pub enum NotLeafErrorKind {
+⋮----
+pub enum NotCAErrorKind {
+⋮----
+Invalid { ca: bool, key_cert_sign: bool },
+⋮----
+pub enum CertificateValidationError {
+⋮----
+/// Check if the given certificate is a leaf in the context of the Sigstore profile.
+///
+/// * It is not a root or intermediate CA;
+/// * It has `keyUsage.digitalSignature`
+/// * It has `CODE_SIGNING` as an `ExtendedKeyUsage`.
+///
+/// This function does not evaluate the trustworthiness of the certificate.
+pub(crate) fn is_leaf(
+⋮----
+// NOTE(jl): following structure of sigstore-python over the slightly different handling found
+// in `verify_key_usages`.
+⋮----
+// Only V3 certificates should appear in the context of Sigstore; earlier versions of X.509 lack
+// extensions and have ambiguous CA behavior.
+⋮----
+// Finally, we check to make sure the leaf has an `ExtendedKeyUsages`
+// extension that includes a codesigning entitlement. Sigstore should
+// never issue a leaf that doesn't have this extended usage.
+⋮----
+/// Checks if the given `certificate` is a CA certificate.
+///
+/// This does **not** indicate trustworthiness of the given `certificate`, only if it has the
+/// appropriate interior state.
+///
+/// This function is **not** naively invertible: users **must** use the dedicated `is_leaf`
+/// utility function to determine whether a particular leaf upholds Sigstore's invariants.
+pub(crate) fn is_ca(
+⋮----
+// Only V3 certificates should appear in the context of Sigstore; earlier versions of X.509 lack
+// extensions and have ambiguous CA behavior.
+⋮----
+// Valid CA certificates must have the following set:
+//
+// - `BasicKeyUsage.keyCertSign`
+// - `BasicConstraints.ca`
+//
+// Any other combination of states is inconsistent and invalid, meaning
+// that we won't treat the certificate as neither a leaf nor a CA.
+⋮----
+// BasicConstraints must be marked as critical, per RFC 5280 4.2.1.9.
+⋮----
+// both states set, this is a CA.
+⋮----
+// Anything else is an invalid state that should never occur.
+⋮----
+/// Returns `True` if and only if the given `Certificate` indicates
+/// that it's a root CA.
+///
+/// This is **not** a verification function, and it does not establish
+/// the trustworthiness of the given certificate.
+pub(crate) fn is_root_ca(
+⋮----
+// NOTE(ww): This function is obnoxiously long to make the different
+// states explicit.
+⋮----
+// Only V3 certificates should appear in the context of Sigstore; earlier versions of X.509 lack
+// extensions and have ambiguous CA behavior.
+⋮----
+// Non-CAs can't possibly be root CAs.
+⋮----
+// A certificate that is its own issuer and signer is considered a root CA.
+⋮----
+mod tests {
+⋮----
+use chrono::TimeDelta;
+use x509_cert::der::Decode;
+⋮----
+fn verify_cert_key_usages_success() -> anyhow::Result<()> {
+⋮----
+fn verify_cert_key_usages_failure_because_no_digital_signature() -> anyhow::Result<()> {
+⋮----
+fn verify_cert_key_usages_failure_because_no_code_signing() -> anyhow::Result<()> {
+⋮----
+fn verify_cert_failure_because_no_san() -> anyhow::Result<()> {
+⋮----
+fn verify_cert_validity_success() -> anyhow::Result<()> {
+⋮----
+fn verify_cert_validity_failure() -> anyhow::Result<()> {
+⋮----
+fn verify_cert_expiration_success() -> anyhow::Result<()> {
+⋮----
+fn verify_cert_expiration_failure() -> anyhow::Result<()> {
+</file>
+
+<file path="src/crypto/keyring.rs">
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+use std::collections::HashMap;
+⋮----
+use digest::Digest;
+use thiserror::Error;
+⋮----
+pub enum KeyringError {
+⋮----
+type Result<T> = std::result::Result<T, KeyringError>;
+⋮----
+/// Public key bytes for one algorithm the keyring can verify.
+///
+/// [`Key::new`] is the only place that decides which algorithms are accepted.
+/// [`Key::verify`] only dispatches on the variant that was stored.
+enum KeyMaterial {
+/// Raw SEC1-encoded P-256 point.
+⋮----
+/// A CT signing key.
+struct Key {
+material: KeyMaterial,
+/// The key's RFC 6962-style "key ID".
+/// <https://datatracker.ietf.org/doc/html/rfc6962#section-3.2>
+fingerprint: [u8; 32],
+⋮----
+impl Key {
+/// Creates a `Key` from a DER blob containing a SubjectPublicKeyInfo object.
+pub fn new(spki_bytes: &[u8]) -> Result<Self> {
+⋮----
+// Special-case RSA keys, which don't have SPKI parameters.
+⋮----
+// TODO(tnytown): Do we need to support RSA keys?
+⋮----
+// TODO(tnytown): should we also accept ed25519, p384, ... ?
+⋮----
+fn verify(&self, data: &[u8], signature: &[u8]) -> bool {
+⋮----
+/// Represents a set of CT signing keys, each of which is potentially a valid signer for
+/// Signed Certificate Timestamps (SCTs) or Signed Tree Heads (STHs).
+pub struct Keyring(HashMap<[u8; 32], Key>);
+⋮----
+impl Keyring {
+/// Creates a `Keyring` from DER encoded SPKI-format public keys.
+pub fn new<'a>(keys: impl IntoIterator<Item = &'a [u8]>) -> Result<Self> {
+⋮----
+/// Verifies `data` against a `signature` with a public key identified by `key_id`.
+pub fn verify(&self, key_id: &[u8; 32], signature: &[u8], data: &[u8]) -> Result<()> {
+⋮----
+mod tests {
+use super::Keyring;
+⋮----
+use digest::Digest;
+⋮----
+fn verify_keyring() {
+⋮----
+// Create a key pair and a keyring containing the public key.
+⋮----
+// Generate the signature.
+⋮----
+// Generate the key id.
+⋮----
+// Check for success.
+⋮----
+// Check for failure with incorrect key id.
+⋮----
+// Check for failure with incorrect payload.
+⋮----
+// Check for failure with incorrect keyring.
+</file>
+
+<file path="src/crypto/mod.rs">
+//
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Structures and constants required to perform cryptographic operations.
+⋮----
+pub use signing_key::SigStoreSigner;
+pub use verification_key::CosignVerificationKey;
+pub(crate) mod backend;
+pub(crate) mod merkle;
+⋮----
+/// Different digital signature algorithms.
+/// * `RSA_PSS_SHA256`: RSA PSS padding using SHA-256 for RSA signatures.
+///   The `usize` member represents the RSA key size in bits (2048/3072/4096).
+/// * `RSA_PKCS1_SHA256`: PKCS#1 1.5 padding using SHA-256 for RSA signatures.
+/// * `ECDSA_P256_SHA256_ASN1`: ASN.1 DER-encoded ECDSA signatures using P-256
+///   and SHA-256. This is the default signing scheme.
+/// * `ECDSA_P384_SHA384_ASN1`: ASN.1 DER-encoded ECDSA signatures using P-384
+///   and SHA-384.
+/// * `ECDSA_P521_SHA512_ASN1`: ASN.1 DER-encoded ECDSA signatures using P-521
+///   and SHA-512.
+/// * `ED25519`: Ed25519 signature using curve edwards25519.
+⋮----
+pub enum SigningScheme {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+type Error = String;
+⋮----
+fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+⋮----
+impl SigningScheme {
+/// Create a key-pair due to the given signing scheme.
+pub fn create_signer(&self) -> Result<SigStoreSigner> {
+⋮----
+/// The default signature verification algorithm used by Sigstore.
+/// Sigstore relies on NIST P-256
+/// NIST P-256 is a Weierstrass curve specified in [FIPS 186-4: Digital Signature Standard (DSS)](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf).
+/// Also known as prime256v1 (ANSI X9.62) and secp256r1 (SECG)
+impl Default for SigningScheme {
+fn default() -> Self {
+⋮----
+/// A signature produced by a private key
+pub enum Signature<'a> {
+/// Raw signature. There's no need to process the contents
+⋮----
+/// A base64 encoded signature
+⋮----
+/// Newline bytes that base64 producers may insert (PEM-style line wrapping, or
+/// signatures pulled from a registry). cosign decodes via Go's encoding/json,
+/// which ignores `\n` and `\r`, so sigstore-rs strips exactly those two bytes
+/// and nothing else: any other stray byte still fails the strict decode, which
+/// keeps catching genuine corruption.
+⋮----
+/// Returns the raw signature bytes, decoding at the source.
+///
+/// [`Signature::Raw`] is returned unchanged. [`Signature::Base64Encoded`]
+/// is base64-decoded, tolerating embedded newlines: the strict STANDARD
+/// engine is tried first (the common, unwrapped case pays nothing), and only
+/// on failure are `\n`/`\r` removed and the decode retried (see
+/// sigstore/sigstore-rs#550). Any other stray byte still fails, so genuine
+/// corruption is caught.
+pub fn decode_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+pub(crate) mod certificate;
+⋮----
+pub(crate) mod certificate_pool;
+⋮----
+pub(crate) use certificate_pool::CertificatePool;
+⋮----
+pub(crate) mod keyring;
+⋮----
+pub mod verification_key;
+⋮----
+pub mod signing_key;
+⋮----
+pub(crate) mod transparency;
+⋮----
+pub(crate) mod tests {
+⋮----
+use time::OffsetDateTime;
+⋮----
+fn signature_decode_bytes() {
+use super::Signature;
+⋮----
+// Raw signatures are returned unchanged.
+⋮----
+// A clean base64 signature decodes.
+⋮----
+// The same value with an embedded newline and a trailing newline decodes
+// identically (cosign tolerates these). Built from explicit newline bytes
+// so the intent is clear and a formatter cannot silently drop them.
+⋮----
+// A byte that is neither in the base64 alphabet nor a newline still
+// fails, so genuine corruption is caught.
+⋮----
+pub(crate) struct CertData {
+/// PEM-encoded certificate bytes.
+pub cert_pem: Vec<u8>,
+pub key_pair: KeyPair,
+/// Stored CA params so we can reconstruct an `Issuer` when signing child certs.
+ca_params: Option<CertificateParams>,
+⋮----
+pub(crate) struct CertGenerationOptions {
+pub digital_signature_key_usage: bool,
+pub code_signing_extended_key_usage: bool,
+pub subject_email: Option<String>,
+pub subject_url: Option<String>,
+pub subject_issuer: Option<String>,
+pub not_before: DateTime<chrono::Utc>,
+pub not_after: DateTime<chrono::Utc>,
+pub key_pair: KeyPair,
+⋮----
+impl Default for CertGenerationOptions {
+fn default() -> Self {
+⋮----
+// Sigstore relies on NIST P-256
+// NIST P-256 is a Weierstrass curve specified in FIPS 186-4: Digital Signature Standard (DSS):
+// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf
+// Also known as prime256v1 (ANSI X9.62) and secp256r1 (SECG)
+⋮----
+pub(crate) fn generate_ecdsa_p256_key_pair() -> KeyPair {
+⋮----
+pub(crate) fn generate_ecdsa_p384_key_pair() -> KeyPair {
+⋮----
+pub(crate) fn generate_ed25519_key_pair() -> KeyPair {
+⋮----
+pub(crate) fn generate_rsa_key_pair() -> KeyPair {
+⋮----
+fn chrono_to_offset_date_time(dt: DateTime<Utc>) -> OffsetDateTime {
+⋮----
+pub(crate) fn generate_certificate(
+⋮----
+// CA certificate
+⋮----
+// end-entity certificate
+⋮----
+// Sigstore issuer OID: 1.3.6.1.4.1.57264.1.1
+⋮----
+// The extension value is the raw UTF-8 bytes of the issuer string.
+// get_cert_extension_by_oid reads extn_value directly as UTF-8,
+// so we must not add any DER wrapping here.
+⋮----
+// Reconstruct Issuer from the stored CA params and key pair.
+// KeyPair doesn't implement Clone, so we re-parse from PEM.
+⋮----
+/// Returns `cert_der` with its validity times encoded as GeneralizedTime instead of UTCTime.
+///
+/// RFC 5280 requires UTCTime for dates before 2050, but some CAs use GeneralizedTime. x509-cert
+/// does not re-encode such a certificate byte for byte. The issuer signature of the returned
+/// certificate is not valid.
+pub(crate) fn with_generalized_time_validity(cert_der: &[u8]) -> Vec<u8> {
+⋮----
+// TBSCertificate fields of a v3 certificate: version, serialNumber, signature, issuer,
+// validity, ...
+</file>
+
+<file path="src/crypto/transparency.rs">
+// Copyright 2023 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! Types for Certificate Transparency validation.
+⋮----
+use digest::Digest;
+use thiserror::Error;
+⋮----
+use tracing::debug;
+⋮----
+use crate::fulcio::SigningCertificateDetachedSCT;
+⋮----
+fn cert_is_preissuer(cert: &Certificate) -> bool {
+⋮----
+// <https://github.com/sigstore/sigstore-python/blob/main/sigstore/_internal/sct.py>
+fn find_issuer_cert(chain: &[Certificate]) -> Option<&Certificate> {
+⋮----
+pub enum CertificateErrorKind {
+⋮----
+fn from(value: x509_cert::ext::pkix::Error) -> Self {
+⋮----
+pub enum SCTError {
+⋮----
+enum SignatureType {
+⋮----
+enum LogEntryType {
+⋮----
+struct PreCert {
+// opaque issuer_key_hash[32];
+issuer_key_hash: [u8; 32],
+// opaque TBSCertificate<1..2^24-1>;
+tbs_certificate: TlsByteVecU24,
+⋮----
+enum SignedEntry {
+// opaque ASN.1Cert<1..2^24-1>;
+⋮----
+pub struct DigitallySigned {
+version: Version,
+signature_type: SignatureType,
+timestamp: u64,
+signed_entry: SignedEntry,
+// opaque CtExtensions<0..2^16-1>;
+extensions: TlsByteVecU16,
+⋮----
+// XX(tnytown): pass in some useful context. These fields will not be encoded into the
+// TLS DigitallySigned blob, but we need them to properly verify the reconstructed
+// message.
+⋮----
+log_id: [u8; 32],
+⋮----
+signature: Vec<u8>,
+⋮----
+pub struct CertificateEmbeddedSCT {
+tbs_precert_der: Vec<u8>,
+sct: SignedCertificateTimestamp,
+issuer_id: [u8; 32],
+⋮----
+impl CertificateEmbeddedSCT {
+fn new_with_spki(leaf_der: &[u8], spki: &[u8]) -> Result<Self, SCTError> {
+⋮----
+// Parse SCT structures.
+⋮----
+// We expect exactly one element here. Fail if there are more or less.
+⋮----
+pub fn new(leaf_der: &[u8], chain: &[Certificate]) -> Result<Self, SCTError> {
+// Traverse chain to find the issuer we're verifying against.
+⋮----
+pub fn new_with_verified_path(
+⋮----
+// Prefix the SPKI with the DER SEQUENCE tag and a short definite-form length.
+⋮----
+/// Returns the precertificate's TBSCertificate: the leaf's TBSCertificate without the SCT list
+/// extension.
+///
+/// The SCT signs these exact bytes, so this works on the original DER. A decoded
+/// `TbsCertificate` does not re-encode byte for byte: x509-cert writes validity times before
+/// 2050 as UTCTime, also when the certificate uses GeneralizedTime.
+fn precert_tbs_der(leaf_der: &[u8]) -> der::Result<Vec<u8>> {
+⋮----
+fn from(value: &CertificateEmbeddedSCT) -> Self {
+⋮----
+// XX(tnytown): This match is needed because `sct::Version` does not implement Copy.
+⋮----
+fn from(value: &SigningCertificateDetachedSCT) -> Self {
+⋮----
+/// Verifies a given signing certificate's Signed Certificate Timestamp.
+///
+/// SCT verification as defined by [RFC 6962] guarantees that a given certificate has been submitted
+/// to a Certificate Transparency log. Verification should be performed on the signing certificate
+/// in Sigstore verify and sign flows. Certificates that fail SCT verification are misissued and
+/// MUST NOT be trusted.
+///
+/// For more information on Certificate Transparency and the guarantees it provides, see <https://certificate.transparency.dev/howctworks/>.
+///
+/// [RFC 6962]: https://datatracker.ietf.org/doc/html/rfc6962
+pub fn verify_sct<S>(sct: S, keyring: &Keyring) -> Result<(), SCTError>
+⋮----
+mod tests {
+⋮----
+use crate::crypto::keyring::Keyring;
+use crate::fulcio::SigningCertificateDetachedSCT;
+use const_oid::db::rfc6962::CT_PRECERT_SCTS;
+use p256::ecdsa::VerifyingKey;
+use std::str::FromStr;
+use x509_cert::Certificate;
+⋮----
+use x509_cert::ext::Extension;
+use x509_cert::spki::EncodePublicKey;
+⋮----
+/// A Fulcio leaf certificate with an embedded SCT.
+⋮----
+fn pem_to_der(pem_str: &str) -> Vec<u8> {
+⋮----
+fn verify_embedded_sct() {
+⋮----
+fn verify_detached_sct() {
+⋮----
+fn precert_tbs_der_keeps_the_original_encoding() {
+</file>
+
+<file path="src/crypto/verification_key.rs">
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+use const_oid::db::rfc8410::ID_ED_25519;
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use x509_cert::spki::SubjectPublicKeyInfoOwned;
+⋮----
+/// The curve OID for a given EC public key, extracted from the SPKI parameters.
+⋮----
+enum EcCurve {
+⋮----
+/// A key that can be used to verify signatures.
+///
+/// Currently the following key formats are supported:
+///
+///   * RSA keys, using PSS padding and SHA-256 as the digest algorithm
+///   * RSA keys, using PKCS1 padding and SHA-256 as the digest algorithm
+///   * Ed25519 keys
+///   * ECDSA keys, ASN.1 DER-encoded, using the P-256 curve and SHA-256
+///   * ECDSA keys, ASN.1 DER-encoded, using the P-384 curve and SHA-384
+///   * ECDSA keys, ASN.1 DER-encoded, using the P-521 curve and SHA-512
+⋮----
+pub enum CosignVerificationKey {
+⋮----
+type Error = SigstoreError;
+⋮----
+fn try_from(spki: &SubjectPublicKeyInfoOwned) -> Result<Self> {
+use x509_cert::der::Encode;
+// Encode the full SPKI to DER for the active crypto backend.
+⋮----
+// Detect curve from parameters OID.
+⋮----
+/// Why an Ed25519 public key was refused.
+⋮----
+pub(crate) enum Ed25519KeyError {
+⋮----
+/// Rejects Ed25519 public keys that no honest signer produces.
+///
+/// Neither OpenSSL nor aws-lc rejects small-order keys when verifying, so the
+/// check is done here, independent of the backend. A non-canonical encoding
+/// would also let one key have several byte representations.
+pub(crate) fn check_ed25519_point(key: &[u8]) -> std::result::Result<(), Ed25519KeyError> {
+⋮----
+fn check_ed25519_spki(spki: &SubjectPublicKeyInfoOwned) -> Result<()> {
+⋮----
+/// Validates the key material held by a [`CosignVerificationKey::ED25519`].
+///
+/// The variant normally holds a DER SubjectPublicKeyInfo. `aws-lc-rs` also
+/// verifies with a bare 32-byte key, so that form is checked as well.
+pub(crate) fn check_ed25519_key_material(data: &[u8]) -> Result<()> {
+use x509_cert::der::Decode;
+⋮----
+fn ed25519_from_spki(
+⋮----
+/// Extract the EC curve from the SPKI AlgorithmIdentifier parameters.
+fn ec_curve_from_spki(spki: &SubjectPublicKeyInfoOwned) -> Result<EcCurve> {
+⋮----
+impl CosignVerificationKey {
+/// Builds a [`CosignVerificationKey`] from DER-encoded SPKI data.
+pub fn from_der(der_data: &[u8], signing_scheme: &SigningScheme) -> Result<Self> {
+⋮----
+/// Builds a [`CosignVerificationKey`] from PEM-encoded data.
+pub fn from_pem(pem_data: &[u8], signing_scheme: &SigningScheme) -> Result<Self> {
+⋮----
+/// Builds a [`CosignVerificationKey`] from DER-encoded public key data by auto-detecting
+/// the key type from the SubjectPublicKeyInfo algorithm OID.
+pub fn try_from_der(der_data: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a [`CosignVerificationKey`] from PEM-encoded public key data by auto-detecting
+/// the key type.
+pub fn try_from_pem(pem_data: &[u8]) -> Result<Self> {
+⋮----
+/// Builds a `CosignVerificationKey` from [`SigStoreSigner`].
+pub fn from_sigstore_signer(signer: &SigStoreSigner) -> Result<Self> {
+⋮----
+/// Builds a `CosignVerificationKey` from [`KeyPair`].
+pub fn from_key_pair(signer: &dyn KeyPair, signing_scheme: &SigningScheme) -> Result<Self> {
+⋮----
+/// Verify the signature provided was generated by this key over the provided message.
+pub fn verify_signature(&self, signature: Signature, msg: &[u8]) -> Result<()> {
+⋮----
+/// Verify the signature provided was generated by this key over the provided
+/// *pre-hashed* message (the `msg` slice contains the raw hash output, not the
+/// original data).
+pub(crate) fn verify_prehash(&self, signature: Signature, msg: &[u8]) -> Result<()> {
+⋮----
+/// The enum variants are public, so a key may not have come through a
+/// constructor; check it again before every verification.
+fn check_key(&self) -> Result<()> {
+⋮----
+fn spki(&self) -> &[u8] {
+⋮----
+mod tests {
+use x509_cert::Certificate;
+use x509_cert::der::Decode;
+⋮----
+fn verify_signature_success() {
+⋮----
+fn verify_signature_failure_because_wrong_msg() {
+⋮----
+fn verify_signature_failure_because_wrong_signature() {
+// Contains '@', which is not in the base64 alphabet and is not a
+// newline, so it must still fail to decode (only newlines are now
+// tolerated, see verify_signature_success_with_embedded_newlines).
+⋮----
+fn verify_signature_failure_because_wrong_verification_key() {
+⋮----
+fn verify_rsa_signature() {
+⋮----
+fn convert_ecdsa_p256_subject_public_key_to_cosign_verification_key() -> anyhow::Result<()> {
+⋮----
+fn convert_ecdsa_p384_subject_public_key_to_cosign_verification_key() -> anyhow::Result<()> {
+⋮----
+fn convert_rsa_subject_public_key_to_cosign_verification_key() -> anyhow::Result<()> {
+⋮----
+fn convert_ed25519_subject_public_key_to_cosign_verification_key() -> anyhow::Result<()> {
+⋮----
+fn convert_unsupported_curve_subject_public_key_to_cosign_verification_key()
+⋮----
+// Construct a SubjectPublicKeyInfoOwned with an algorithm OID that is not
+// supported by CosignVerificationKey (id-Ed448, OID 1.3.101.113). This does
+// not require generating a real key — we only need the OID to hit the
+// unsupported-algorithm error path.
+use const_oid::ObjectIdentifier;
+use x509_cert::der::asn1::BitString;
+use x509_cert::spki::AlgorithmIdentifierOwned;
+⋮----
+// id-Ed448: a real algorithm OID, not in the Sigstore registry
+⋮----
+/// DER SubjectPublicKeyInfo for a raw Ed25519 key of up to 126 bytes.
+fn ed25519_spki(key: &[u8]) -> Vec<u8> {
+⋮----
+fn hex32(s: &str) -> Vec<u8> {
+⋮----
+/// Asserts every Ed25519 constructor refuses `spki` and that a key built
+/// directly from the enum variant refuses to verify.
+fn assert_ed25519_rejected(spki: &[u8], expected: Ed25519KeyError) {
+⋮----
+fn ed25519_rejects_small_order_key(#[case] key: &str) {
+⋮----
+fn ed25519_rejects_non_canonical_key() {
+// y = p + 3 encodes the same point as y = 3, which has large order.
+⋮----
+fn ed25519_rejects_off_curve_key() {
+// No curve point has y = 2.
+⋮----
+fn ed25519_rejects_wrong_length_key(#[case] len: usize) {
+⋮----
+fn ed25519_rejects_small_order_raw_key() {
+// aws-lc-rs also verifies with a bare 32-byte key, so that form is
+// checked too.
+⋮----
+fn ed25519_accepts_honest_key() {
+⋮----
+/// `TryFrom<&SubjectPublicKeyInfoOwned>` matches cosign's Ed25519 OID
+/// first, while `check_ed25519_key_material` compares against
+/// `ID_ED_25519`. Both must name the same algorithm.
+⋮----
+fn cosign_ed25519_oid_is_rfc8410_oid() {
+⋮----
+/// The identity-point key is rejected at construction and at verification.
+⋮----
+fn identity_ed25519_key_is_rejected() {
+</file>
+
+<file path="src/errors.rs">
+//
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+⋮----
+//! The errors that can be raised by sigstore-rs
+⋮----
+use thiserror::Error;
+⋮----
+use crate::crypto::merkle::MerkleProofError;
+⋮----
+pub struct SigstoreVerifyConstraintsError<'a> {
+pub unsatisfied_constraints: VerificationConstraintRefVec<'a>,
+⋮----
+pub struct SigstoreApplicationConstraintsError<'a> {
+pub unapplied_constraints: SignConstraintRefVec<'a>,
+⋮----
+pub type Result<T> = std::result::Result<T, SigstoreError>;
+⋮----
+pub enum SigstoreError {
+⋮----
+InvalidKeyFormat { error: String },
+⋮----
+UnmatchedKeyAndSigningScheme { key_typ: String, scheme: String },
+⋮----
+integrated_time: String,
+not_before: String,
+⋮----
+integrated_time: String,
+not_after: String,
+⋮----
+RegistryFetchManifestError { image: String, error: String },
+⋮----
+RegistryPullManifestError { image: String, error: String },
+⋮----
+RegistryPullError { image: String, error: String },
+⋮----
+RegistryPushError { image: String, error: String },
+⋮----
+// HACK(tnytown): Remove when we rework the Fulcio V2 endpoint.
+⋮----
+OciReferenceNotValidError { reference: String },
+⋮----
+context: String,
+⋮----
+source: std::io::Error,
+</file>
+
+<file path="README.md">
+Continuous integration | Docs | License | Crate version | Crate downloads
+ ----------------------|------|---------|---------------|-----------------
+ [![Continuous integration](https://github.com/sigstore/sigstore-rs/actions/workflows/tests.yml/badge.svg)](https://github.com/sigstore/sigstore-rs/actions/workflows/tests.yml) | [![Docs](https://img.shields.io/badge/docs-%20-blue)](https://docs.rs/sigstore/latest/sigstore) |  [![License: Apache 2.0](https://img.shields.io/badge/License-Apache2.0-brightgreen.svg)](https://opensource.org/licenses/Apache-2.0) | [![Crate version](https://img.shields.io/crates/v/sigstore?style=flat-square)](https://crates.io/crates/sigstore) | [![Crate downloads](https://img.shields.io/crates/d/sigstore?style=flat-square)](https://crates.io/crates/sigstore)
+
+
+A crate to interact with [sigstore](https://sigstore.dev/).
+
+This crate is under active development and will not be considered
+stable until the 1.0 release.
+
+## Features
+
+### Cosign Sign and Verify
+
+The crate implements the following verification mechanisms:
+
+  * Sign using a cosign key and store the signature in a registry
+  * Verify using a given key
+  * Verify bundle produced by transparency log (Rekor)
+  * Verify signature produced in keyless mode, using Fulcio Web-PKI
+
+Signature annotations and certificate email can be provided at verification time.
+
+### Fulcio Integration
+
+For use with Fulcio ephemeral key signing, an OpenID connect API is available,
+along with a fulcio client implementation.
+
+### Rekor Client
+
+All rekor client APIs can be leveraged to interact with the transparency log.
+
+### Key Interface
+
+Cryptographic key management with the following key interfaces:
+
+* Generate a key pair
+* Sign data
+* Verify signature
+* Export public / (encrypted) private key in PEM / DER format
+* Import public / (encrypted) private key in PEM / DER format
+
+#### Known limitations
+
+* The crate does not handle verification of attestations yet.
+
+## Examples
+
+The `examples` directory contains demo programs using the library.
+
+  * [`openidflow`](examples/openidflow/README.md)
+  * [`key_interface`](examples/key_interface/README.md)
+  * [`rekor`](examples/rekor/README.md)
+  * [`cosign/verify`](examples/cosign/verify/README.md)
+  * [`cosign/verify-blob`](examples/cosign/verify-blob/README.md)
+  * [`cosign/verify-bundle`](examples/cosign/verify-bundle/README.md)
+  * [`cosign/sign`](examples/cosign/sign/README.md)
+
+Each example can be executed with the `cargo run --example <name>` command.
+
+For example, `openidconnect` can be run with the following command:
+
+```bash
+cargo run --example openidconnect
+```
+
+## Contributing
+
+Contributions are welcome! Please see the [contributing guidelines](CONTRIBUTORS.md)
+for more information.
+
+## Security
+
+Should you discover any security issues, please refer to sigstores [security
+process](https://github.com/sigstore/community/security/policy)
+</file>
+
+</files>

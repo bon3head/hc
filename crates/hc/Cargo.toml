@@ -1,0 +1,31 @@
+[package]
+name = "hc"
+description = "The handoff compiler CLI: records sessions, cross-examines claims and links briefs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "hc"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+assay.workspace = true
+bedrock.workspace = true
+brief.workspace = true
+cell.workspace = true
+clap.workspace = true
+courier.workspace = true
+crossexam.workspace = true
+docket.workspace = true
+exhibit.workspace = true
+intake.workspace = true
+jiff.workspace = true
+roster.workspace = true
+seal.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

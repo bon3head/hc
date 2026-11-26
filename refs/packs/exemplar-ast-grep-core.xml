@@ -1,0 +1,4337 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: crates/core/src/**/*.rs, crates/config/src/rule/**/*.rs, crates/language/src/lib.rs, crates/language/src/python.rs, README.md
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+crates/
+  config/
+    src/
+      rule/
+        deserialize_env.rs
+        mod.rs
+        nth_child.rs
+        parameterized_util.rs
+        range.rs
+        referent_rule.rs
+        relational_rule.rs
+        selector.rs
+        stop_by.rs
+  core/
+    src/
+      match_tree/
+        match_node.rs
+        mod.rs
+        strictness.rs
+      matcher/
+        kind.rs
+        node_match.rs
+        pattern.rs
+        text.rs
+      replacer/
+        indent.rs
+        structural.rs
+        template.rs
+      tree_sitter/
+        mod.rs
+        traversal.rs
+      language.rs
+      lib.rs
+      matcher.rs
+      meta_var.rs
+      node.rs
+      ops.rs
+      pinned.rs
+      replacer.rs
+      source.rs
+  language/
+    src/
+      lib.rs
+      python.rs
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="crates/config/src/rule/deserialize_env.rs">
+use crate::check_var::CheckHint;
+use crate::maybe::Maybe;
+⋮----
+use crate::transform::Trans;
+use ast_grep_core::meta_var::MetaVariable;
+⋮----
+use ast_grep_core::language::Language;
+⋮----
+use schemars::JsonSchema;
+⋮----
+use std::collections::HashMap;
+⋮----
+pub struct SerializableGlobalRule<L: Language> {
+⋮----
+pub core: SerializableRuleCore,
+/// Unique, descriptive identifier, e.g., no-unused-variable
+pub id: String,
+/// Optional parameter names for a parameterized global utility rule.
+⋮----
+pub arguments: Option<Vec<String>>,
+/// Specify the language to parse and the file extension to include in matching.
+pub language: L,
+⋮----
+struct ParsedGlobalRule<L: Language> {
+lang: L,
+core: SerializableRuleCore,
+params: Vec<String>,
+⋮----
+fn into_map<L: Language>(
+⋮----
+type OrderResult<T> = Result<T, String>;
+⋮----
+/// A struct to store information to deserialize rules.
+⋮----
+pub struct DeserializeEnv<L: Language> {
+/// registration for global utility rules and local utility rules.
+pub(crate) registration: RuleRegistration,
+/// current rules' language
+pub(crate) lang: L,
+⋮----
+trait DependentRule: Sized {
+fn visit_dependency<'a>(&'a self, sorter: &mut TopologicalSort<'a, Self>) -> OrderResult<()>;
+⋮----
+impl DependentRule for SerializableRule {
+fn visit_dependency<'a>(&'a self, sorter: &mut TopologicalSort<'a, Self>) -> OrderResult<()> {
+⋮----
+impl<L: Language> DependentRule for ParsedGlobalRule<L> {
+fn visit_dependency<'a>(&'a self, sorter: &mut TopologicalSort<'a, Self>) -> OrderResult<()> {
+⋮----
+impl DependentRule for Trans<MetaVariable> {
+fn visit_dependency<'a>(&'a self, sorter: &mut TopologicalSort<'a, Self>) -> OrderResult<()> {
+⋮----
+/// A struct to topological sort rules
+/// it is used to report cyclic dependency errors in rules/transformation
+struct TopologicalSort<'a, T: DependentRule> {
+maps: &'a HashMap<String, T>,
+order: Vec<&'a str>,
+// bool stands for if the rule has completed visit
+seen: HashMap<&'a str, bool>,
+⋮----
+fn get_order(maps: &HashMap<String, T>) -> OrderResult<Vec<&str>> {
+⋮----
+fn new(maps: &'a HashMap<String, T>) -> Self {
+⋮----
+fn visit(&mut self, key: &'a str) -> OrderResult<()> {
+⋮----
+// if the rule has been seen but not completed
+// it means we have a cyclic dependency and report an error here
+⋮----
+// key can be found elsewhere
+// e.g. if key is rule_id
+// if rule_id not found in global, it can be a local rule
+// if rule_id not found in local, it can be a global rule
+// TODO: add check here and return Err if rule not found
+⋮----
+// mark the id as seen but not completed
+⋮----
+// mark the id as seen and completed
+⋮----
+fn visit_dependent_rule_ids_with_params<'a, T: DependentRule>(
+⋮----
+// Only traverse composite rules (matches/all/any/not). Relational sub-rules
+// (has/inside/precedes/follows) are intentionally skipped because they will
+// not introduce recursion.
+⋮----
+pub fn new(lang: L) -> Self {
+⋮----
+pub(crate) fn from_registration(lang: L, registration: RuleRegistration) -> Self {
+⋮----
+/// register utils rule in the DeserializeEnv for later usage.
+/// N.B. This function will manage the util registration order
+/// by their dependency. `potential_kinds` need ordered insertion.
+pub fn with_utils(
+⋮----
+/// register global utils rule discovered in the config.
+pub fn parse_global_utils(
+⋮----
+// SAFETY: this fresh registry is initialized serially in dependency order.
+// Deserialization has finished accessing its maps, and neither the registry
+// nor the rules referencing it are exposed to other threads before return.
+⋮----
+pub fn deserialize_rule(&self, serialized: SerializableRule) -> Result<Rule, RuleSerializeError> {
+⋮----
+pub(crate) fn get_transform_order<'a>(
+⋮----
+pub fn with_globals(self, globals: &GlobalRules) -> Self {
+⋮----
+fn validate_local_utils(
+⋮----
+// Local utils currently only support plain ids. If signature-style local
+// declarations come back in the future, this is the choke point to relax.
+⋮----
+mod test {
+⋮----
+use crate::test::TypeScript;
+⋮----
+use ast_grep_core::Matcher;
+use ast_grep_core::tree_sitter::LanguageExt;
+⋮----
+type Result<T> = std::result::Result<T, RuleSerializeError>;
+⋮----
+fn get_dependent_utils() -> Result<(Rule, DeserializeEnv<TypeScript>)> {
+⋮----
+env, // env is required for weak ref
+⋮----
+fn test_local_util_matches() -> Result<()> {
+⋮----
+fn test_local_util_kinds() -> Result<()> {
+// run multiple times to avoid accidental working order due to HashMap randomness
+⋮----
+fn test_using_global_rule_in_local() -> Result<()> {
+⋮----
+// should not panic
+⋮----
+fn test_using_cyclic_local() -> Result<()> {
+⋮----
+fn test_using_transitive_cycle() -> Result<()> {
+⋮----
+fn test_cyclic_not() -> Result<()> {
+⋮----
+fn test_local_utils_reject_reserved_id_chars() {
+⋮----
+fn test_invalid_global_utility_id() {
+</file>
+
+<file path="crates/config/src/rule/mod.rs">
+mod deserialize_env;
+mod nth_child;
+mod parameterized_util;
+mod range;
+pub mod referent_rule;
+mod relational_rule;
+mod selector;
+mod stop_by;
+⋮----
+pub use parameterized_util::ParameterizedUtilError;
+⋮----
+pub use relational_rule::Relation;
+⋮----
+pub use stop_by::StopBy;
+⋮----
+use crate::maybe::Maybe;
+⋮----
+use ast_grep_core::language::Language;
+⋮----
+use ast_grep_core::meta_var::MetaVarEnv;
+⋮----
+use bit_set::BitSet;
+use schemars::JsonSchema;
+⋮----
+use std::borrow::Cow;
+use std::collections::HashSet;
+use thiserror::Error;
+⋮----
+/// A rule object to find matching AST nodes. We have three categories of rules in ast-grep.
+///
+/// * Atomic: the most basic rule to match AST. We have two variants: Pattern and Kind.
+///
+/// * Relational: filter matched target according to their position relative to other nodes.
+///
+/// * Composite: use logic operation all/any/not to compose the above rules to larger rules.
+///
+/// Every rule has it's unique name so we can combine several rules in one object.
+⋮----
+pub struct SerializableRule {
+// avoid embedding AtomicRule/RelationalRule/CompositeRule with flatten here for better error message
+⋮----
+// atomic
+/// A pattern string or a pattern object.
+⋮----
+pub pattern: Maybe<PatternStyle>,
+/// The kind name of the node to match. You can look up code's kind names in playground.
+⋮----
+pub kind: Maybe<String>,
+/// A Rust regular expression to match the node's text. https://docs.rs/regex/latest/regex/#syntax
+⋮----
+pub regex: Maybe<String>,
+/// `nth_child` accepts number, string or object.
+/// It specifies the position in nodes' sibling list.
+⋮----
+pub nth_child: Maybe<SerializableNthChild>,
+/// `range` accepts a range object.
+/// the target node must exactly appear in the range.
+⋮----
+pub range: Maybe<SerializableRange>,
+⋮----
+// relational
+/// `inside` accepts a relational rule object.
+/// the target node must appear inside of another node matching the `inside` sub-rule.
+⋮----
+pub inside: Maybe<Box<Relation>>,
+/// `has` accepts a relational rule object.
+/// the target node must has a descendant node matching the `has` sub-rule.
+⋮----
+pub has: Maybe<Box<Relation>>,
+/// `precedes` accepts a relational rule object.
+/// the target node must appear before another node matching the `precedes` sub-rule.
+⋮----
+pub precedes: Maybe<Box<Relation>>,
+/// `follows` accepts a relational rule object.
+/// the target node must appear after another node matching the `follows` sub-rule.
+⋮----
+pub follows: Maybe<Box<Relation>>,
+// composite
+/// A list of sub rules and matches a node if all of sub rules match.
+/// The meta variables of the matched node contain all variables from the sub-rules.
+⋮----
+pub all: Maybe<Vec<SerializableRule>>,
+/// A list of sub rules and matches a node if any of sub rules match.
+/// The meta variables of the matched node only contain those of the matched sub-rule.
+⋮----
+pub any: Maybe<Vec<SerializableRule>>,
+⋮----
+/// A single sub-rule and matches a node if the sub rule does not match.
+pub not: Maybe<Box<SerializableRule>>,
+/// A utility rule id or parameterized utility call object.
+/// When multiple utility calls are present, they are combined with logical `all`.
+⋮----
+pub matches: Maybe<SerializableMatches>,
+⋮----
+pub enum SerializableMatches {
+⋮----
+struct Categorized {
+pub atomic: AtomicRule,
+pub relational: RelationalRule,
+pub composite: CompositeRule,
+⋮----
+impl SerializableRule {
+fn categorized(self) -> Categorized {
+⋮----
+pub struct AtomicRule {
+pub pattern: Option<PatternStyle>,
+pub kind: Option<String>,
+pub regex: Option<String>,
+pub nth_child: Option<SerializableNthChild>,
+pub range: Option<SerializableRange>,
+⋮----
+pub enum Strictness {
+/// all nodes are matched
+⋮----
+/// all nodes except source trivial nodes are matched.
+⋮----
+/// only ast nodes are matched
+⋮----
+/// ast-nodes excluding comments are matched
+⋮----
+/// ast-nodes excluding comments, without text
+⋮----
+/// similar to smart, but node kinds are ignored, only text is matched.
+⋮----
+fn from(value: MatchStrictness) -> Self {
+⋮----
+fn from(value: Strictness) -> Self {
+⋮----
+/// A String pattern will match one single AST node according to pattern syntax.
+/// Or an object with field `context`, `selector` and optionally `strictness`.
+⋮----
+pub enum PatternStyle {
+⋮----
+/// The surrounding code that helps to resolve any ambiguity in the syntax.
+context: String,
+/// The sub-syntax node kind that is the actual matcher of the pattern.
+selector: Option<String>,
+/// Strictness of the pattern. More strict pattern matches fewer nodes.
+strictness: Option<Strictness>,
+⋮----
+pub struct RelationalRule {
+pub inside: Option<Box<Relation>>,
+pub has: Option<Box<Relation>>,
+pub precedes: Option<Box<Relation>>,
+pub follows: Option<Box<Relation>>,
+⋮----
+pub struct CompositeRule {
+pub all: Option<Vec<SerializableRule>>,
+pub any: Option<Vec<SerializableRule>>,
+pub not: Option<Box<SerializableRule>>,
+pub matches: Option<SerializableMatches>,
+⋮----
+pub enum Rule {
+// atomic
+⋮----
+// relational
+⋮----
+// composite
+⋮----
+impl Rule {
+/// Check if it has a cyclic referent rule with the id.
+pub(crate) fn check_cyclic(&self, id: &str) -> bool {
+⋮----
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+/// check if util rules used are defined
+pub fn verify_util(&self) -> Result<(), RuleSerializeError> {
+⋮----
+impl Matcher for Rule {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+// atomic
+⋮----
+// relational
+⋮----
+// composite
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+// atomic
+⋮----
+// relational
+⋮----
+// composite
+⋮----
+/// Rule matches nothing by default.
+/// In Math jargon, Rule is vacuously false.
+impl Default for Rule {
+fn default() -> Self {
+⋮----
+fn match_and_add_label<'tree, D: Doc, M: Matcher>(
+⋮----
+pub enum RuleSerializeError {
+⋮----
+// TODO: implement positive/non positive
+pub fn deserialize_rule<L: Language>(
+⋮----
+// ATTENTION, relational_rule should always come at last
+// after target node is decided by atomic/composite rule
+⋮----
+fn deserialze_composite_rule<L: Language>(
+⋮----
+fn deserialize_matches_rule<L: Language>(
+⋮----
+fn deserialize_relational_rule<L: Language>(
+⋮----
+// relational
+⋮----
+fn deserialze_atomic_rule<L: Language>(
+⋮----
+mod test {
+⋮----
+use crate::from_str;
+use crate::test::TypeScript;
+⋮----
+use ast_grep_core::tree_sitter::LanguageExt;
+⋮----
+fn test_pattern() {
+⋮----
+// test #2390
+⋮----
+fn test_augmentation() {
+⋮----
+fn test_multi_augmentation() {
+⋮----
+fn test_maybe_not() {
+⋮----
+fn test_nested_augmentation() {
+⋮----
+fn test_precedes_follows() {
+⋮----
+fn test_parameterized_matches_syntax() {
+⋮----
+fn test_multiple_parameterized_matches_syntax() {
+⋮----
+fn test_deserialize_rule() {
+⋮----
+fn test_deserialize_order() {
+⋮----
+fn test_defined_vars() {
+⋮----
+fn test_issue_1164() {
+⋮----
+fn test_issue_1225() {
+</file>
+
+<file path="crates/config/src/rule/nth_child.rs">
+use ast_grep_core::language::Language;
+use ast_grep_core::meta_var::MetaVarEnv;
+⋮----
+use std::borrow::Cow;
+use std::collections::HashSet;
+⋮----
+use bit_set::BitSet;
+use schemars::JsonSchema;
+⋮----
+use thiserror::Error;
+⋮----
+pub enum NthChildError {
+⋮----
+/// A string or number describing the indices of matching nodes in a list of siblings.
+⋮----
+pub enum NthChildSimple {
+/// A number indicating the precise element index
+⋮----
+/// Functional notation like CSS's An + B
+⋮----
+enum ParseState {
+⋮----
+Sign(bool), // bool flag: has met n before?
+Num(bool),  // bool flag: has met n before
+⋮----
+fn parse_an_b(input: &str) -> Result<FunctionalPosition, NthChildError> {
+⋮----
+// ignore all white spaces
+⋮----
+impl NthChildSimple {
+fn try_parse(&self) -> Result<FunctionalPosition, NthChildError> {
+⋮----
+/// `nthChild` accepts either a number, a string or an object.
+⋮----
+pub enum SerializableNthChild {
+/// Simple syntax
+⋮----
+/// Object style syntax
+⋮----
+/// nth-child syntax
+position: NthChildSimple,
+/// select the nth node that matches the rule, like CSS's of syntax
+of_rule: Option<Box<SerializableRule>>,
+/// matches from the end instead like CSS's nth-last-child
+⋮----
+reverse: bool,
+⋮----
+/// Corresponds to the CSS syntax An+B
+/// See https://developer.mozilla.org/en-US/docs/Web/CSS/:nth-child#functional_notation
+struct FunctionalPosition {
+step_size: i32,
+offset: i32,
+⋮----
+impl FunctionalPosition {
+/// index is 0-based, but output is 1-based
+fn is_matched(&self, index: usize) -> bool {
+let index = (index + 1) as i32; // Convert 0-based index to 1-based
+⋮----
+pub struct NthChild {
+position: FunctionalPosition,
+of_rule: Option<Box<Rule>>,
+reverse: bool,
+⋮----
+impl NthChild {
+pub(crate) fn try_parse(text: &str, reverse: bool) -> Result<Self, NthChildError> {
+⋮----
+pub(crate) fn of_rule(mut self, rule: Rule) -> Self {
+⋮----
+pub fn try_new<L: Language>(
+⋮----
+fn find_index<'t, D: Doc>(
+⋮----
+//  only consider named children
+⋮----
+// if of_rule is present, only consider children that match the rule.
+// Probe each sibling against a throwaway clone of the env so a binding
+// from one sibling cannot leak into the next: otherwise a metavar-bearing
+// ofRule (e.g. `pattern: $S`) binds the first matching sibling and then
+// rejects every later sibling via metavar consistency, so the sibling
+// list is undercounted and the position match silently fails.
+⋮----
+// count the index from the end if reverse is true
+⋮----
+// Commit the *target* node's own ofRule bindings to the real env. ofRule
+// metavars are part of `defined_vars` and may be referenced in fix /
+// constraints; only the matched node's bindings are meaningful.
+⋮----
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+pub fn verify_util(&self) -> Result<(), RuleSerializeError> {
+⋮----
+impl Matcher for NthChild {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+mod test {
+⋮----
+use crate::from_str;
+⋮----
+use ast_grep_core::matcher::RegexMatcher;
+use ast_grep_core::meta_var::MetaVarEnv;
+use ast_grep_core::tree_sitter::LanguageExt;
+⋮----
+fn test_positional() {
+⋮----
+fn test_positional_an_b() {
+⋮----
+fn find_index(rule: Option<Rule>, reverse: bool) -> Option<usize> {
+⋮----
+fn test_find_index_simple() {
+⋮----
+fn test_find_index_reverse() {
+⋮----
+fn test_find_of_rule() {
+⋮----
+// A metavar-binding ofRule (e.g. `pattern: $S`) must not let bindings leak
+// from one sibling to the next while counting; otherwise only the first
+// sibling is counted and the position match silently fails.
+⋮----
+fn test_find_of_rule_with_metavar() {
+use ast_grep_core::Pattern;
+// every element matches `$S`, so all four siblings must be counted and the
+// index of node `2` (the 2nd element) must be 1, not lost to a binding leak.
+⋮----
+fn parse(s: &str) -> FunctionalPosition {
+⋮----
+fn test_parse(s: &str, step: i32, offset: i32) {
+⋮----
+fn test_parse_selector() {
+// https://www.w3.org/TR/css-syntax-3/#anb-microsyntax
+⋮----
+fn parse_error(s: &str, name: &str) {
+⋮----
+fn test_error() {
+⋮----
+fn deser(src: &str) -> Rule {
+⋮----
+fn test_serialize() {
+⋮----
+fn test_defined_vars() {
+⋮----
+fn test_verify_util() {
+</file>
+
+<file path="crates/config/src/rule/parameterized_util.rs">
+//! Parameterized utility rules have two parts:
+//!
+//! 1. Definition: declare a utility template and its parameters, for example
+//!    `id: wrap` with `arguments: [BODY]`.
+//! 2. Call: reference that template from `matches` and provide concrete rules
+//!    for each parameter, for example `matches: { wrap: { BODY: ... } }`.
+//!
+//! This module contains both halves of that flow: parsing and validating
+//! parameterized utility definitions, and lowering/executing parameterized
+//! utility calls.
+//!
+//! At the moment, parameterized definitions are only supported for global
+//! utilities. Local `utils:` entries cannot declare parameters.
+⋮----
+use super::deserialize_env::DeserializeEnv;
+⋮----
+use crate::RuleCore;
+⋮----
+use ast_grep_core::language::Language;
+⋮----
+use bit_set::BitSet;
+use schemars::JsonSchema;
+⋮----
+use thiserror::Error;
+⋮----
+use std::borrow::Cow;
+use std::cell::RefCell;
+⋮----
+use std::sync::Arc;
+⋮----
+struct BindingFrame {
+bindings: Arc<HashMap<String, Arc<Rule>>>,
+parent: Option<Arc<BindingFrame>>,
+⋮----
+type SerializableUtilityArgs = HashMap<String, SerializableRule>;
+type SerializableUtilityCalls = HashMap<String, SerializableUtilityArgs>;
+type SerializableUtilityItems = Vec<(String, SerializableUtilityArgs)>;
+⋮----
+pub(crate) struct Def<M> {
+pub params: Vec<String>,
+pub matcher: M,
+⋮----
+pub(crate) fn new(params: Vec<String>, matcher: M) -> Self {
+⋮----
+pub(crate) type GlobalTemplate = Def<RuleCore>;
+⋮----
+pub enum ParameterizedUtilError {
+⋮----
+InvalidUtilityArgument { util: String, arg: String },
+⋮----
+DuplicateUtilityArgument { util: String, arg: String },
+⋮----
+MissingUtilityArgument { callee: String, arg: String },
+⋮----
+UnknownUtilityArgument { callee: String, arg: String },
+⋮----
+pub struct SerializableUtilityCall(pub SerializableUtilityCalls);
+⋮----
+impl SerializableUtilityCall {
+pub(super) fn iter(&self) -> impl Iterator<Item = (&String, &SerializableUtilityArgs)> {
+⋮----
+fn into_items(self) -> Result<SerializableUtilityItems, ParameterizedUtilError> {
+⋮----
+fn contains_reserved_utility_chars(raw: &str) -> bool {
+⋮----
+pub(super) fn validate_utility_id(raw: &str) -> Result<(), ParameterizedUtilError> {
+⋮----
+pub(super) fn validate_utility_arguments(
+⋮----
+pub(super) fn deserialize_utility_call_matches<L: Language>(
+⋮----
+fn lower_utility_call<L: Language>(
+⋮----
+pub(crate) fn verify_parameterized_referent(
+⋮----
+pub(crate) fn parameterized_potential_kinds(
+⋮----
+pub(crate) fn match_parameterized_referent<'tree, D: Doc>(
+⋮----
+fn validate_utility_args(
+⋮----
+// After verifying all arg keys are valid params, a length mismatch
+// means a declared param is missing from the call arguments.
+⋮----
+fn lower_utility_args<L: Language>(
+⋮----
+pub(crate) fn with_arg_bindings<T>(
+⋮----
+pub(crate) fn match_bound_rule<'tree, D: Doc>(
+⋮----
+// Bound argument rules are intentionally isolated from the caller env.
+// They match against a temporary env seeded only from prior argument
+// exports in the current parameterized call. Export to the caller happens
+// later, after the whole template has matched, so export conflicts do not
+// trigger backtracking here.
+⋮----
+fn match_global_template<'tree, D: Doc>(
+⋮----
+fn export_vars<'tree, D: Doc>(
+⋮----
+fn lookup_bound_rule(name: &str) -> Option<(Arc<Rule>, Option<Arc<BindingFrame>>)> {
+⋮----
+fn with_binding_frame<T>(frame: Option<Arc<BindingFrame>>, f: impl FnOnce() -> T) -> T {
+struct FrameGuard(Option<Arc<BindingFrame>>);
+impl Drop for FrameGuard {
+fn drop(&mut self) {
+⋮----
+fn with_arg_export_env<'tree, D: Doc, T>(
+⋮----
+struct ExportEnvGuard;
+impl Drop for ExportEnvGuard {
+fn drop(&mut self) {
+⋮----
+fn with_current_arg_export_env<'tree, D: Doc, T>(
+⋮----
+// SAFETY: pointers are only pushed by `with_arg_export_env` for the duration
+// of the matching call on the same thread and with the same `D`/`'tree`.
+⋮----
+mod test {
+⋮----
+fn test_validate_utility_id() {
+⋮----
+fn test_validate_utility_arguments() {
+</file>
+
+<file path="crates/config/src/rule/range.rs">
+use schemars::JsonSchema;
+⋮----
+/// Represents a zero-based character-wise position in a document
+⋮----
+pub struct SerializablePosition {
+/// 0-based line number in the source code
+pub line: usize,
+/// 0-based column number in the source code
+pub column: Option<usize>,
+⋮----
+/// Represents a position in source code using 0-based line and column numbers
+⋮----
+pub struct SerializableRange {
+/// start position in the source code
+pub start: SerializablePosition,
+/// end position in the source code
+pub end: SerializablePosition,
+⋮----
+use std::borrow::Cow;
+⋮----
+use bit_set::BitSet;
+use thiserror::Error;
+⋮----
+use super::Matcher;
+⋮----
+/// Errors that can occur when creating or using a RangeMatcher
+⋮----
+pub enum RangeMatcherError {
+/// Returned when the range is invalid. This can occur when:
+/// - start position is after end position
+/// - positions contain invalid line/column values
+⋮----
+pub struct RangeMatcher {
+start: SerializablePosition,
+end: SerializablePosition,
+⋮----
+impl RangeMatcher {
+pub fn new(start_pos: SerializablePosition, end_pos: SerializablePosition) -> Self {
+⋮----
+pub fn try_new(
+⋮----
+// a missing column is not checked, so it cannot make the range invalid
+⋮----
+impl Matcher for RangeMatcher {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+// first check line since it is cheaper
+⋮----
+// then check column, this can be expensive for utf-8 encoded files
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+mod test {
+⋮----
+use ast_grep_core::matcher::MatcherExt;
+use ast_grep_core::tree_sitter::LanguageExt;
+⋮----
+fn test_invalid_range() {
+⋮----
+fn test_try_new_with_optional_columns() {
+⋮----
+// a missing column is not checked, so it cannot make the range invalid
+⋮----
+fn test_range_match() {
+⋮----
+fn test_range_non_match() {
+⋮----
+fn test_multiline_range() {
+⋮----
+fn test_unicode_range() {
+⋮----
+fn test_range_with_none_start_column() {
+⋮----
+// Should match because start column is not checked
+⋮----
+fn test_range_with_none_end_column() {
+⋮----
+// Should match because end column is not checked
+⋮----
+// Should match only by line numbers
+⋮----
+fn test_range_with_none_columns_multiline() {
+⋮----
+// Should match by line numbers only
+⋮----
+fn test_try_new_invalid_range_with_none_columns() {
+// Even with None columns, invalid line range should fail
+</file>
+
+<file path="crates/config/src/rule/referent_rule.rs">
+use crate::rewriter::Rewriter;
+⋮----
+use ast_grep_core::meta_var::MetaVarEnv;
+⋮----
+use bit_set::BitSet;
+use thiserror::Error;
+⋮----
+use std::borrow::Cow;
+⋮----
+pub struct Registration<R>(Arc<HashMap<String, R>>);
+⋮----
+impl<R> Clone for Registration<R> {
+fn clone(&self) -> Self {
+⋮----
+fn write(&self) -> &mut HashMap<String, R> {
+// SAFETY: callers must ensure exclusive access to the map and its entries
+// during serial initialization, before the registration is shared for matching.
+⋮----
+impl<R> Default for Registration<R> {
+fn default() -> Self {
+⋮----
+pub struct GlobalRules {
+rules: Registration<RuleCore>,
+templates: Registration<GlobalTemplate>,
+⋮----
+impl GlobalRules {
+/// Registers a global utility during initialization.
+///
+/// The registry avoids locks on lookups so completed rules can be shared across
+/// scanning threads without locking overhead on each utility match.
+///
+/// # Safety
+///
+/// Insertions must be serial and confined to initialization. No other access
+/// to either map, including through cloned registrations or rule references,
+/// may overlap this call, and no borrows into the maps may remain active.
+pub(crate) unsafe fn insert(
+⋮----
+// TODO: we can skip check here because insertion order
+// is guaranteed in deserialize_env
+⋮----
+pub struct RuleRegistration {
+/// utility rule to every RuleCore, every sub-rule has its own local utility
+local: Registration<Rule>,
+/// global rules are shared by all RuleConfigs. It is a singleton.
+global: Registration<RuleCore>,
+/// parameterized global rules are shared by all RuleConfigs. It is a singleton.
+global_templates: Registration<GlobalTemplate>,
+/// Every RuleConfig has its own rewriters. But sub-rules share parent's rewriters.
+rewriters: Registration<Rewriter>,
+/// Current parameter bindings allowed while deserializing a global template.
+current_params: Option<Arc<HashSet<String>>>,
+⋮----
+// these are shit code
+impl RuleRegistration {
+pub fn get_rewriters(&self) -> &HashMap<String, Rewriter> {
+⋮----
+pub(crate) fn has_current_param(&self, id: &str) -> bool {
+⋮----
+pub fn from_globals(global: &GlobalRules, params: Option<HashSet<String>>) -> Self {
+⋮----
+fn get_ref(&self) -> RegistrationRef {
+⋮----
+pub(crate) fn insert_local(&self, id: &str, rule: Rule) -> Result<(), ReferentRuleError> {
+⋮----
+// TODO: we can skip check here because insertion order
+// is guaranteed in deserialize_env
+⋮----
+pub(crate) fn insert_rewriter(&self, id: &str, rewriter: Rewriter) {
+⋮----
+pub(crate) fn get_local_util_vars(&self) -> HashSet<&str> {
+⋮----
+pub(crate) fn has_util(&self, id: &str) -> bool {
+⋮----
+pub(crate) fn get_util_template_params(&self, id: &str) -> Option<&Vec<String>> {
+⋮----
+/// RegistrationRef must use Weak pointer to avoid
+/// cyclic reference in RuleRegistration
+⋮----
+pub(crate) struct RegistrationRef {
+local: Weak<HashMap<String, Rule>>,
+global: Weak<HashMap<String, RuleCore>>,
+global_templates: Weak<HashMap<String, GlobalTemplate>>,
+⋮----
+impl RegistrationRef {
+pub(crate) fn get_local(&self) -> Arc<HashMap<String, Rule>> {
+⋮----
+pub(crate) fn get_global(&self) -> Arc<HashMap<String, RuleCore>> {
+⋮----
+pub(crate) fn get_global_templates(&self) -> Arc<HashMap<String, GlobalTemplate>> {
+⋮----
+pub enum ReferentRuleError {
+⋮----
+struct ReferentArgs {
+args: Arc<HashMap<String, Arc<Rule>>>,
+// a cache of variables, used in match
+exported_vars: HashSet<String>,
+⋮----
+impl ReferentArgs {
+fn new(args: HashMap<String, Rule>) -> Self {
+⋮----
+enum ReferentFormat {
+⋮----
+// use Box to reduce the size
+⋮----
+pub struct ReferentRule {
+pub(crate) rule_id: String,
+format: ReferentFormat,
+reg_ref: RegistrationRef,
+⋮----
+impl ReferentRule {
+pub fn try_new(
+⋮----
+pub(crate) fn try_new_param(
+⋮----
+pub fn new(
+⋮----
+fn eval_local<F, T>(&self, func: F) -> Option<T>
+⋮----
+fn eval_global<F, T>(&self, func: F) -> Option<T>
+⋮----
+pub(crate) fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+pub(super) fn verify_util(&self) -> Result<(), crate::rule::RuleSerializeError> {
+⋮----
+pub(crate) fn check_cyclic(&self, id: &str) -> bool {
+⋮----
+impl Matcher for ReferentRule {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+// Deliberately stop inferring kinds through parameter rule references.
+// A `matches: PARAM-RULE` edge is treated as "can match anything", both
+// during deserialization-time cache construction and at runtime. Users
+// must provide stable kind information at the utility definition site
+// or around the call site if they want pruning to stay precise and
+// satisfy MissingPotentialKinds.
+⋮----
+fn match_global_rule<'tree, D: Doc>(
+⋮----
+mod test {
+⋮----
+use crate::maybe::Maybe;
+use crate::rule::relational_rule::Relation;
+use crate::rule::stop_by::SerializableStopBy;
+⋮----
+use ast_grep_core::Pattern;
+use ast_grep_core::matcher::KindMatcher;
+⋮----
+type Result = std::result::Result<(), ReferentRuleError>;
+⋮----
+fn test_cyclic_error() -> Result {
+⋮----
+fn test_cyclic_all() -> Result {
+⋮----
+fn test_cyclic_not() -> Result {
+⋮----
+fn test_success_rule() -> Result {
+⋮----
+fn test_recursive_relation_potential_kinds_terminates() -> Result {
+</file>
+
+<file path="crates/config/src/rule/relational_rule.rs">
+use super::deserialize_env::DeserializeEnv;
+⋮----
+use ast_grep_core::language::Language;
+use ast_grep_core::meta_var::MetaVarEnv;
+⋮----
+use schemars::JsonSchema;
+⋮----
+use std::borrow::Cow;
+use std::collections::HashSet;
+⋮----
+pub struct Relation {
+⋮----
+pub rule: SerializableRule,
+⋮----
+pub stop_by: SerializableStopBy,
+pub field: Option<String>,
+⋮----
+fn field_name_to_id<L: Language>(
+⋮----
+pub struct Inside {
+outer: Rule,
+field: Option<u16>,
+stop_by: StopBy,
+⋮----
+impl Inside {
+pub(crate) fn rule(rule: Rule) -> Self {
+⋮----
+pub(crate) fn rule_descent(rule: Rule) -> Self {
+⋮----
+pub fn try_new<L: Language>(
+⋮----
+outer: env.deserialize_rule(relation.rule)?, // TODO
+⋮----
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+pub fn verify_util(&self) -> Result<(), RuleSerializeError> {
+⋮----
+impl Matcher for Inside {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+pub struct Has {
+inner: Rule,
+stop_by: StopBy,
+field: Option<u16>,
+⋮----
+impl Has {
+pub(crate) fn rule(rule: Rule) -> Self {
+⋮----
+pub(crate) fn rule_descent(rule: Rule) -> Self {
+⋮----
+pub fn try_new<L: Language>(
+⋮----
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+pub fn verify_util(&self) -> Result<(), RuleSerializeError> {
+⋮----
+impl Matcher for Has {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+// TODO: use Pre traversal to reduce stack allocation
+⋮----
+// TODO: use Pre traversal to reduce stack allocation
+⋮----
+pub struct Precedes {
+later: Rule,
+stop_by: StopBy,
+⋮----
+impl Precedes {
+pub fn try_new<L: Language>(
+⋮----
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+pub fn verify_util(&self) -> Result<(), RuleSerializeError> {
+⋮----
+impl Matcher for Precedes {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+pub struct Follows {
+former: Rule,
+stop_by: StopBy,
+⋮----
+impl Follows {
+pub(crate) fn rule(rule: Rule) -> Self {
+⋮----
+pub(crate) fn rule_descent(rule: Rule) -> Self {
+⋮----
+pub fn try_new<L: Language>(
+⋮----
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+pub fn verify_util(&self) -> Result<(), RuleSerializeError> {
+⋮----
+impl Matcher for Follows {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+mod test {
+⋮----
+use ast_grep_core::Pattern;
+use ast_grep_core::matcher::KindMatcher;
+⋮----
+fn find_rule<M: Matcher>(src: &str, matcher: M) -> Option<String> {
+⋮----
+fn test_found<M: Matcher>(found_list: &[&str], matcher: M) {
+⋮----
+fn test_not_found<M: Matcher>(not_found_list: &[&str], matcher: M) {
+⋮----
+fn make_rule(target: &str, relation: Rule) -> impl Matcher {
+⋮----
+// A `not` sub-rule must never export a metavariable binding. When the negated
+// inner matches some candidate (making the negation fail) the relational
+// `find_map` keeps probing later candidates with the SAME env; without
+// rollback in `Not`, the inner's stray binding survives into the eventual
+// successful match. Here the nearest preceding sibling is a `return $A`
+// (negated inner matches, would bind A=foo), while a farther sibling lets the
+// negation succeed, so the match should bind nothing.
+⋮----
+fn test_not_in_relation_does_not_leak_env() {
+⋮----
+fn test_precedes_operator() {
+⋮----
+fn test_precedes_immediate() {
+⋮----
+fn test_follows_operator() {
+⋮----
+"{var b = 2; var a = 1;}", // inside block
+⋮----
+"{var b = 2;} var a = 1;", // inside block
+⋮----
+fn test_follows_immediate() {
+⋮----
+"{var b = 2; var a = 1;}", // inside block
+⋮----
+"var b = 2; alert(b); var a = 1", // not immediate
+"{var b = 2;} var a = 1;",        // inside block
+⋮----
+fn test_has_rule() {
+⋮----
+fn test_has_until_should_not_abort_prematurely() {
+⋮----
+fn test_has_until_should_be_inclusive() {
+⋮----
+fn test_has_immediate() {
+⋮----
+// nested
+⋮----
+fn test_inside_rule() {
+⋮----
+fn test_inside_inclusive() {
+⋮----
+fn test_inside_immediate() {
+⋮----
+// nested
+⋮----
+fn test_inside_field() {
+⋮----
+fn test_has_field() {
+⋮----
+fn test_invalid_field() {
+⋮----
+fn test_defined_vars() {
+</file>
+
+<file path="crates/config/src/rule/selector.rs">
+/// a css selector parser for tree-sitter kind
+///
+/// Example selector
+/// * `call_expression > identifier`
+/// is equvalent to
+/// ```yaml
+/// kind: identifier
+/// inside:
+///   kind: call_expression
+/// ```
+/// * `call_expression identifier`
+/// is equvalent to
+/// ```yaml
+/// kind: identifier
+/// inside:
+///   kind: call_expression
+///   stopBy: end
+/// ```
+/** Grammar for selector
+
+<selector-list> = <complex-selector>#
+
+<complex-selector> = <compound-selector> [ <combinator> <compound-selector> ]*
+
+<compound-selector> = [ <type-selector>? <subclass-selector>* ]!
+
+<combinator> = '>' | '+' | '~' | ' '
+
+<type-selector> = <ident-token>
+
+<subclass-selector> = <class-selector> | <pseudo-class-selector>
+
+<class-selector> = '.' <ident-token>
+
+<pseudo-class-selector> = ':' <ident-token> [ '(' <selector-list> ')' ]?
+*/
+⋮----
+use thiserror::Error;
+⋮----
+// Inspired by CSS Selector, see
+// https://www.w3.org/TR/selectors-4/#grammar
+/// Token types for the lexer
+⋮----
+enum Token<'a> {
+⋮----
+/// + ~ > or space ` `
+⋮----
+/// .
+⋮----
+/// :
+⋮----
+/// (
+⋮----
+/// )
+⋮----
+/// ,
+⋮----
+pub fn parse_selector<L: Language>(source: &str, lang: L) -> Result<Rule, SelectorError> {
+⋮----
+/// <selector-list> = <complex-selector>#
+fn try_parse_selector<'a, L: Language>(input: &mut Input<'a, L>) -> Result<Rule, SelectorError> {
+⋮----
+input.next()?; // consume the comma
+⋮----
+/// <complex-selector> = <compound-selector> [ <combinator> <compound-selector> ]*
+fn parse_complex_selector<'a, L: Language>(
+⋮----
+// space combinator means any descendant
+⋮----
+/// <combinator> = '>' | '+' | '~' | ' '
+fn try_parse_combinator<'a, L: Language>(
+⋮----
+input.next()?; // consume the combinator
+⋮----
+/// <compound-selector> = [ <type-selector>? <subclass-selector>* ]!
+fn parse_compound_selector<'a, L: Language>(
+⋮----
+fn try_parse_type_selector<'a, L: Language>(
+⋮----
+/// <subclass-selector> = <class-selector> | <pseudo-class-selector>
+fn try_parse_subclass_selector<'a, L: Language>(
+⋮----
+/// <pseudo-class-selector> = ':' <ident-token> [ '(' <selector-list> ')' ]?
+fn try_parse_pseudo_class_selector<'a, L: Language>(
+⋮----
+input.next()?; // consume ':'
+⋮----
+// handle open left (
+⋮----
+// prase inner argument according to the pseudo class name
+⋮----
+// :is() accepts a list of selectors as `matches-any`, reuse try_parse_selector
+⋮----
+// handle closing )
+⋮----
+/// [<combinator>]? <complex-selector>
+fn parse_has_argument<'a, L: Language>(input: &mut Input<'a, L>) -> Result<Rule, SelectorError> {
+// Leading '>' means direct child (stopBy: neighbor), otherwise descendant (stopBy: end)
+⋮----
+input.next()?; // consume '>'
+⋮----
+/// <complex-selector>
+fn parse_not_argument<'a, L: Language>(input: &mut Input<'a, L>) -> Result<Rule, SelectorError> {
+⋮----
+/// <an+b> ['of' <complex-selector>]?
+fn parse_nth_child_argument<'a, L: Language>(
+⋮----
+input.next()?; // consume 'of'
+⋮----
+pub enum SelectorError {
+⋮----
+struct Input<'a, L: Language> {
+source: &'a str,
+lookahead: Option<Token<'a>>,
+language: L,
+⋮----
+fn new(source: &'a str, language: L) -> Self {
+⋮----
+fn is_empty(&self) -> bool {
+⋮----
+fn consume_whitespace(&mut self) {
+⋮----
+/// Extract raw An+B text from source, consuming `[0-9nN+- \t]`.
+fn extract_an_plus_b(&mut self) -> &'a str {
+⋮----
+fn do_next(&mut self) -> Result<Option<Token<'a>>, SelectorError> {
+⋮----
+return self.do_next(); // skip whitespace
+⋮----
+fn next(&mut self) -> Result<Option<Token<'a>>, SelectorError> {
+⋮----
+fn peek(&mut self) -> Result<&Option<Token<'a>>, SelectorError> {
+⋮----
+mod test {
+⋮----
+use ast_grep_core::tree_sitter::LanguageExt;
+⋮----
+fn input_to_tokens(input: &str) -> Result<Vec<Token<'_>>, SelectorError> {
+⋮----
+fn test_valid_tokens() -> Result<(), SelectorError> {
+⋮----
+// Test with extra whitespace
+⋮----
+fn test_illegal_character() {
+⋮----
+fn test_edge_cases() -> Result<(), SelectorError> {
+// Empty string
+⋮----
+// Leading and trailing whitespaces
+⋮----
+// Mixed valid and invalid characters
+⋮----
+// Long sequence of identifiers
+⋮----
+fn test_parse_selector() -> Result<(), SelectorError> {
+⋮----
+// see issue #2387
+⋮----
+fn test_identifier_with_number() -> Result<(), SelectorError> {
+⋮----
+fn test_has_tokens() -> Result<(), SelectorError> {
+⋮----
+fn test_has_selector() -> Result<(), SelectorError> {
+// function_declaration:has(return_statement) - descendant search
+⋮----
+// Should not match when descendant is absent
+⋮----
+fn test_has_direct_child_selector() -> Result<(), SelectorError> {
+// expression_statement:has(> call_expression) - direct child only
+⋮----
+fn test_has_with_whitespace() -> Result<(), SelectorError> {
+// whitespace inside :has() should work
+⋮----
+fn test_has_error_cases() {
+// Unknown pseudo-class
+⋮----
+// Missing left paren
+⋮----
+// Missing right paren
+⋮----
+fn test_not_selector() -> Result<(), SelectorError> {
+// identifier:not(number) - match identifiers that are not numbers
+⋮----
+fn test_not_selector_excludes() -> Result<(), SelectorError> {
+// number:not(number) - should match nothing
+⋮----
+fn test_is_selector() -> Result<(), SelectorError> {
+// :is(identifier, number) - matches any of the listed kinds
+⋮----
+fn test_is_selector_in_combinator() -> Result<(), SelectorError> {
+// call_expression > :is(identifier, number) - composing :is deeper in tree
+⋮----
+fn test_nth_child_selector() -> Result<(), SelectorError> {
+// array > number:nth-child(2n+1) - match odd-positioned numbers in array
+⋮----
+fn test_nth_child_selector_with_whitespace() -> Result<(), SelectorError> {
+⋮----
+fn test_nth_child_negative_an_plus_b() -> Result<(), SelectorError> {
+// :nth-child(-n + 3) - first 3 children
+⋮----
+fn test_nth_child_of_selector() -> Result<(), SelectorError> {
+// :nth-child(1 of number) - first number child among siblings
+⋮----
+fn test_nth_child_of_complex_selector() -> Result<(), SelectorError> {
+// :nth-child(2n+1 of number) - odd-positioned numbers only
+⋮----
+fn test_nth_last_child_selector() -> Result<(), SelectorError> {
+</file>
+
+<file path="crates/config/src/rule/stop_by.rs">
+use super::deserialize_env::DeserializeEnv;
+⋮----
+use ast_grep_core::language::Language;
+⋮----
+use std::borrow::Cow;
+use std::collections::HashSet;
+use std::fmt;
+⋮----
+// NB StopBy's JsonSchema is changed in xtask/schema.rs
+// revise schema is easier than manually implementation
+⋮----
+pub enum SerializableStopBy {
+⋮----
+impl JsonSchema for SerializableStopBy {
+fn schema_name() -> Cow<'static, str> {
+⋮----
+fn json_schema(_: &mut SchemaGenerator) -> Schema {
+⋮----
+impl SerializableStopBy {
+/// String key used for serializing the Neighbor variant
+⋮----
+/// String key used for serializing the End variant
+⋮----
+struct StopByVisitor;
+⋮----
+type Value = SerializableStopBy;
+fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+⋮----
+fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+⋮----
+fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+⋮----
+impl Serialize for SerializableStopBy {
+fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+⋮----
+pub enum StopBy {
+⋮----
+impl StopBy {
+pub(crate) fn try_from<L: Language>(
+⋮----
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+pub fn verify_util(&self) -> Result<(), RuleSerializeError> {
+⋮----
+impl StopBy {
+// TODO: document this monster method
+pub(crate) fn find<'t, O, M, I, F, D>(
+⋮----
+fn inclusive_until<'t, D: Doc>(rule: &Rule) -> impl FnMut(&Node<'t, D>) -> bool + '_ {
+⋮----
+mod test {
+⋮----
+use crate::from_str;
+use crate::test::TypeScript;
+⋮----
+fn test_relational() {
+⋮----
+fn to_stop_by(src: &str) -> Result<SerializableStopBy, serde_saphyr::Error> {
+⋮----
+fn test_stop_by_ok() {
+⋮----
+macro_rules! cast_err {
+⋮----
+fn test_stop_by_err() {
+⋮----
+fn parse_stop_by(src: &str) -> StopBy {
+⋮----
+fn test_stop_by_no_defined_vars() {
+⋮----
+fn test_stop_by_defined_vars() {
+⋮----
+fn test_serialization_deserialization_symmetry() {
+</file>
+
+<file path="crates/core/src/match_tree/match_node.rs">
+use super::Aggregator;
+⋮----
+use crate::meta_var::MetaVariable;
+⋮----
+use std::iter::Peekable;
+⋮----
+pub(super) fn match_root_node_impl<'tree, D: Doc>(
+⋮----
+// Smart matching ignores comments inside structured patterns, but a root
+// metavariable represents the candidate itself and must still bind extras.
+⋮----
+pub(super) fn match_node_impl<'tree, D: Doc>(
+⋮----
+// leaf = without named children
+⋮----
+None => MatchOneNode::NoMatch, // TODO: this may be wrong
+⋮----
+fn match_nodes_impl_recursive<'tree, D: Doc>(
+⋮----
+// if goal runs out, do not proceed cand nodes
+⋮----
+// all goal found
+⋮----
+enum ControlFlow {
+⋮----
+/// returns None means no match
+fn may_match_ellipsis_impl<'p, 't: 'p, D: Doc>(
+⋮----
+// in rare case, an internal node's children is empty
+// see https://github.com/ast-grep/ast-grep/issues/1688
+⋮----
+// goal has all matched
+⋮----
+// skip trivial nodes in goal after ellipsis
+⋮----
+// if next node is a Ellipsis, consume one candidate node
+⋮----
+// Probe the next goal against a cloned aggregator to find the ellipsis end.
+// This prevents failed metavar probes from leaking bindings into the real env.
+// Leaking them would make a later, genuine bind of the same metavar conflict and fail
+// Note the match_node_impl here matches the peek nodes, the real consumption and
+// env write will be done in `match_single_node_while_skip_trivial`
+// See https://github.com/ast-grep/ast-grep/pull/2670
+⋮----
+// found match non Ellipsis,
+⋮----
+fn match_single_node_while_skip_trivial<'p, 't: 'p, D: Doc>(
+⋮----
+// if cand runs out, check remaining goal
+// if goal is skippable, it is a match, else a non match
+⋮----
+// try match goal node with candidate node
+⋮----
+// skip trivial node
+⋮----
+// unmatched significant node
+⋮----
+/// Returns Ok if ellipsis pattern is found. If the ellipsis is named, returns it name.
+/// If the ellipsis is unnamed, returns None. If it is not ellipsis node, returns Err.
+fn try_get_ellipsis_mode(node: &PatternNode) -> Result<Option<String>, ()> {
+⋮----
+fn match_ellipsis<'t, D: Doc>(
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+use crate::matcher::KindMatcher;
+⋮----
+use std::borrow::Cow;
+fn match_tree(p: &str, n: &str, strictness: MatchStrictness) -> MatchOneNode {
+⋮----
+fn matched(p: &str, n: &str, strictness: MatchStrictness) {
+⋮----
+fn unmatched(p: &str, n: &str, strictness: MatchStrictness) {
+⋮----
+fn test_smart_match() {
+// smart now ignores comments by default
+⋮----
+fn test_ast_match() {
+⋮----
+fn test_relaxed_match() {
+⋮----
+// fix https://github.com/ast-grep/ast-grep/issues/1848
+⋮----
+fn test_cst_match() {
+⋮----
+fn test_signature_match() {
+⋮----
+fn test_template_match() {
+</file>
+
+<file path="crates/core/src/match_tree/mod.rs">
+mod match_node;
+mod strictness;
+⋮----
+use match_node::match_root_node_impl;
+use strictness::MatchOneNode;
+pub use strictness::MatchStrictness;
+⋮----
+use std::borrow::Cow;
+⋮----
+// the Clone bound is for matching multi-metavar like $$$A
+// since the next node in pattern determines how many nodes to bind to $$$A
+// we need to clone the aggregator to test each node in candidate
+// preferably, Aggregator should be cheap to clone, like Cow or a small struct
+// See https://github.com/ast-grep/ast-grep/pull/2670
+trait Aggregator<'t, D: Doc>: Clone {
+fn match_terminal(&mut self, node: &Node<'t, D>) -> Option<()>;
+fn match_meta_var(&mut self, var: &MetaVariable, node: &Node<'t, D>) -> Option<()>;
+fn match_ellipsis(
+    &mut self,
+    var: Option<&str>,
+    nodes: Vec<Node<'t, D>>,
+    skipped_anonymous: usize,
+  ) -> Option<()>;
+⋮----
+struct ComputeEnd(usize);
+⋮----
+fn match_terminal(&mut self, node: &Node<'t, D>) -> Option<()> {
+⋮----
+fn match_meta_var(&mut self, _: &MetaVariable, node: &Node<'t, D>) -> Option<()> {
+⋮----
+fn match_ellipsis(
+⋮----
+pub fn match_end_non_recursive(goal: &Pattern, candidate: Node<impl Doc>) -> Option<usize> {
+⋮----
+fn match_leaf_meta_var<'tree, D: Doc>(
+⋮----
+// Ellipsis will be matched in parent level
+⋮----
+fn match_terminal(&mut self, _: &Node<'t, D>) -> Option<()> {
+⋮----
+fn match_meta_var(&mut self, var: &MetaVariable, node: &Node<'t, D>) -> Option<()> {
+⋮----
+fn match_ellipsis(
+⋮----
+pub fn match_node_non_recursive<'tree, D: Doc>(
+⋮----
+pub fn does_node_match_exactly<D: Doc>(goal: &Node<D>, candidate: &Node<D>) -> bool {
+// return true if goal and candidate are the same node
+⋮----
+// gh issue #1087, we make pattern matching a little bit more permissive
+// compare node text if at least one node is leaf
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+use crate::matcher::KindMatcher;
+use crate::meta_var::MetaVarEnv;
+use crate::tree_sitter::StrDoc;
+⋮----
+use std::collections::HashMap;
+⋮----
+fn find_node_recursive<'tree>(
+⋮----
+fn test_match(s1: &str, s2: &str) -> HashMap<String, String> {
+⋮----
+fn test_non_match(s1: &str, s2: &str) {
+⋮----
+fn test_simple_match() {
+⋮----
+fn test_root_metavar_matches_comment() {
+⋮----
+fn test_nested_smart_metavar_skips_comment() {
+⋮----
+fn test_nested_match() {
+⋮----
+fn test_should_exactly_match() {
+⋮----
+fn test_match_inner() {
+⋮----
+fn test_single_ellipsis() {
+⋮----
+fn test_named_ellipsis() {
+⋮----
+fn test_leading_ellipsis() {
+⋮----
+fn test_trailing_ellipsis() {
+⋮----
+// test_match("foo(a, b, c, $$$)", "foo(a, b, c)");
+⋮----
+fn test_meta_var_named() {
+⋮----
+fn test_meta_var_multiple_occurrence() {
+⋮----
+fn test_string() {
+⋮----
+fn test_skip_trivial_node() {
+⋮----
+fn test_trivia_in_pattern() {
+⋮----
+fn find_end_recursive(goal: &Pattern, node: Node<StrDoc<Tsx>>) -> Option<usize> {
+⋮----
+fn test_end(s1: &str, s2: &str) -> Option<usize> {
+⋮----
+fn test_match_end() {
+⋮----
+// see https://github.com/ast-grep/ast-grep/issues/411
+⋮----
+fn test_ellipsis_end() {
+⋮----
+fn test_gh_1087() {
+⋮----
+// A leading `$$$` followed by a metavar-bearing anchored statement must not
+// leak partial bindings from the ellipsis-end lookahead probe. Here the probe
+// of `let $P = g()` against the leading `let a = 0` would bind `$P = a` and
+// then fail on the right-hand side, poisoning the real bind `$P = p`.
+⋮----
+fn test_leading_ellipsis_metavar_anchor() {
+// No trailing `;` after `$$$A`/`$$$B` so they parse as statement-list
+// ellipses (a bare `$$$A;` would be wrapped in an expression_statement).
+</file>
+
+<file path="crates/core/src/match_tree/strictness.rs">
+use crate::Doc;
+⋮----
+use crate::meta_var::MetaVariable;
+use crate::node::Node;
+use std::iter::Peekable;
+use std::str::FromStr;
+⋮----
+pub enum MatchStrictness {
+Cst,       // all nodes are matched
+Smart,     // all nodes except source trivial nodes are matched.
+Ast,       // only ast nodes are matched
+Relaxed,   // ast-nodes excluding comments are matched
+Signature, // ast-nodes excluding comments, without text
+Template,  // similar to relaxed, but node kinds are ignored, only text is matched.
+⋮----
+pub(crate) enum MatchOneNode {
+⋮----
+fn skip_comment(n: &Node<impl Doc>) -> bool {
+⋮----
+fn skip_comment_or_unnamed(n: &Node<impl Doc>) -> bool {
+⋮----
+impl MatchStrictness {
+pub(crate) fn should_skip_kind(&self) -> bool {
+⋮----
+fn should_skip_comment(&self) -> bool {
+⋮----
+pub(crate) fn match_terminal(
+⋮----
+// work around ast-grep/ast-grep#1419 and tree-sitter/tree-sitter-typescript#306
+// tree-sitter-typescript has wrong span of unnamed node so text would not match
+// just compare kind for unnamed node
+⋮----
+pub(crate) fn should_skip_cand_for_metavar<D: Doc>(&self, candidate: &Node<D>) -> bool {
+⋮----
+// TODO: this is a method for working around trailing nodes after pattern is matched
+pub(crate) fn should_skip_trailing<D: Doc>(&self, candidate: &Node<D>) -> bool {
+⋮----
+pub(crate) fn should_skip_goal<'p>(
+⋮----
+impl FromStr for MatchStrictness {
+type Err = &'static str;
+fn from_str(s: &str) -> Result<Self, Self::Err> {
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+⋮----
+fn test_match(p: &str, n: &str, strictness: MatchStrictness) -> bool {
+⋮----
+fn template_pattern(p: &str, n: &str) -> bool {
+⋮----
+fn test_template_pattern() {
+⋮----
+fn relaxed_pattern(p: &str, n: &str) -> bool {
+⋮----
+fn test_ignore_comment() {
+⋮----
+fn test_ast_trailing_comma() {
+</file>
+
+<file path="crates/core/src/matcher/kind.rs">
+use super::Matcher;
+⋮----
+use crate::language::Language;
+use crate::meta_var::MetaVarEnv;
+use crate::node::KindId;
+⋮----
+use std::borrow::Cow;
+⋮----
+use bit_set::BitSet;
+use thiserror::Error;
+⋮----
+// 0 is symbol_end for not found, 65535 is builtin symbol ERROR
+// see https://tree-sitter.docsforge.com/master/api/#TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+// and https://tree-sitter.docsforge.com/master/api/ts_language_symbol_for_name/
+⋮----
+pub enum KindMatcherError {
+⋮----
+pub struct KindMatcher {
+kind: KindId,
+⋮----
+impl KindMatcher {
+pub fn new<L: Language>(node_kind: &str, lang: L) -> Self {
+⋮----
+pub fn try_new<L: Language>(node_kind: &str, lang: L) -> Result<Self, KindMatcherError> {
+⋮----
+pub fn from_id(kind: KindId) -> Self {
+⋮----
+/// Whether the kind matcher contains undefined tree-sitter kind.
+pub fn is_invalid(&self) -> bool {
+⋮----
+/// Construct a matcher that only matches ERROR
+pub fn error_matcher() -> Self {
+⋮----
+pub mod kind_utils {
+⋮----
+/// Whether the kind will match parsing error occurred in the source code.
+/// for example, we can use `kind: ERROR` in YAML to find invalid syntax in source.
+/// the name `is_error` implies the matcher itself is error.
+/// But here the matcher itself is valid and it is what it matches is error.
+pub fn is_error_kind(kind: KindId) -> bool {
+⋮----
+pub fn are_kinds_matching(goal: KindId, candidate: KindId) -> bool {
+⋮----
+impl Matcher for KindMatcher {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+use crate::matcher::MatcherExt;
+⋮----
+fn pattern_node(s: &str) -> Root<StrDoc<Tsx>> {
+⋮----
+fn test_kind_match() {
+⋮----
+fn test_kind_non_match() {
+⋮----
+fn test_kind_potential_kinds() {
+⋮----
+// should has exactly one potential kind
+</file>
+
+<file path="crates/core/src/matcher/node_match.rs">
+use super::Matcher;
+use crate::meta_var::MetaVarEnv;
+use crate::replacer::Replacer;
+⋮----
+use std::borrow::Borrow;
+use std::ops::Deref;
+⋮----
+type Edit<D> = E<<D as Doc>::Source>;
+⋮----
+/// Represents the matched node with populated MetaVarEnv.
+/// It derefs to the Node so you can use it as a Node.
+/// To access the underlying MetaVarEnv, call `get_env` method.
+⋮----
+pub struct NodeMatch<'t, D: Doc>(Node<'t, D>, MetaVarEnv<'t, D>);
+⋮----
+pub fn new(node: Node<'tree, D>, env: MetaVarEnv<'tree, D>) -> Self {
+⋮----
+pub fn get_node(&self) -> &Node<'tree, D> {
+⋮----
+/// Returns the populated MetaVarEnv for this match.
+pub fn get_env(&self) -> &MetaVarEnv<'tree, D> {
+⋮----
+pub fn get_env_mut(&mut self) -> &mut MetaVarEnv<'tree, D> {
+⋮----
+/// # Safety
+/// should only called for readopting nodes
+pub(crate) unsafe fn get_node_mut(&mut self) -> &mut Node<'tree, D> {
+⋮----
+pub fn replace_by<R: Replacer<D>>(&self, replacer: R) -> Edit<D> {
+⋮----
+pub fn make_edit<M, R>(&self, matcher: &M, replacer: &R) -> Edit<D>
+⋮----
+fn from(node: Node<'tree, D>) -> Self {
+⋮----
+/// NodeMatch is an immutable view to Node
+⋮----
+fn from(node_match: NodeMatch<'tree, D>) -> Self {
+⋮----
+/// NodeMatch is an immutable view to Node
+impl<'tree, D: Doc> Deref for NodeMatch<'tree, D> {
+type Target = Node<'tree, D>;
+fn deref(&self) -> &Self::Target {
+⋮----
+/// NodeMatch is an immutable view to Node
+⋮----
+fn borrow(&self) -> &Node<'tree, D> {
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+⋮----
+fn use_node<L: LanguageExt>(n: &Node<StrDoc<L>>) -> String {
+⋮----
+fn borrow_node<'a, D, B>(b: B) -> String
+⋮----
+fn test_node_match_as_node() {
+⋮----
+fn test_node_env() {
+⋮----
+fn test_replace_by() {
+</file>
+
+<file path="crates/core/src/matcher/pattern.rs">
+use crate::language::Language;
+⋮----
+use crate::source::SgNode;
+⋮----
+use bit_set::BitSet;
+use thiserror::Error;
+⋮----
+use std::borrow::Cow;
+use std::collections::HashSet;
+⋮----
+pub struct Pattern {
+pub node: PatternNode,
+root_kind: Option<u16>,
+pub strictness: MatchStrictness,
+⋮----
+pub struct PatternBuilder<'a> {
+selector: Option<&'a str>,
+src: Cow<'a, str>,
+⋮----
+pub fn build<D, F>(&self, parse: F) -> Result<Pattern, PatternError>
+⋮----
+// A multi meta variable matches a list of nodes, but a pattern matches a
+// single node, so `$$$MULTI` as the root of a pattern is invalid input.
+⋮----
+fn single<D: Doc>(&self, root: &Root<D>) -> Result<Pattern, PatternError> {
+⋮----
+fn contextual<D: Doc>(&self, root: &Root<D>, selector: &str) -> Result<Pattern, PatternError> {
+⋮----
+pub struct DumpPattern<'p> {
+pub is_meta_var: bool,
+pub kind: Option<Cow<'static, str>>,
+pub text: Cow<'p, str>,
+pub children: Vec<DumpPattern<'p>>,
+⋮----
+fn dump_pattern_impl<'p>(
+⋮----
+pub enum PatternNode {
+⋮----
+meta_var: MetaVariable,
+⋮----
+/// Node without children.
+⋮----
+text: String,
+is_named: bool,
+kind_id: u16,
+⋮----
+/// Non-Terminal Syntax Nodes are called Internal
+⋮----
+kind_id: u16,
+children: Vec<PatternNode>,
+⋮----
+impl PatternNode {
+// for skipping trivial nodes in goal after ellipsis
+pub fn is_trivial(&self) -> bool {
+⋮----
+pub fn fixed_string(&self) -> Cow<'_, str> {
+⋮----
+fn from(node: Node<'r, D>) -> Self {
+⋮----
+fn from(node: Node<'r, D>) -> Self {
+⋮----
+fn convert_node_to_pattern<D: Doc>(node: Node<'_, D>) -> PatternNode {
+⋮----
+fn extract_var_from_node<D: Doc>(goal: &Node<'_, D>) -> Option<MetaVariable> {
+⋮----
+pub enum PatternError {
+⋮----
+NoSelectorInContext { context: String, selector: String },
+⋮----
+fn is_single_node<'r, N: SgNode<'r>>(n: &N) -> bool {
+⋮----
+// some language will have weird empty syntax node at the end
+// see golang's `$A = 0` pattern test case
+⋮----
+impl Pattern {
+pub fn dump(
+⋮----
+pub fn has_error(&self) -> bool {
+⋮----
+pub fn fixed_string(&self) -> Cow<'_, str> {
+⋮----
+/// Get all defined variables in the pattern.
+/// Used for validating rules and report undefined variables.
+pub fn defined_vars(&self) -> HashSet<&str> {
+⋮----
+fn meta_var_name(meta_var: &MetaVariable) -> Option<&str> {
+⋮----
+fn collect_vars<'p>(p: &'p PatternNode, vars: &mut HashSet<&'p str>) {
+⋮----
+// collect nothing for terminal nodes!
+⋮----
+impl Pattern {
+pub fn try_new<L: Language>(src: &str, lang: L) -> Result<Self, PatternError> {
+⋮----
+pub fn new<L: Language>(src: &str, lang: L) -> Self {
+⋮----
+pub fn with_strictness(mut self, strictness: MatchStrictness) -> Self {
+⋮----
+pub fn contextual<L: Language>(
+⋮----
+fn single_matcher<D: Doc>(root: &Root<D>) -> Node<'_, D> {
+// debug_assert!(matches!(self.style, PatternStyle::Single));
+⋮----
+impl Matcher for Pattern {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+// do not pollute the env if pattern does not match
+⋮----
+// only change env when pattern matches
+⋮----
+fn potential_kinds(&self) -> Option<bit_set::BitSet> {
+// if strictness is Template, we can match any kind
+⋮----
+// error can match any kind
+⋮----
+fn get_match_len<D: Doc>(&self, node: Node<'_, D>) -> Option<usize> {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+use crate::matcher::MatcherExt;
+use crate::meta_var::MetaVarEnv;
+use crate::tree_sitter::StrDoc;
+use std::collections::HashMap;
+⋮----
+fn pattern_node(s: &str) -> Root<StrDoc<Tsx>> {
+⋮----
+fn test_match(s1: &str, s2: &str) {
+⋮----
+fn test_non_match(s1: &str, s2: &str) {
+⋮----
+fn test_meta_variable() {
+⋮----
+fn test_whitespace() {
+⋮----
+fn match_env(goal_str: &str, cand: &str) -> HashMap<String, String> {
+⋮----
+fn test_meta_variable_env() {
+⋮----
+fn test_pattern_should_not_pollute_env() {
+// gh issue #1164
+⋮----
+fn test_match_non_atomic() {
+⋮----
+fn test_class_assignment() {
+⋮----
+// test_match("a = 123", "class A {a = 123}");
+⋮----
+fn test_return() {
+⋮----
+fn test_contextual_pattern() {
+⋮----
+fn test_contextual_match_with_env() {
+⋮----
+fn test_contextual_unmatch_with_env() {
+⋮----
+fn get_kind(kind_str: &str) -> usize {
+⋮----
+fn test_pattern_potential_kinds() {
+⋮----
+fn test_pattern_with_non_root_meta_var() {
+⋮----
+fn test_bare_wildcard() {
+⋮----
+// wildcard should match anything, so kinds should be None
+⋮----
+fn test_contextual_potential_kinds() {
+⋮----
+fn test_contextual_wildcard() {
+⋮----
+fn test_multi_node_pattern() {
+⋮----
+fn test_multi_node_meta_var() {
+⋮----
+fn test_pattern_size() {
+⋮----
+fn test_error_kind() {
+⋮----
+fn test_bare_wildcard_in_context() {
+⋮----
+// it should not match
+⋮----
+fn test_pattern_fixed_string() {
+⋮----
+fn test_pattern_error() {
+⋮----
+fn test_root_multi_meta_var_is_rejected() {
+// gh #2697: a standalone multi meta variable is invalid input. A pattern
+// matches a single node, so it must be rejected when the pattern is
+// created, not silently stored as a single meta var.
+⋮----
+fn test_single_root_meta_var_is_accepted() {
+// a single $META as the whole pattern is still valid
+⋮----
+fn test_in_list_multi_meta_var_is_unchanged() {
+// in-list $$$ stays valid: the root node is the call expression, not the
+// multi meta var, so existing matching behavior is preserved.
+⋮----
+fn test_debug_pattern() {
+⋮----
+fn defined_vars(s: &str) -> Vec<String> {
+⋮----
+fn test_extract_meta_var_from_pattern() {
+⋮----
+fn test_extract_complex_meta_var() {
+⋮----
+fn test_extract_duplicate_meta_var() {
+⋮----
+fn test_contextual_pattern_vars() {
+⋮----
+fn test_gh_1087() {
+⋮----
+fn test_template_pattern_have_no_kinds() {
+</file>
+
+<file path="crates/core/src/matcher/text.rs">
+use super::Matcher;
+use crate::Doc;
+use crate::Node;
+use crate::meta_var::MetaVarEnv;
+⋮----
+use bit_set::BitSet;
+⋮----
+use thiserror::Error;
+⋮----
+use std::borrow::Cow;
+⋮----
+pub enum RegexMatcherError {
+⋮----
+pub struct RegexMatcher {
+regex: Regex,
+⋮----
+impl RegexMatcher {
+pub fn try_new(text: &str) -> Result<Self, RegexMatcherError> {
+⋮----
+impl Matcher for RegexMatcher {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+</file>
+
+<file path="crates/core/src/replacer/indent.rs">
+/**
+  This module is for indentation-sensitive replacement.
+
+  Ideally, structural search and replacement should all be based on AST.
+  But this means our changed AST need to be pretty-printed by structural rules,
+  which we don't have enough resource to support. An indentation solution is used.
+
+  The algorithm is quite complicated, uncomprehensive, sluggish and buggy.
+  But let's walk through it by example.
+
+  consider this code
+  ```ignore
+  if (true) {
+    a(
+      1
+        + 2
+        + 3
+    )
+  }
+  ```
+
+  and this pattern and replacement
+
+  ```ignore
+  // pattern
+  a($B)
+  // replacement
+  c(
+    $B
+  )
+  ```
+
+  We need to compute the relative indentation of the captured meta-var.
+  When we insert the meta-var into replacement, keep the relative indent intact,
+  while also respecting the replacement indent.
+  Finally, the whole replacement should replace the matched node
+  in a manner that maintains the indentation of the source.
+
+  We need to consider multiple indentations.
+  Key concepts here:
+  * meta-var node: in this case `$B` in pattern/replacement, or `1+2+3` in source.
+  * matched node: in this case `a($B)` in pattern, a(1 + 2 + 3)` in source
+  * meta-var source indentation: `$B` matches `1+2+3`, the first line's indentation in source code is 4.
+  * meta-var replacement indentation: in this case 2
+  * matched node source indentation: in this case 2
+
+  ## Extract Meta-var with de-indent
+  1. Initial meta-var node B text:
+      The meta-var source indentation for `$B` is 4.
+      However, meta-var node does not have the first line indentation.
+      ```ignore
+      1
+            + 2
+            + 3
+      ```
+  2. Deindent meta-var node B, except first line:
+      De-indenting all lines following the first line by 4 spaces gives us this relative code layout.
+
+      ```ignore
+      1
+        + 2
+        + 3
+      ```
+
+  ## Insert meta-var into replacement with re-indent
+
+  3. Re-indent by meta-var replacement indentation.
+      meta-var node $B occurs in replace with first line indentation of 2.
+      We need to re-indent the meta-var code before replacement, except the first line
+      ```ignore
+      1
+          + 2
+          + 3
+      ```
+
+  4. Insert meta-var code in to replacement
+      ```ignore
+      c(
+        1
+          + 2
+          + 3
+      )
+      ```
+
+  ## Insert replacement into source with re-indent
+
+  5. Re-indent the replaced template code except first line
+      The whole matched node first line indentation is 2.
+      We need to reindent the replacement code by 2, except the first line.
+      ```ignore
+      c(
+          1
+            + 2
+            + 3
+        )
+      ```
+
+  6. Inserted replacement code to original tree
+
+      ```ignore
+      if (true) {
+        c(
+          1
+            + 2
+            + 3
+        )
+      }
+      ```
+
+  The steps 3,4 and steps 5,6 are similar. We can define a `replace_with_indent` to it.
+  Following the same path, we can define a `extract_with_deindent` for steps 1,2
+*/
+use crate::source::Content;
+use std::borrow::Cow;
+use std::cmp::Ordering;
+use std::ops::Range;
+⋮----
+/// We assume NEW_LINE, TAB, SPACE is only one code unit.
+/// This is sufficiently true for utf8, utf16 and char.
+fn get_new_line<C: Content>() -> C::Underlying {
+⋮----
+fn get_space<C: Content>() -> C::Underlying {
+⋮----
+/// Represents how we de-indent matched meta var.
+pub enum DeindentedExtract<'a, C: Content> {
+/// If meta-var is only one line, no need to de-indent/re-indent
+⋮----
+/// meta-var's has multiple lines, may need re-indent
+⋮----
+/// Returns DeindentedExtract for later de-indent/re-indent.
+pub fn extract_with_deindent<C: Content>(
+⋮----
+// no need to compute indentation for single line
+⋮----
+fn deindent_slice<'a, C: Content>(
+⋮----
+pub fn formatted_slice<'a, C: Content>(
+⋮----
+pub fn indent_lines<C: Content>(
+⋮----
+// if old and new indent match, just return old lines
+⋮----
+// need strip old indent
+⋮----
+// need add missing indent
+⋮----
+fn indent_lines_impl<'a, C, Lines>(indent: usize, mut lines: Lines) -> Vec<C::Underlying>
+⋮----
+// first line never got indent
+⋮----
+/// returns 0 if no indent is found before the offset
+/// either truly no indent exists, or the offset is in a long line
+pub fn get_indent_at_offset<C: Content>(src: &[C::Underlying]) -> usize {
+⋮----
+// TODO: support TAB. only whitespace is supported now
+⋮----
+// lookahead == 0 means we have indentation at first line.
+⋮----
+// NOTE: we assume input is well indented.
+// following line's should have fewer indentation than initial line
+fn remove_indent<C: Content>(indent: usize, src: &[C::Underlying]) -> Vec<C::Underlying> {
+⋮----
+mod test {
+⋮----
+fn test_deindent(source: &str, expected: &str, offset: usize) {
+⋮----
+fn test_simple_deindent() {
+⋮----
+fn test_first_line_indent_deindent() {
+// note this indentation has no newline
+⋮----
+fn test_space_in_middle_deindent() {
+⋮----
+fn test_middle_deindent() {
+⋮----
+fn test_nested_deindent() {
+⋮----
+fn test_no_deindent() {
+⋮----
+fn test_malformed_deindent() {
+⋮----
+fn test_long_line_no_deindent() {
+⋮----
+fn test_replace_with_indent(target: &str, start: usize, inserted: &str) -> String {
+⋮----
+fn test_simple_replace() {
+⋮----
+fn test_indent_replace() {
+⋮----
+let target = "    "; // 4 spaces, but insert at 2
+⋮----
+let target = "    "; // 4 spaces, insert at 4
+⋮----
+fn test_leading_text_replace() {
+⋮----
+fn test_leading_text_indent_replace() {
+</file>
+
+<file path="crates/core/src/replacer/structural.rs">
+use crate::language::Language;
+use crate::meta_var::MetaVarEnv;
+⋮----
+pub fn gen_replacement<D: Doc>(root: &Root<D>, nm: &NodeMatch<D>) -> Underlying<D> {
+⋮----
+fn collect_edits<D: Doc>(root: &Root<D>, env: &MetaVarEnv<D>, lang: &D::Lang) -> Vec<Edit<D>> {
+⋮----
+// this is a post-order DFS that stops traversal when the node matches
+⋮----
+// traverse down to child
+⋮----
+// TODO: better handling missing node
+⋮----
+// traverse up to parent until getting to root
+⋮----
+// come back to the root node, terminating dfs
+⋮----
+// add the missing one
+⋮----
+fn merge_edits_to_vec<D: Doc>(edits: Vec<Edit<D>>, root: &Root<D>) -> Underlying<D> {
+⋮----
+fn get_meta_var_replacement<D: Doc>(
+⋮----
+mod test {
+use crate::language::Tsx;
+use crate::meta_var::MetaVarEnv;
+⋮----
+use std::collections::HashMap;
+⋮----
+fn test_pattern_replace(replacer: &str, vars: &[(&str, &str)], expected: &str) {
+⋮----
+fn test_no_env() {
+⋮----
+fn test_single_env() {
+⋮----
+fn test_multiple_env() {
+⋮----
+fn test_multiple_occurrences() {
+⋮----
+fn test_ellipsis_replace(replacer: &str, vars: &[(&str, &str)], expected: &str) {
+⋮----
+fn test_ellipsis_meta_var() {
+⋮----
+fn test_multi_ellipsis() {
+⋮----
+fn test_replace_in_string() {
+⋮----
+fn test_nested_matching_replace() {
+// TODO
+</file>
+
+<file path="crates/core/src/replacer/template.rs">
+use crate::NodeMatch;
+use crate::language::Language;
+⋮----
+use thiserror::Error;
+⋮----
+use std::borrow::Cow;
+use std::collections::HashSet;
+⋮----
+pub enum TemplateFix {
+// no meta_var, pure text
+⋮----
+pub enum TemplateFixError {}
+⋮----
+impl TemplateFix {
+pub fn try_new<L: Language>(template: &str, lang: &L) -> Result<Self, TemplateFixError> {
+⋮----
+pub fn with_transform<L: Language>(tpl: &str, lang: &L, trans: &[String]) -> Self {
+⋮----
+pub fn used_vars(&self) -> HashSet<&str> {
+⋮----
+/// Returns the node-backed metavariable when it is the entire template.
+pub fn exact_node_var(&self) -> Option<&str> {
+⋮----
+fn generate_replacement(&self, nm: &NodeMatch<'_, D>) -> Underlying<D> {
+⋮----
+type Indent = usize;
+⋮----
+pub struct Template {
+fragments: Vec<String>,
+vars: Vec<(MetaVarExtract, Indent)>,
+⋮----
+fn create_template(tmpl: &str, mv_char: char, transforms: &[String]) -> TemplateFix {
+⋮----
+// NB we have to count ident of the full string
+⋮----
+// offset = 0, i = 0,
+// 0 1 2
+// $ a $
+⋮----
+fn replace_fixer<D: Doc>(fixer: &TemplateFix, env: &MetaVarEnv<'_, D>) -> Underlying<D> {
+⋮----
+fn maybe_get_var<'e, 't, C, D>(
+⋮----
+// transformed source does not have range, directly return bytes
+⋮----
+// NOTE: start_byte is not always index range of source's slice.
+// e.g. start_byte is still byte_offset in utf_16 (napi). start_byte
+// so we need to call source's get_range method
+⋮----
+// replace meta_var in template string, e.g. "Hello $NAME" -> "Hello World"
+pub fn gen_replacement<D: Doc>(template: &str, nm: &NodeMatch<'_, D>) -> Underlying<D> {
+⋮----
+mod test {
+⋮----
+use crate::Pattern;
+use crate::language::Tsx;
+use crate::matcher::NodeMatch;
+⋮----
+use crate::tree_sitter::LanguageExt;
+use std::collections::HashMap;
+⋮----
+fn test_example() {
+⋮----
+fn test_str_replace(replacer: &str, vars: &[(&str, &str)], expected: &str) {
+⋮----
+fn test_no_env() {
+⋮----
+fn test_single_env() {
+⋮----
+fn test_multiple_env() {
+⋮----
+fn test_multiple_occurrences() {
+⋮----
+fn test_ellipsis_replace(replacer: &str, vars: &[(&str, &str)], expected: &str) {
+⋮----
+fn test_ellipsis_meta_var() {
+⋮----
+fn test_multi_ellipsis() {
+⋮----
+fn test_replace_in_string() {
+⋮----
+fn test_template_replace(template: &str, vars: &[(&str, &str)], expected: &str) {
+⋮----
+fn test_template_fix_replace(fixer: &TemplateFix, vars: &[(&str, &str)], expected: &str) {
+⋮----
+fn test_template() {
+⋮----
+fn test_template_vars() {
+⋮----
+fn test_digit_after_meta_var_char_is_literal() {
+⋮----
+struct MultiByteMetaVar;
+⋮----
+impl Language for MultiByteMetaVar {
+fn meta_var_char(&self) -> char {
+⋮----
+fn kind_to_id(&self, kind: &str) -> u16 {
+⋮----
+fn field_to_id(&self, field: &str) -> Option<u16> {
+⋮----
+fn build_pattern(
+⋮----
+fn test_digit_after_multibyte_meta_var_char_is_literal() {
+⋮----
+fn test_exact_node_var() {
+⋮----
+// GH #641
+⋮----
+fn test_multi_row_replace() {
+⋮----
+fn test_replace_rewriter() {
+⋮----
+fn test_nested_matching_replace() {
+// TODO impossible, we don't support nested replacement
+</file>
+
+<file path="crates/core/src/tree_sitter/mod.rs">
+pub mod traversal;
+⋮----
+use crate::node::Root;
+use crate::replacer::Replacer;
+⋮----
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::num::NonZero;
+use thiserror::Error;
+⋮----
+/// Represents tree-sitter related error
+⋮----
+pub enum TSParseError {
+⋮----
+/// A general error when tree sitter fails to parse in time. It can be caused by
+/// the following reasons but tree-sitter does not provide error detail.
+/// * The timeout set with [Parser::set_timeout_micros] expired
+/// * The cancellation flag set with [Parser::set_cancellation_flag] was flipped
+/// * The parser has not yet had a language assigned with [Parser::set_language]
+⋮----
+/// Keep one parser for each language on every worker thread. A parser is not
+/// shared between workers, so parsing remains lock-free, while repeated files
+/// avoid recreating the parser and rebuilding its language-specific tables.
+⋮----
+fn parse_lang(
+⋮----
+// A failed or cancelled parse can retain resumable parser state. Every
+// parse_lang call represents a complete document, so always start clean.
+⋮----
+pub struct StrDoc<L: LanguageExt> {
+pub src: String,
+pub lang: L,
+pub tree: Tree,
+⋮----
+pub fn try_new(src: &str, lang: L) -> Result<Self, String> {
+⋮----
+pub fn new(src: &str, lang: L) -> Self {
+⋮----
+fn parse(&self, old_tree: Option<&Tree>) -> Result<Tree, TSParseError> {
+⋮----
+impl<L: LanguageExt> Doc for StrDoc<L> {
+type Source = String;
+type Lang = L;
+type Node<'r> = Node<'r>;
+fn get_lang(&self) -> &Self::Lang {
+⋮----
+fn get_source(&self) -> &Self::Source {
+⋮----
+fn do_edit(&mut self, edit: &Edit<Self::Source>) -> Result<(), String> {
+⋮----
+fn root_node(&self) -> Node<'_> {
+⋮----
+fn get_node_text<'a>(&'a self, node: &Self::Node<'a>) -> Cow<'a, str> {
+⋮----
+struct NodeWalker<'tree> {
+cursor: tree_sitter::TreeCursor<'tree>,
+count: usize,
+⋮----
+impl<'tree> Iterator for NodeWalker<'tree> {
+type Item = Node<'tree>;
+fn next(&mut self) -> Option<Self::Item> {
+⋮----
+impl ExactSizeIterator for NodeWalker<'_> {
+fn len(&self) -> usize {
+⋮----
+fn parent(&self) -> Option<Self> {
+⋮----
+fn ancestors(&self, root: Self) -> impl Iterator<Item = Self> {
+⋮----
+// We must iterate up the tree to preserve backwards compatibility
+⋮----
+fn dfs(&self) -> impl Iterator<Item = Self> {
+⋮----
+fn child(&self, nth: usize) -> Option<Self> {
+⋮----
+fn children(&self) -> impl ExactSizeIterator<Item = Self> {
+⋮----
+fn child_by_field_id(&self, field_id: u16) -> Option<Self> {
+⋮----
+fn next(&self) -> Option<Self> {
+⋮----
+fn prev(&self) -> Option<Self> {
+⋮----
+fn next_all(&self) -> impl Iterator<Item = Self> {
+// if root is none, use self as fallback to return a type-stable Iterator
+⋮----
+fn prev_all(&self) -> impl Iterator<Item = Self> {
+// if root is none, use self as fallback to return a type-stable Iterator
+⋮----
+fn is_named(&self) -> bool {
+⋮----
+/// N.B. it is different from is_named && is_leaf
+/// if a node has no named children.
+fn is_named_leaf(&self) -> bool {
+⋮----
+fn is_leaf(&self) -> bool {
+⋮----
+fn kind(&self) -> Cow<'_, str> {
+⋮----
+fn kind_id(&self) -> KindId {
+⋮----
+fn node_id(&self) -> usize {
+⋮----
+fn range(&self) -> std::ops::Range<usize> {
+⋮----
+fn start_pos(&self) -> Position {
+⋮----
+fn end_pos(&self) -> Position {
+⋮----
+// missing node is a tree-sitter specific concept
+fn is_missing(&self) -> bool {
+⋮----
+fn is_error(&self) -> bool {
+⋮----
+fn is_extra(&self) -> bool {
+⋮----
+fn field(&self, name: &str) -> Option<Self> {
+⋮----
+fn field_children(&self, field_id: Option<u16>) -> impl Iterator<Item = Self> {
+⋮----
+// if field_id is not found, iteration is done
+⋮----
+pub fn perform_edit<S: ContentExt>(tree: &mut Tree, input: &mut S, edit: &Edit<S>) -> InputEdit {
+⋮----
+/// tree-sitter specific language trait
+pub trait LanguageExt: Language {
+/// Create an [`AstGrep`] instance for the language
+fn ast_grep<S: AsRef<str>>(&self, source: S) -> AstGrep<StrDoc<Self>> {
+⋮----
+/// tree sitter language to parse the source
+fn get_ts_language(&self) -> TSLanguage;
+⋮----
+fn injectable_languages(&self) -> Option<&'static [&'static str]> {
+⋮----
+/// Get injected language regions in the root document. e.g. get JavaScripts in HTML.
+/// Each entry is parsed as an **independent** tree-sitter document.
+/// Multiple entries for the same language produce separate parse trees.
+/// Also see <https://tree-sitter.github.io/tree-sitter/using-parsers#multi-language-documents>
+fn extract_injections<L: LanguageExt>(
+⋮----
+fn position_for_offset(input: &[u8], offset: usize) -> Point {
+⋮----
+pub fn new<S: AsRef<str>>(src: S, lang: L) -> Self {
+⋮----
+pub fn source(&self) -> &str {
+⋮----
+pub fn generate(self) -> String {
+⋮----
+pub trait ContentExt: Content {
+fn accept_edit(&mut self, edit: &Edit<Self>) -> InputEdit;
+⋮----
+impl ContentExt for String {
+fn accept_edit(&mut self, edit: &Edit<Self>) -> InputEdit {
+⋮----
+pub fn str(src: &str, lang: L) -> Self {
+⋮----
+pub fn try_new(src: &str, lang: L) -> Result<Self, String> {
+⋮----
+pub fn get_text(&self) -> &str {
+⋮----
+pub fn get_injections<F: Fn(&str) -> Option<L>>(&self, get_lang: F) -> Vec<Self> {
+⋮----
+pub struct DisplayContext<'r> {
+/// content for the matched node
+pub matched: Cow<'r, str>,
+/// content before the matched node
+pub leading: &'r str,
+/// content after the matched node
+pub trailing: &'r str,
+/// zero-based start line of the context
+pub start_line: usize,
+⋮----
+/// these methods are only for `StrDoc`
+⋮----
+pub fn display_context(&self, before: usize, after: usize) -> DisplayContext<'r> {
+⋮----
+// tree-sitter will append line ending to source so trailing can be out of bound
+⋮----
+// lines_before means we matched all context, offset is `before` itself
+⋮----
+// otherwise, there are fewer than `before` line in src, compute the actual line
+⋮----
+pub fn replace_all<M: Matcher, R: Replacer<StrDoc<L>>>(
+⋮----
+// TODO: support nested matches like Some(Some(1)) with pattern Some($A)
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+use tree_sitter::Point;
+⋮----
+fn parse(src: &str) -> Result<Tree, TSParseError> {
+⋮----
+fn test_tree_sitter() -> Result<(), TSParseError> {
+⋮----
+fn test_parser_cache_reuses_parser_per_language() -> Result<(), TSParseError> {
+⋮----
+fn test_object_literal() -> Result<(), TSParseError> {
+⋮----
+// wow this is not label. technically it is wrong but practically it is better LOL
+⋮----
+fn test_string() -> Result<(), TSParseError> {
+⋮----
+fn test_row_col() -> Result<(), TSParseError> {
+⋮----
+// NOTE: Point in tree-sitter is counted in bytes instead of char
+⋮----
+fn test_edit() -> Result<(), TSParseError> {
+</file>
+
+<file path="crates/core/src/tree_sitter/traversal.rs">
+//! # Traverse Node AST
+//!
+//! ast-grep supports common tree traversal algorithms, including
+//! * Pre order traversal
+//! * Post order traversal
+//! * Level order traversal
+//!
+//! Note tree traversal can also be used with Matcher. A traversal with Matcher will
+//! produce a [`NodeMatch`] sequence where all items satisfies the Matcher.
+//!
+//! It is also possible to specify the reentrancy of a traversal.
+//! That is, we can control whether a matching node should be visited when it is nested within another match.
+//! For example, suppose we want to find all usages of calling `foo` in the source `foo(foo())`.
+//! The code has two matching calls and we can configure a traversal
+//! to report only the inner one, only the outer one or both.
+//!
+//! Pre and Post order traversals in this module are implemented using tree-sitter's cursor API without extra heap allocation.
+//! It is recommended to use traversal instead of tree recursion to avoid stack overflow and memory overhead.
+//! Level order is also included for completeness and should be used sparingly.
+⋮----
+use super::StrDoc;
+⋮----
+use crate::tree_sitter::LanguageExt;
+⋮----
+use std::collections::VecDeque;
+use std::marker::PhantomData;
+⋮----
+pub struct Visitor<M, A = PreOrder> {
+/// Whether a node will match if it contains or is contained in another match.
+reentrant: bool,
+/// Whether visit named node only
+named_only: bool,
+/// optional matcher to filter nodes
+matcher: M,
+/// The algorithm to traverse the tree, can be pre/post/level order
+algorithm: PhantomData<A>,
+⋮----
+pub fn new(matcher: M) -> Visitor<M> {
+⋮----
+pub fn algorithm<Algo>(self) -> Visitor<M, Algo> {
+⋮----
+pub fn reentrant(self, reentrant: bool) -> Self {
+⋮----
+pub fn named_only(self, named_only: bool) -> Self {
+⋮----
+pub fn visit<L: LanguageExt>(
+⋮----
+pub struct Visit<'t, D, T, M> {
+reentrant: bool,
+named: bool,
+matcher: M,
+traversal: T,
+lang: PhantomData<&'t D>,
+⋮----
+fn mark_match(&mut self, depth: Option<usize>) {
+⋮----
+impl<'t, D, T, M> Iterator for Visit<'t, D, T, M>
+⋮----
+type Item = NodeMatch<'t, D>;
+fn next(&mut self) -> Option<Self::Item> {
+⋮----
+pub trait Algorithm {
+⋮----
+fn traverse<L: LanguageExt>(node: Node<'_, StrDoc<L>>) -> Self::Traversal<'_, L>;
+⋮----
+pub struct PreOrder;
+impl Algorithm for PreOrder {
+type Traversal<'t, L: LanguageExt> = Pre<'t, L>;
+fn traverse<L: LanguageExt>(node: Node<'_, StrDoc<L>>) -> Self::Traversal<'_, L> {
+⋮----
+pub struct PostOrder;
+impl Algorithm for PostOrder {
+type Traversal<'t, L: LanguageExt> = Post<'t, L>;
+fn traverse<L: LanguageExt>(node: Node<'_, StrDoc<L>>) -> Self::Traversal<'_, L> {
+⋮----
+/// Traversal can iterate over node by using traversal algorithm.
+/// The `next` method should only handle normal, reentrant iteration.
+/// If reentrancy is not desired, traversal should mutate cursor in `calibrate_for_match`.
+/// Visit will maintain the matched node depth so traversal does not need to use extra field.
+pub trait Traversal<'t, D: Doc + 't>: Iterator<Item = Node<'t, D>> {
+/// Calibrate cursor position to skip overlapping matches.
+/// node depth will be passed if matched, otherwise None.
+fn calibrate_for_match(&mut self, depth: Option<usize>);
+/// Returns the current depth of cursor depth.
+/// Cursor depth is incremented by 1 when moving from parent to child.
+/// Cursor depth at Root node is 0.
+fn get_current_depth(&self) -> usize;
+⋮----
+/// Represents a pre-order traversal
+pub struct TsPre<'tree> {
+cursor: ts::TreeCursor<'tree>,
+// record the starting node, if we return back to starting point
+// we should terminate the dfs.
+start_id: Option<usize>,
+current_depth: usize,
+⋮----
+pub fn new(node: &ts::Node<'tree>) -> Self {
+⋮----
+fn step_down(&mut self) -> bool {
+⋮----
+// retrace back to ancestors and find next node to explore
+fn trace_up(&mut self, start: usize) {
+⋮----
+// try visit sibling nodes
+⋮----
+// go back to parent node
+⋮----
+// it should never fail here. However, tree-sitter has bad parsing bugs
+// stop to avoid panic. https://github.com/ast-grep/ast-grep/issues/713
+⋮----
+// terminate traversal here
+⋮----
+/// Amortized time complexity is O(NlgN), depending on branching factor.
+impl<'tree> Iterator for TsPre<'tree> {
+type Item = ts::Node<'tree>;
+// 1. Yield the node itself
+// 2. Try visit the child node until no child available
+// 3. Try visit next sibling after going back to parent
+// 4. Repeat step 3 until returning to the starting node
+fn next(&mut self) -> Option<Self::Item> {
+// start_id will always be Some until the dfs terminates
+⋮----
+let inner = cursor.node(); // get current node
+⋮----
+// try going to children first
+⋮----
+// if no child available, go to ancestor nodes
+// until we get to the starting point
+⋮----
+pub struct Pre<'tree, L: LanguageExt> {
+root: &'tree Root<StrDoc<L>>,
+inner: TsPre<'tree>,
+⋮----
+impl<'tree, L: LanguageExt> Iterator for Pre<'tree, L> {
+type Item = Node<'tree, StrDoc<L>>;
+fn next(&mut self) -> Option<Self::Item> {
+⋮----
+pub fn new(node: &Node<'t, StrDoc<L>>) -> Self {
+⋮----
+fn calibrate_for_match(&mut self, depth: Option<usize>) {
+// not entering the node, ignore
+⋮----
+// if already entering sibling or traced up, ignore
+⋮----
+// revert the step down
+⋮----
+fn get_current_depth(&self) -> usize {
+⋮----
+/// Pre-order cursor traversal where the caller decides whether to enter children.
+///
+/// This is useful when matching the current node determines whether its whole
+/// subtree can be skipped. Unlike [`Pre`] plus reentrancy calibration, this
+/// traversal does not step into a child before the caller has made that choice.
+pub struct Prune<'tree, L: LanguageExt> {
+cursor: ts::TreeCursor<'tree>,
+root: &'tree Root<StrDoc<L>>,
+start_id: Option<usize>,
+current_depth: usize,
+⋮----
+/// Opaque marker for a subtree in a [`Prune`] traversal.
+///
+/// Callers can store this when visiting a node and later ask whether traversal
+/// has moved past that node's subtree without depending on cursor depth.
+⋮----
+pub struct PruneSubtree<'tree> {
+root_id: usize,
+root_depth: usize,
+tree: PhantomData<&'tree ()>,
+⋮----
+pub fn new(node: &Node<'tree, StrDoc<L>>) -> Self {
+⋮----
+pub fn current_node(&self) -> Option<Node<'tree, StrDoc<L>>> {
+⋮----
+pub fn current_subtree(&self) -> PruneSubtree<'tree> {
+⋮----
+pub fn has_left_subtree(&self, subtree: PruneSubtree<'tree>) -> bool {
+⋮----
+pub fn descend(&mut self) {
+⋮----
+pub fn skip_subtree(&mut self) {
+⋮----
+/// Represents a post-order traversal
+pub struct Post<'tree, L: LanguageExt> {
+cursor: ts::TreeCursor<'tree>,
+root: &'tree Root<StrDoc<L>>,
+start_id: Option<usize>,
+current_depth: usize,
+match_depth: usize,
+⋮----
+/// Amortized time complexity is O(NlgN), depending on branching factor.
+⋮----
+pub fn new(node: &Node<'tree, StrDoc<L>>) -> Self {
+⋮----
+fn trace_down(&mut self) {
+⋮----
+fn step_up(&mut self) {
+⋮----
+/// Amortized time complexity is O(NlgN), depending on branching factor.
+impl<'tree, L: LanguageExt> Iterator for Post<'tree, L> {
+type Item = Node<'tree, StrDoc<L>>;
+fn next(&mut self) -> Option<Self::Item> {
+// start_id will always be Some until the dfs terminates
+⋮----
+// return to start
+⋮----
+// try visit sibling
+⋮----
+fn calibrate_for_match(&mut self, depth: Option<usize>) {
+⋮----
+// Later matches' depth should always be greater than former matches.
+// because we bump match_depth in `step_up` during traversal.
+⋮----
+// found new nodes to explore in trace_down, skip calibration.
+⋮----
+// try visit sibling
+⋮----
+// terminate because all ancestors are skipped
+⋮----
+fn get_current_depth(&self) -> usize {
+⋮----
+/// Represents a level-order traversal.
+/// It is implemented with [`VecDeque`] since quadratic backtracking is too time consuming.
+/// Though level-order is not used as frequently as other DFS traversals,
+/// traversing a big AST with level-order should be done with caution since it might increase the memory usage.
+pub struct Level<'tree, L: LanguageExt> {
+deque: VecDeque<ts::Node<'tree>>,
+cursor: ts::TreeCursor<'tree>,
+root: &'tree Root<StrDoc<L>>,
+⋮----
+pub fn new(node: &Node<'tree, StrDoc<L>>) -> Self {
+⋮----
+/// Time complexity is O(N). Space complexity is O(N)
+impl<'tree, L: LanguageExt> Iterator for Level<'tree, L> {
+type Item = Node<'tree, StrDoc<L>>;
+fn next(&mut self) -> Option<Self::Item> {
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+use std::ops::Range;
+⋮----
+// recursive pre order as baseline
+fn pre_order(node: Node<StrDoc<Tsx>>) -> Vec<Range<usize>> {
+⋮----
+// recursion baseline
+fn post_order(node: Node<StrDoc<Tsx>>) -> Vec<Range<usize>> {
+⋮----
+fn pre_order_equivalent(source: &str) {
+⋮----
+fn post_order_equivalent(source: &str) {
+⋮----
+fn tes_pre_order() {
+⋮----
+fn test_prune_pre_order_skips_subtree() {
+⋮----
+fn test_prune_subtree_scope_tracks_exit() {
+⋮----
+fn test_post_order() {
+⋮----
+fn test_different_order() {
+⋮----
+fn test_fused_traversal() {
+⋮----
+fn test_non_root_traverse() {
+⋮----
+// traversal should stop at node
+⋮----
+// child traversal should be a part of parent traversal
+⋮----
+fn pre_order_with_matcher(node: Node<StrDoc<Tsx>>, matcher: &str) -> Vec<Range<usize>> {
+⋮----
+fn post_order_with_matcher(node: Node<StrDoc<Tsx>>, matcher: &str) -> Vec<Range<usize>> {
+⋮----
+fn test_pre_order_visitor() {
+⋮----
+fn test_post_order_visitor() {
+⋮----
+// match a leaf node will trace_up the cursor
+⋮----
+fn test_traversal_leaf() {
+</file>
+
+<file path="crates/core/src/language.rs">
+use crate::matcher::PatternBuilder;
+⋮----
+use std::borrow::Cow;
+use std::path::Path;
+⋮----
+/// Trait to abstract ts-language usage in ast-grep, which includes:
+/// * which character is used for meta variable.
+/// * if we need to use other char in meta var for parser at runtime
+/// * pre process the Pattern code.
+pub trait Language: Clone + 'static {
+/// normalize pattern code before matching
+/// e.g. remove expression_statement, or prefer parsing {} to object over block
+fn pre_process_pattern<'q>(&self, query: &'q str) -> Cow<'q, str> {
+⋮----
+/// Configure meta variable special character
+/// By default $ is the metavar char, but in PHP it can be #
+⋮----
+fn meta_var_char(&self) -> char {
+⋮----
+/// Some language does not accept $ as the leading char for identifiers.
+/// We need to change $ to other char at run-time to make parser happy, thus the name expando.
+/// By default this is the same as meta_var char so replacement is done at runtime.
+⋮----
+fn expando_char(&self) -> char {
+⋮----
+/// extract MetaVariable from a given source string
+/// At runtime we need to use expand_char
+fn extract_meta_var(&self, source: &str) -> Option<MetaVariable> {
+⋮----
+/// Return the file language from path. Return None if the file type is not supported.
+fn from_path<P: AsRef<Path>>(_path: P) -> Option<Self> {
+// TODO: throw panic here if not implemented properly?
+⋮----
+fn kind_to_id(&self, kind: &str) -> u16;
+fn field_to_id(&self, field: &str) -> Option<u16>;
+fn build_pattern(&self, builder: &PatternBuilder) -> Result<Pattern, PatternError>;
+⋮----
+mod test {
+⋮----
+pub struct Tsx;
+impl Language for Tsx {
+fn kind_to_id(&self, kind: &str) -> u16 {
+⋮----
+ts_lang.id_for_node_kind(kind, /* named */ true)
+⋮----
+fn field_to_id(&self, field: &str) -> Option<u16> {
+⋮----
+fn build_pattern(&self, builder: &PatternBuilder) -> Result<Pattern, PatternError> {
+⋮----
+impl LanguageExt for Tsx {
+fn get_ts_language(&self) -> TSLanguage {
+</file>
+
+<file path="crates/core/src/lib.rs">
+/*!
+This module contains the core library for ast-grep.
+
+It provides APIs for parsing, traversing, searching and replacing tree-sitter nodes.
+Usually you will only need ast-grep CLI instead of this crate.
+But if you want to use ast-grep as a library, this is the right place.
+*/
+⋮----
+pub mod language;
+pub mod matcher;
+pub mod meta_var;
+pub mod ops;
+pub mod replacer;
+pub mod source;
+⋮----
+pub mod tree_sitter;
+⋮----
+pub mod pinned;
+⋮----
+mod match_tree;
+mod node;
+⋮----
+pub use language::Language;
+pub use match_tree::MatchStrictness;
+⋮----
+pub use source::Doc;
+⋮----
+use node::Root;
+⋮----
+pub type AstGrep<D> = Root<D>;
+⋮----
+mod test {
+⋮----
+use crate::tree_sitter::LanguageExt;
+use language::Tsx;
+use ops::Op;
+⋮----
+pub type Result = std::result::Result<(), String>;
+⋮----
+fn test_replace() -> Result {
+⋮----
+assert_eq!(source, "let a = 1; let b = 2;"); // note the semicolon
+⋮----
+fn test_replace_by_rule() -> Result {
+⋮----
+fn test_replace_unnamed_node() -> Result {
+// ++ and -- is unnamed node in tree-sitter javascript
+⋮----
+fn test_replace_trivia() -> Result {
+⋮----
+assert_eq!(source, "let a = 1 /*haha*/;"); // semicolon
+⋮----
+fn test_replace_trivia_with_skipped() -> Result {
+⋮----
+assert_eq!(source, "return bar(1, 2) /*haha*/;"); // semicolon
+</file>
+
+<file path="crates/core/src/matcher.rs">
+//! This module defines the core `Matcher` trait in ast-grep.
+//!
+//! `Matcher` has three notable implementations in this module:
+//! * Pattern: matches against a tree-sitter node based on its tree structure.
+//! * KindMatcher: matches a node based on its `kind`
+//! * RegexMatcher: matches a node based on its textual content using regex.
+⋮----
+mod kind;
+mod node_match;
+mod pattern;
+mod text;
+⋮----
+use crate::Doc;
+⋮----
+use bit_set::BitSet;
+use std::borrow::Cow;
+⋮----
+pub use node_match::NodeMatch;
+⋮----
+/// `Matcher` defines whether a tree-sitter node matches certain pattern,
+/// and update the matched meta-variable values in `MetaVarEnv`.
+/// N.B. At least one positive term is required for matching
+pub trait Matcher {
+/// Returns the node why the input is matched or None if not matched.
+/// The return value is usually input node itself, but it can be different node.
+/// For example `Has` matcher can return the child or descendant node.
+fn match_node_with_env<'tree, D: Doc>(
+    &self,
+    _node: Node<'tree, D>,
+    _env: &mut Cow<MetaVarEnv<'tree, D>>,
+  ) -> Option<Node<'tree, D>>;
+⋮----
+/// Returns a bitset for all possible target node kind ids.
+/// Returns None if the matcher needs to try against all node kind.
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+/// get_match_len will skip trailing anonymous child node to exclude punctuation.
+// This is not included in NodeMatch since it is only used in replace
+fn get_match_len<D: Doc>(&self, _node: Node<'_, D>) -> Option<usize> {
+⋮----
+/// MatcherExt provides additional utility methods for `Matcher`.
+/// It is implemented for all types that implement `Matcher`.
+/// N.B. This trait is not intended to be implemented by users.
+pub trait MatcherExt: Matcher {
+fn match_node<'tree, D: Doc>(&self, node: Node<'tree, D>) -> Option<NodeMatch<'tree, D>> {
+// in future we might need to customize initial MetaVarEnv
+⋮----
+fn find_node<'tree, D: Doc>(&self, node: Node<'tree, D>) -> Option<NodeMatch<'tree, D>> {
+⋮----
+impl<T> MatcherExt for T where T: Matcher {}
+⋮----
+impl Matcher for str {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn get_match_len<D: Doc>(&self, node: Node<'_, D>) -> Option<usize> {
+⋮----
+impl<T> Matcher for &T
+⋮----
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+fn get_match_len<D: Doc>(&self, node: Node<'_, D>) -> Option<usize> {
+⋮----
+pub struct MatchAll;
+impl Matcher for MatchAll {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+// return None to match anything
+⋮----
+pub struct MatchNone;
+impl Matcher for MatchNone {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+// matches nothing
+</file>
+
+<file path="crates/core/src/meta_var.rs">
+use crate::match_tree::does_node_match_exactly;
+use crate::matcher::Matcher;
+use crate::source::Content;
+⋮----
+use std::borrow::Cow;
+use std::collections::HashMap;
+⋮----
+use crate::replacer::formatted_slice;
+⋮----
+pub type MetaVariableID = String;
+⋮----
+pub type Underlying<D> = Vec<<<D as Doc>::Source as Content>::Underlying>;
+⋮----
+/// a dictionary that stores metavariable instantiation
+/// const a = 123 matched with const a = $A will produce env: $A => 123
+⋮----
+pub struct MetaVarEnv<'tree, D: Doc> {
+single_matched: HashMap<MetaVariableID, Node<'tree, D>>,
+multi_matched: HashMap<MetaVariableID, Vec<Node<'tree, D>>>,
+transformed_var: HashMap<MetaVariableID, Underlying<D>>,
+⋮----
+pub fn new() -> Self {
+⋮----
+pub fn insert(&mut self, id: &str, ret: Node<'t, D>) -> Option<&mut Self> {
+⋮----
+pub fn insert_multi(&mut self, id: &str, ret: Vec<Node<'t, D>>) -> Option<&mut Self> {
+⋮----
+pub fn get_match(&self, var: &str) -> Option<&'_ Node<'t, D>> {
+⋮----
+pub fn get_multiple_matches(&self, var: &str) -> Vec<Node<'t, D>> {
+⋮----
+pub fn add_label(&mut self, label: &str, node: Node<'t, D>) {
+⋮----
+pub fn get_labels(&self, label: &str) -> Option<&Vec<Node<'t, D>>> {
+⋮----
+pub fn get_matched_variables(&self) -> impl Iterator<Item = MetaVariable> + use<'_, 't, D> {
+⋮----
+fn match_variable(&self, id: &str, candidate: &Node<'t, D>) -> bool {
+⋮----
+fn match_multi_var(&self, id: &str, cands: &[Node<'t, D>]) -> bool {
+⋮----
+// cand is done but node is not
+⋮----
+// node is done but cand is not
+⋮----
+// both None, matches
+⋮----
+pub fn match_constraints<M: Matcher>(
+⋮----
+pub fn insert_transformation(&mut self, var: &MetaVariable, name: &str, slice: Underlying<D>) {
+⋮----
+pub fn get_transformed(&self, var: &str) -> Option<&Underlying<D>> {
+⋮----
+pub fn get_var_bytes<'s>(
+⋮----
+/// internal for readopt NodeMatch in pinned.rs
+/// readopt node and env when sending them to other threads
+pub(crate) fn visit_nodes<F>(&mut self, mut f: F)
+⋮----
+fn get_var_bytes_impl<'e, 't, C, D>(
+⋮----
+// NOTE: start_byte is not always index range of source's slice.
+// e.g. start_byte is still byte_offset in utf_16 (napi). start_byte
+// so we need to call source's get_range method
+⋮----
+impl<D: Doc> Default for MetaVarEnv<'_, D> {
+fn default() -> Self {
+⋮----
+pub enum MetaVariable {
+/// $A for captured meta var
+⋮----
+/// $_ for non-captured meta var
+⋮----
+/// $$$ for non-captured multi var
+⋮----
+/// $$$A for captured ellipsis
+⋮----
+pub(crate) fn extract_meta_var(src: &str, meta_char: char) -> Option<MetaVariable> {
+⋮----
+if !trimmed.starts_with(is_valid_first_char) || // empty or started with number
+⋮----
+// not in form of $A or $_
+⋮----
+pub(crate) fn is_valid_first_char(c: char) -> bool {
+⋮----
+pub(crate) fn is_valid_meta_var_char(c: char) -> bool {
+⋮----
+fn from(env: MetaVarEnv<'tree, D>) -> Self {
+⋮----
+mod test {
+⋮----
+use crate::Pattern;
+use crate::language::Tsx;
+use crate::tree_sitter::LanguageExt;
+⋮----
+fn extract_var(s: &str) -> Option<MetaVariable> {
+⋮----
+fn test_match_var() {
+⋮----
+fn test_not_meta_var() {
+⋮----
+fn match_constraints(pattern: &str, node: &str) -> bool {
+⋮----
+fn test_non_ascii_meta_var() {
+⋮----
+fn test_match_constraints() {
+⋮----
+fn test_match_not_constraints() {
+⋮----
+fn test_multi_var_match() {
+⋮----
+fn test_multi_var_match_with_trailing() {
+</file>
+
+<file path="crates/core/src/node.rs">
+use crate::Doc;
+use crate::Language;
+⋮----
+use crate::replacer::Replacer;
+⋮----
+type Edit<D> = E<<D as Doc>::Source>;
+⋮----
+use std::borrow::Cow;
+⋮----
+/// Represents a position in the source code.
+/// The line and column are zero-based, character offsets.
+/// It is different from tree-sitter's position which is zero-based `byte` offsets.
+/// Note, accessing `column` is O(n) operation.
+⋮----
+pub struct Position {
+/// zero-based line offset. Text encoding does not matter.
+line: usize,
+/// zero-based BYTE offset instead of character offset
+byte_column: usize,
+/// byte offset of this position
+byte_offset: usize,
+⋮----
+impl Position {
+pub fn new(line: usize, byte_column: usize, byte_offset: usize) -> Self {
+⋮----
+pub fn line(&self) -> usize {
+⋮----
+/// Returns the column in terms of characters.
+/// Note: node does not have to be a node of matching position.
+pub fn column<D: Doc>(&self, node: &Node<'_, D>) -> usize {
+⋮----
+pub fn byte_point(&self) -> (usize, usize) {
+⋮----
+/// Represents [`tree_sitter::Tree`] and owns source string
+/// Note: Root is generic against [`Language`](crate::language::Language)
+⋮----
+pub struct Root<D: Doc> {
+pub(crate) doc: D,
+⋮----
+pub fn doc(doc: D) -> Self {
+⋮----
+pub fn lang(&self) -> &D::Lang {
+⋮----
+/// The root node represents the entire source
+pub fn root(&self) -> Node<'_, D> {
+⋮----
+// extract non generic implementation to reduce code size
+pub fn edit(&mut self, edit: Edit<D>) -> Result<&mut Self, String> {
+⋮----
+pub fn replace<M: Matcher, R: Replacer<D>>(
+⋮----
+drop(root); // rust cannot auto drop root if D is not specified
+⋮----
+/// Adopt the tree_sitter as the descendant of the root and return the wrapped sg Node.
+/// It assumes `inner` is the under the root and will panic at dev build if wrong node is used.
+pub fn adopt<'r>(&'r self, inner: D::Node<'r>) -> Node<'r, D> {
+⋮----
+fn check_lineage(&self, inner: &D::Node<'_>) -> bool {
+⋮----
+/// P.S. I am your father.
+⋮----
+pub unsafe fn readopt<'a: 'b, 'b>(&'a self, node: &mut Node<'b, D>) {
+⋮----
+// why we need one more content? https://github.com/ast-grep/ast-grep/issues/1951
+/// 'r represents root lifetime
+⋮----
+pub struct Node<'r, D: Doc> {
+pub(crate) inner: D::Node<'r>,
+pub(crate) root: &'r Root<D>,
+⋮----
+pub type KindId = u16;
+⋮----
+/// APIs for Node inspection
+⋮----
+pub fn get_doc(&self) -> &'r D {
+⋮----
+pub fn node_id(&self) -> usize {
+⋮----
+pub fn is_leaf(&self) -> bool {
+⋮----
+/// if has no named children.
+/// N.B. it is different from is_named && is_leaf
+// see https://github.com/ast-grep/ast-grep/issues/276
+pub fn is_named_leaf(&self) -> bool {
+⋮----
+pub fn is_error(&self) -> bool {
+⋮----
+pub fn kind(&self) -> Cow<'_, str> {
+⋮----
+pub fn kind_id(&self) -> KindId {
+⋮----
+pub fn is_named(&self) -> bool {
+⋮----
+pub fn is_missing(&self) -> bool {
+⋮----
+pub fn is_extra(&self) -> bool {
+⋮----
+/// byte offsets of start and end.
+pub fn range(&self) -> std::ops::Range<usize> {
+⋮----
+/// Nodes' start position in terms of zero-based rows and columns.
+pub fn start_pos(&self) -> Position {
+⋮----
+/// Nodes' end position in terms of rows and columns.
+pub fn end_pos(&self) -> Position {
+⋮----
+pub fn text(&self) -> Cow<'r, str> {
+⋮----
+pub fn lang(&self) -> &'r D::Lang {
+⋮----
+/// the underlying tree-sitter Node
+pub fn get_inner_node(&self) -> D::Node<'r> {
+⋮----
+pub fn root(&self) -> &'r Root<D> {
+⋮----
+/**
+ * Corresponds to inside/has/precedes/follows
+ */
+⋮----
+pub fn matches<M: Matcher>(&self, m: M) -> bool {
+⋮----
+pub fn inside<M: Matcher>(&self, m: M) -> bool {
+⋮----
+pub fn has<M: Matcher>(&self, m: M) -> bool {
+⋮----
+pub fn precedes<M: Matcher>(&self, m: M) -> bool {
+⋮----
+pub fn follows<M: Matcher>(&self, m: M) -> bool {
+⋮----
+/// tree traversal API
+⋮----
+pub fn parent(&self) -> Option<Self> {
+⋮----
+pub fn children(&self) -> impl ExactSizeIterator<Item = Node<'r, D>> + '_ {
+⋮----
+pub fn named_children(&self) -> impl Iterator<Item = Node<'r, D>> + '_ {
+⋮----
+pub fn child(&self, nth: usize) -> Option<Self> {
+⋮----
+pub fn field(&self, name: &str) -> Option<Self> {
+⋮----
+pub fn child_by_field_id(&self, field_id: u16) -> Option<Self> {
+⋮----
+pub fn field_children(&self, name: &str) -> impl Iterator<Item = Node<'r, D>> + '_ {
+⋮----
+/// Returns all ancestors nodes of `self`.
+/// Using cursor is overkill here because adjust cursor is too expensive.
+pub fn ancestors(&self) -> impl Iterator<Item = Node<'r, D>> + '_ {
+⋮----
+pub fn next(&self) -> Option<Self> {
+⋮----
+/// Returns all sibling nodes next to `self`.
+// NOTE: Need go to parent first, then move to current node by byte offset.
+// This is because tree_sitter cursor is scoped to the starting node.
+// See https://github.com/tree-sitter/tree-sitter/issues/567
+pub fn next_all(&self) -> impl Iterator<Item = Node<'r, D>> + '_ {
+⋮----
+pub fn prev(&self) -> Option<Node<'r, D>> {
+⋮----
+pub fn prev_all(&self) -> impl Iterator<Item = Node<'r, D>> + '_ {
+⋮----
+pub fn dfs<'s>(&'s self) -> impl Iterator<Item = Node<'r, D>> + 's {
+⋮----
+pub fn find<M: Matcher>(&self, pat: M) -> Option<NodeMatch<'r, D>> {
+⋮----
+pub fn find_all<'s, M: Matcher + 's>(
+⋮----
+/// Tree manipulation API
+⋮----
+pub fn replace<M: Matcher, R: Replacer<D>>(&self, matcher: M, replacer: R) -> Option<Edit<D>> {
+⋮----
+pub fn after(&self) -> Edit<D> {
+⋮----
+pub fn before(&self) -> Edit<D> {
+⋮----
+pub fn append(&self) -> Edit<D> {
+⋮----
+pub fn prepend(&self) -> Edit<D> {
+⋮----
+/// Empty children. Remove all child node
+pub fn empty(&self) -> Option<Edit<D>> {
+⋮----
+/// Remove the node itself
+pub fn remove(&self) -> Edit<D> {
+⋮----
+mod test {
+⋮----
+use crate::tree_sitter::LanguageExt;
+⋮----
+fn test_is_leaf() {
+⋮----
+fn test_children() {
+⋮----
+fn test_empty() {
+⋮----
+fn test_field_children() {
+⋮----
+fn test_display_context() {
+// src, matcher, lead, trail
+⋮----
+// display context should not panic
+⋮----
+fn test_multi_line_context() {
+⋮----
+// display context should not panic
+⋮----
+fn test_replace_all_nested() {
+⋮----
+fn test_replace_all_multiple_sorted() {
+⋮----
+// edits must be sorted by position
+⋮----
+fn test_inside() {
+⋮----
+fn test_has() {
+⋮----
+fn precedes() {
+⋮----
+fn follows() {
+⋮----
+fn test_field() {
+⋮----
+fn test_child_by_field_id() {
+⋮----
+fn test_remove() {
+⋮----
+fn test_ascii_pos() {
+⋮----
+fn test_unicode_pos() {
+</file>
+
+<file path="crates/core/src/ops.rs">
+use crate::meta_var::MetaVarEnv;
+⋮----
+use bit_set::BitSet;
+use std::borrow::Cow;
+⋮----
+pub struct And<P1: Matcher, P2: Matcher> {
+pattern1: P1,
+pattern2: P2,
+⋮----
+impl<P1, P2> Matcher for And<P1, P2>
+⋮----
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+// keep the original env intact until both arms match
+⋮----
+// both succeed – commit the combined env
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+// if both constituent have Some(bitset), intersect them
+// otherwise returns either of the non-null set
+⋮----
+// we pre-compute and cache potential_kinds. So patterns should not be mutated.
+// Box<[P]> is used here for immutability so that kinds will never be invalidated.
+⋮----
+pub struct All<P: Matcher> {
+patterns: Box<[P]>,
+kinds: Option<BitSet>,
+⋮----
+pub fn new<PS: IntoIterator<Item = P>>(patterns: PS) -> Self {
+⋮----
+fn compute_kinds(patterns: &[P]) -> Option<BitSet> {
+⋮----
+pub fn inner(&self) -> &[P] {
+⋮----
+impl<P: Matcher> Matcher for All<P> {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+// Box<[P]> for immutability and potential_kinds cache correctness
+pub struct Any<P> {
+patterns: Box<[P]>,
+kinds: Option<BitSet>,
+⋮----
+pub fn new<PS: IntoIterator<Item = P>>(patterns: PS) -> Self {
+⋮----
+fn compute_kinds(patterns: &[P]) -> Option<BitSet> {
+⋮----
+pub fn inner(&self) -> &[P] {
+⋮----
+impl<M: Matcher> Matcher for Any<M> {
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+pub struct Or<P1: Matcher, P2: Matcher> {
+pattern1: P1,
+pattern2: P2,
+⋮----
+impl<P1, P2> Matcher for Or<P1, P2>
+⋮----
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+pub struct Not<M: Matcher> {
+not: M,
+⋮----
+pub fn new(not: M) -> Self {
+⋮----
+pub fn inner(&self) -> &M {
+⋮----
+impl<P> Matcher for Not<P>
+⋮----
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+// A `not` rule never contributes bindings: a successful negation means the
+// inner did NOT match, so there is nothing to bind. Run the inner against a
+// throwaway clone so that an inner *match* (which makes the negation fail)
+// cannot leak its partial bindings into the live env. Without this, a `not`
+// evaluated via a relational rule's `find_map` (which reuses one env across
+// candidates) can leave a stray binding behind that survives into a later,
+// successful match. See the env-leak class fixed in PR #2670.
+⋮----
+pub struct Op<M: Matcher> {
+inner: M,
+⋮----
+impl<M> Matcher for Op<M>
+⋮----
+fn match_node_with_env<'tree, D: Doc>(
+⋮----
+fn potential_kinds(&self) -> Option<BitSet> {
+⋮----
+/*
+pub struct Predicate<F> {
+  func: F,
+}
+
+impl<L, F> Matcher for Predicate<F>
+where
+  L: Language,
+  F: for<'tree> Fn(&Node<'tree, StrDoc<L>>) -> bool,
+{
+  fn match_node_with_env<'tree, D: Doc<Lang=L>>(
+    &self,
+    node: Node<'tree, D>,
+    env: &mut MetaVarEnv<'tree, D>,
+  ) -> Option<Node<'tree, D>> {
+    (self.func)(&node).then_some(node)
+  }
+}
+*/
+⋮----
+/*
+// we don't need specify M for static method
+impl<L: Language> Op<L, MatchNone> {
+  pub fn func<F>(func: F) -> Predicate<F>
+  where
+    F: for<'tree> Fn(&Node<'tree, StrDoc<L>>) -> bool,
+  {
+    Predicate { func }
+  }
+}
+*/
+⋮----
+pub fn not(pattern: M) -> Not<M> {
+⋮----
+pub fn every(pattern: M) -> Op<And<M, MatchAll>> {
+⋮----
+pub fn either(pattern: M) -> Op<Or<M, MatchNone>> {
+⋮----
+pub fn all<MS: IntoIterator<Item = M>>(patterns: MS) -> All<M> {
+⋮----
+pub fn any<MS: IntoIterator<Item = M>>(patterns: MS) -> Any<M> {
+⋮----
+pub fn new(matcher: M) -> Op<M> {
+⋮----
+type NestedAnd<M, N, O> = And<And<M, N>, O>;
+⋮----
+pub fn and<O: Matcher>(self, other: O) -> Op<NestedAnd<M, N, O>> {
+⋮----
+type NestedOr<M, N, O> = Or<Or<M, N>, O>;
+⋮----
+pub fn or<O: Matcher>(self, other: O) -> Op<NestedOr<M, N, O>> {
+⋮----
+mod test {
+⋮----
+use crate::Root;
+use crate::language::Tsx;
+use crate::matcher::MatcherExt;
+use crate::meta_var::MetaVarEnv;
+⋮----
+fn test_find(matcher: &impl Matcher, code: &str) {
+⋮----
+fn test_not_find(matcher: &impl Matcher, code: &str) {
+⋮----
+fn find_all(matcher: impl Matcher, code: &str) -> Vec<String> {
+⋮----
+fn test_or() {
+⋮----
+fn test_not() {
+⋮----
+// When the negated inner matches (so `Not` fails) it must not leave the
+// inner's bindings behind in env. A `not` rule never contributes bindings.
+⋮----
+fn test_not_does_not_leak_env() {
+⋮----
+// inner matches `let x = 1`, so the negation fails …
+⋮----
+// … and must not have leaked a binding for $A
+⋮----
+fn test_and() {
+⋮----
+fn test_api_and() {
+⋮----
+fn test_api_or() {
+⋮----
+fn test_multiple_match() {
+⋮----
+fn test_multiple_match_order() {
+⋮----
+/*
+  #[test]
+  fn test_api_func() {
+    let matcher = Op::func(|n| n.text().contains("114514"));
+    test_find(&matcher, "let a = 114514");
+    test_not_find(&matcher, "let a = 1919810");
+  }
+  */
+use crate::Pattern;
+trait TsxMatcher {
+fn t(self) -> Pattern;
+⋮----
+impl TsxMatcher for &str {
+fn t(self) -> Pattern {
+⋮----
+fn test_and_kinds() {
+// intersect None kinds
+⋮----
+// intersect Same kinds
+⋮----
+// intersect different kinds
+⋮----
+// two None kinds
+⋮----
+fn test_or_kinds() {
+// union None kinds
+⋮----
+// union Same kinds
+⋮----
+// union different kinds
+⋮----
+// two None kinds
+⋮----
+fn test_all_kinds() {
+// intersect None kinds
+⋮----
+// intersect Same kinds
+⋮----
+// intersect different kinds
+⋮----
+// two None kinds
+⋮----
+fn test_any_kinds() {
+// union None kinds
+⋮----
+// union Same kinds
+⋮----
+// union different kinds
+⋮----
+// two None kinds
+⋮----
+fn test_or_revert_env() {
+⋮----
+fn test_any_revert_env() {
+⋮----
+// gh #1225
+⋮----
+fn test_all_revert_env() {
+</file>
+
+<file path="crates/core/src/pinned.rs">
+use crate::Doc;
+use crate::matcher::NodeMatch;
+⋮----
+// ast-grep Node contains a reference to Root. It implies that
+// node can be used only when the Root is valid and not dropped.
+// By default, tree-sitter Node<'r> is scoped by ast Root's lifetime
+// That is, Node can be only used when root is on the call stack (RAII)
+// It is usually sufficient but for following scenario the brwchck is too conservative:
+// 1. passing Root and Node across threads
+// 2. passing Root and Node across FFI boundary (from Rust to napi/pyo3)
+//
+// This resembles self-referencing pattern and we can use solution similar to PinBox.
+// Actually, tree-sitter's Node reference is already pointing to a heap address.
+// N.B. it is not documented but can be inferred from the source code and concurrency doc paragraph.
+// https://github.com/tree-sitter/tree-sitter/blob/20924fa4cdeb10d82ac308481e39bf8519334e55/lib/src/tree.c#L9-L20
+// https://github.com/tree-sitter/tree-sitter/blob/20924fa4cdeb10d82ac308481e39bf8519334e55/lib/src/tree.c#L37-L39
+// https://tree-sitter.github.io/tree-sitter/using-parsers#concurrency
+//
+// So **as long as Root is not dropped, the Tree will not be freed. And Node will be valid.**
+//
+// PinnedNodeData provides a systematical way to keep Root live and `T` can be anything containing valid Nodes.
+// Nodes' lifetime is 'static, meaning the Node is not borrow checked instead of living throughout the program.
+// There are two ways to use PinnedNodeData
+// 1. use it by borrowing. PinnedNodeData guarantees Root is alive and Node in T is valid.
+//    Notable example is sending Node across threads.
+// 2. take its ownership. Users should take extra care to keep Root alive.
+//    Notable example is sending Root to JavaScript/Python heap.
+⋮----
+pub struct PinnedNodeData<D: Doc, T> {
+pin: Root<D>,
+data: T,
+⋮----
+pub fn new<F>(pin: Root<D>, func: F) -> Self
+⋮----
+// TODO: explain why unsafe works here and what guarantee it needs
+⋮----
+pub fn get_data(&mut self) -> &T::Data {
+⋮----
+pub fn into_raw(self) -> (Root<D>, T) {
+⋮----
+/// # Safety
+/// TODO: explain unsafe trait
+pub unsafe trait NodeData<D: Doc> {
+⋮----
+fn get_data(&self) -> &Self::Data;
+fn visit_nodes<F>(&mut self, f: F)
+  where
+    F: FnMut(&mut Node<'_, D>);
+⋮----
+type Data = Node<'static, D>;
+fn get_data(&self) -> &Self::Data {
+⋮----
+fn visit_nodes<F>(&mut self, mut f: F)
+⋮----
+type Data = NodeMatch<'static, D>;
+fn get_data(&self) -> &Self::Data {
+⋮----
+fn visit_nodes<F>(&mut self, mut f: F)
+⋮----
+// update the matched Node
+⋮----
+// update the meta variable captured
+⋮----
+type Data = Vec<NodeMatch<'static, D>>;
+fn get_data(&self) -> &Self::Data {
+⋮----
+fn visit_nodes<F>(&mut self, mut f: F)
+⋮----
+mod test {
+⋮----
+use crate::language::Tsx;
+use crate::node::Root;
+use crate::tree_sitter::StrDoc;
+⋮----
+fn return_from_func() -> PinnedNodeData<StrDoc<Tsx>, Node<'static, StrDoc<Tsx>>> {
+⋮----
+fn test_borrow() {
+⋮----
+fn test_node_match() {
+⋮----
+fn return_vec() -> PinnedNodeData<StrDoc<Tsx>, Vec<NodeMatch<'static, StrDoc<Tsx>>>> {
+⋮----
+fn test_vec_node() {
+</file>
+
+<file path="crates/core/src/replacer.rs">
+use crate::matcher::Matcher;
+⋮----
+use std::ops::Range;
+⋮----
+pub(crate) use indent::formatted_slice;
+⋮----
+type Edit<D> = E<<D as Doc>::Source>;
+⋮----
+mod indent;
+mod structural;
+mod template;
+⋮----
+pub use crate::source::Content;
+⋮----
+/// Replace meta variable in the replacer string
+pub trait Replacer<D: Doc> {
+fn generate_replacement(&self, nm: &NodeMatch<'_, D>) -> Underlying<D>;
+fn get_replaced_range(&self, nm: &NodeMatch<'_, D>, matcher: impl Matcher) -> Range<usize> {
+⋮----
+fn generate_replacement(&self, nm: &NodeMatch<'_, D>) -> Underlying<D> {
+⋮----
+fn generate_replacement(&self, nm: &NodeMatch<'_, D>) -> Underlying<D> {
+⋮----
+fn generate_replacement(&self, nm: &NodeMatch<D>) -> Underlying<D> {
+⋮----
+fn generate_replacement(&self, _nm: &NodeMatch<'_, D>) -> Underlying<D> {
+⋮----
+enum MetaVarExtract {
+/// $A for captured meta var
+⋮----
+/// $$$A for captured ellipsis
+⋮----
+impl MetaVarExtract {
+fn used_var(&self) -> &str {
+⋮----
+fn split_first_meta_var(
+⋮----
+// no Anonymous meta var allowed, so _ is not allowed
+⋮----
+// no name found, or the name starts with a digit, e.g. `$5` in `costs $5`
+</file>
+
+<file path="crates/core/src/source.rs">
+//! This module defines the `Doc` and `Content` traits to abstract away source code encoding issues.
+//!
+//! ast-grep supports three kinds of encoding: utf-8 for CLI, utf-16 for nodeJS napi and `Vec<char>` for wasm.
+//! Different encoding will produce different tree-sitter Node's range and position.
+//!
+//! The `Content` trait is defined to abstract different encoding.
+//! It is used as associated type bound `Source` in the `Doc` trait.
+//! Its associated type `Underlying`  represents the underlying type of the content, e.g. `Vec<u8>`, `Vec<u16>`.
+//!
+//! `Doc` is a trait that defines a document that can be parsed by Tree-sitter.
+//! It has a `Source` associated type bounded by `Content` that represents the source code of the document,
+//! and a `Lang` associated type that represents the language of the document.
+⋮----
+use std::borrow::Cow;
+use std::ops::Range;
+⋮----
+// https://github.com/tree-sitter/tree-sitter/blob/e4e5ffe517ca2c668689b24cb17c51b8c6db0790/cli/src/parse.rs
+⋮----
+pub struct Edit<S: Content> {
+pub position: usize,
+pub deleted_length: usize,
+pub inserted_text: Vec<S::Underlying>,
+⋮----
+/// NOTE: Some method names are the same as tree-sitter's methods.
+/// Fully Qualified Syntax may needed https://stackoverflow.com/a/44445976/2198656
+pub trait SgNode<'r>: Clone {
+fn parent(&self) -> Option<Self>;
+fn children(&self) -> impl ExactSizeIterator<Item = Self>;
+// named_children is a subset of children, we only supply default impl here
+// since underlying tree-sitter is using the same is_named check
+// the only optimization we missed here is the iteractor size via named_child_count
+fn named_children(&self) -> impl Iterator<Item = Self> {
+⋮----
+fn kind(&self) -> Cow<'_, str>;
+fn kind_id(&self) -> KindId;
+fn node_id(&self) -> usize;
+fn range(&self) -> std::ops::Range<usize>;
+fn start_pos(&self) -> Position;
+fn end_pos(&self) -> Position;
+⋮----
+// default implentation
+fn ancestors(&self, _root: Self) -> impl Iterator<Item = Self> {
+⋮----
+fn dfs(&self) -> impl Iterator<Item = Self> {
+⋮----
+fn child(&self, nth: usize) -> Option<Self> {
+⋮----
+fn next(&self) -> Option<Self> {
+⋮----
+fn prev(&self) -> Option<Self> {
+⋮----
+fn next_all(&self) -> impl Iterator<Item = Self> {
+⋮----
+fn prev_all(&self) -> impl Iterator<Item = Self> {
+⋮----
+fn is_named(&self) -> bool {
+⋮----
+/// N.B. it is different from is_named && is_leaf
+/// if a node has no named children.
+fn is_named_leaf(&self) -> bool {
+⋮----
+fn is_leaf(&self) -> bool {
+⋮----
+// missing node is a tree-sitter specific concept
+fn is_missing(&self) -> bool {
+⋮----
+fn is_error(&self) -> bool {
+⋮----
+fn is_extra(&self) -> bool {
+⋮----
+fn field(&self, name: &str) -> Option<Self>;
+fn field_children(&self, field_id: Option<u16>) -> impl Iterator<Item = Self>;
+fn child_by_field_id(&self, field_id: u16) -> Option<Self>;
+⋮----
+pub trait Doc: Clone + 'static {
+⋮----
+fn get_lang(&self) -> &Self::Lang;
+fn get_source(&self) -> &Self::Source;
+fn do_edit(&mut self, edit: &Edit<Self::Source>) -> Result<(), String>;
+fn root_node(&self) -> Self::Node<'_>;
+fn get_node_text<'a>(&'a self, node: &Self::Node<'a>) -> Cow<'a, str>;
+⋮----
+pub trait Content: Sized {
+⋮----
+fn get_range(&self, range: Range<usize>) -> &[Self::Underlying];
+/// Used for string replacement. We need this for
+/// indentation and deindentation.
+fn decode_str(src: &str) -> Cow<'_, [Self::Underlying]>;
+/// Used for string replacement. We need this for
+/// transformation.
+fn encode_bytes(bytes: &[Self::Underlying]) -> Cow<'_, str>;
+/// Get the character column at the given position
+fn get_char_column(&self, column: usize, offset: usize) -> usize;
+⋮----
+impl Content for String {
+type Underlying = u8;
+fn get_range(&self, range: Range<usize>) -> &[Self::Underlying] {
+⋮----
+fn decode_str(src: &str) -> Cow<'_, [Self::Underlying]> {
+⋮----
+fn encode_bytes(bytes: &[Self::Underlying]) -> Cow<'_, str> {
+⋮----
+/// This is an O(n) operation. We assume the col will not be a
+/// huge number in reality. This may be problematic for special
+/// files like compressed js
+fn get_char_column(&self, _col: usize, offset: usize) -> usize {
+⋮----
+// TODO: is it possible to use SIMD here???
+⋮----
+// https://en.wikipedia.org/wiki/UTF-8#Description
+</file>
+
+<file path="crates/language/src/lib.rs">
+//! This module defines the supported programming languages for ast-grep.
+//!
+//! It provides a set of customized languages with expando_char / pre_process_pattern,
+//! and a set of stub languages without preprocessing.
+//! A rule of thumb: if your language does not accept identifiers like `$VAR`.
+//! Add a record to the table in `registry.rs`, with an `expando` character for
+//! those languages; omit it for languages that accept `$`. Each record supplies
+//! its parser, feature, aliases, and extensions. Keep the table in alphabetical
+//! order, and declare language modules explicitly below so `cargo fmt` finds them.
+//! To see the full list of languages, visit `<https://ast-grep.github.io/reference/languages.html>`
+//!
+//! ```
+//! # #[cfg(feature = "tree-sitter-rust")]
+//! # {
+//! use ast_grep_language::{LanguageExt, SupportLang};
+//!
+//! let lang: SupportLang = "rs".parse().unwrap();
+//! let src = "fn foo() {}";
+//! let root = lang.ast_grep(src);
+//! let found = root.root().find_all("fn $FNAME() {}").next().unwrap();
+//! assert_eq!(found.start_pos().line(), 0);
+//! assert_eq!(found.text(), "fn foo() {}");
+//! # }
+//! ```
+⋮----
+// Keep module declarations explicit so cargo fmt discovers their source files.
+⋮----
+mod bash;
+mod common;
+⋮----
+mod cpp;
+⋮----
+mod csharp;
+⋮----
+mod css;
+⋮----
+mod dart;
+⋮----
+mod elixir;
+⋮----
+mod go;
+⋮----
+mod haskell;
+⋮----
+mod hcl;
+⋮----
+mod html;
+⋮----
+mod json;
+⋮----
+mod kotlin;
+⋮----
+mod lua;
+⋮----
+mod markdown;
+⋮----
+mod nix;
+⋮----
+mod php;
+⋮----
+mod python;
+⋮----
+mod ruby;
+⋮----
+mod rust;
+⋮----
+mod scala;
+⋮----
+mod solidity;
+⋮----
+mod swift;
+⋮----
+mod yaml;
+⋮----
+mod zig;
+⋮----
+mod macros;
+⋮----
+mod registry;
+⋮----
+use ast_grep_core::Node;
+use ast_grep_core::meta_var::MetaVariable;
+⋮----
+use serde::de::Visitor;
+⋮----
+use std::borrow::Cow;
+use std::fmt;
+⋮----
+use std::path::Path;
+use std::str::FromStr;
+⋮----
+pub use ast_grep_core::language::Language;
+pub use ast_grep_core::tree_sitter::LanguageExt;
+⋮----
+pub trait Alias: Display {
+⋮----
+impl SupportLang {
+/// Returns the aliases accepted with ASCII case-insensitive matching.
+pub const fn aliases(self) -> &'static [&'static str] {
+⋮----
+pub fn file_types(&self) -> Types {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+pub enum SupportLangErr {
+⋮----
+impl Display for SupportLangErr {
+fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+⋮----
+fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+⋮----
+struct SupportLangVisitor;
+⋮----
+type Value = SupportLang;
+⋮----
+fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+⋮----
+/// Implements the language names and aliases.
+impl FromStr for SupportLang {
+type Err = SupportLangErr;
+fn from_str(s: &str) -> Result<Self, Self::Err> {
+⋮----
+macro_rules! impl_lang_method {
+⋮----
+impl Language for SupportLang {
+⋮----
+fn pre_process_pattern<'q>(&self, query: &'q str) -> Cow<'q, str> {
+⋮----
+fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
+⋮----
+impl LanguageExt for SupportLang {
+⋮----
+fn extract_injections<L: LanguageExt>(
+⋮----
+/// Guess which programming language a file is written in
+/// Adapt from `<https://github.com/Wilfred/difftastic/blob/master/src/parse/guess_language.rs>`
+/// N.B do not confuse it with `FromStr` trait. This function is to guess language from file extension.
+fn from_extension(path: &Path) -> Option<SupportLang> {
+⋮----
+fn add_custom_file_type<'b>(
+⋮----
+fn file_types(lang: SupportLang) -> Types {
+⋮----
+pub fn config_file_type() -> Types {
+⋮----
+mod test {
+⋮----
+pub fn test_match_lang(query: &str, source: &str, lang: impl LanguageExt) {
+⋮----
+pub fn test_non_match_lang(query: &str, source: &str, lang: impl LanguageExt) {
+⋮----
+pub fn test_replace_lang(
+⋮----
+fn test_js_string() {
+⋮----
+fn test_enabled_language() {
+⋮----
+fn test_alias_deserialization() {
+⋮----
+fn test_shared_parser_feature() {
+⋮----
+fn test_custom_language_dispatch() {
+⋮----
+fn test_registry_roundtrip() {
+⋮----
+fn test_registry_is_alphabetical() {
+⋮----
+fn test_disabled_language() {
+</file>
+
+<file path="crates/language/src/python.rs">
+fn test_match(query: &str, source: &str) {
+use crate::test::test_match_lang;
+⋮----
+fn test_non_match(query: &str, source: &str) {
+use crate::test::test_non_match_lang;
+⋮----
+fn test_python_str() {
+⋮----
+// https://github.com/ast-grep/ast-grep/issues/276
+// python has fixed the wrong parsing issue
+⋮----
+fn test_digit_after_ellipsis_is_not_meta_var() {
+⋮----
+// https://github.com/ast-grep/ast-grep/issues/2821
+⋮----
+fn test_ignore_line_continuation() {
+use ast_grep_core::MatchStrictness;
+use ast_grep_core::matcher::MatcherExt;
+⋮----
+// https://github.com/ast-grep/ast-grep/issues/883
+⋮----
+fn test_issue_883() {
+⋮----
+fn test_python_pattern() {
+⋮----
+// A test case from https://peps.python.org/pep-0636/#appendix-a-quick-intro
+⋮----
+fn test_replace(src: &str, pattern: &str, replacer: &str) -> String {
+use crate::test::test_replace_lang;
+⋮----
+fn test_python_replace() {
+</file>
+
+<file path="README.md">
+<p align=center>
+  <img src="https://ast-grep.github.io/logo.svg" alt="ast-grep"/>
+</p>
+
+<p align="center">
+   <img src="https://github.com/ast-grep/ast-grep/actions/workflows/coverage.yaml/badge.svg" alt="coverage badge"/>
+   <a href="https://app.codecov.io/gh/ast-grep/ast-grep"><img src="https://codecov.io/gh/ast-grep/ast-grep/branch/main/graph/badge.svg?token=37VX8H2EWV"/></a>
+   <a href="https://discord.gg/4YZjf6htSQ" target="_blank"><img alt="Discord" src="https://img.shields.io/discord/1107749847722889217?label=Discord"></a>
+   <a href="https://repology.org/project/ast-grep/versions" target="_blank"><img alt="Repology" src="https://repology.org/badge/tiny-repos/ast-grep.svg"></a>
+   <a href="https://github.com/ast-grep/ast-grep/stargazers"><img src="https://img.shields.io/github/stars/ast-grep/ast-grep?style=social" alt="Badge"></a>
+   <a href="https://github.com/ast-grep/ast-grep/network/members"><img src="https://img.shields.io/github/forks/ast-grep/ast-grep?style=social" alt="Badge"></a>
+   <a href="https://github.com/sponsors/HerringtonDarkholme"><img alt="GitHub Sponsors" src="https://img.shields.io/github/sponsors/HerringtonDarkholme?style=social"></a>
+   <a href="https://gurubase.io/g/ast-grep"><img alt="Gurubase" src="https://img.shields.io/badge/Gurubase-Ask%20ast--grep%20Guru-006BFF"></a>
+</p>
+
+
+## ast-grep(sg)
+
+ast-grep(sg) is a CLI tool for code structural search, lint, and rewriting.
+
+## Introduction
+ast-grep is an [abstract syntax tree](https://dev.to/balapriya/abstract-syntax-tree-ast-explained-in-plain-english-1h38) based tool to search code by pattern code. Think of it as your old-friend [`grep`](https://en.wikipedia.org/wiki/Grep#:~:text=grep%20is%20a%20command%2Dline,which%20has%20the%20same%20effect.), but matching AST nodes instead of text.
+You can write patterns as if you are writing ordinary code. It will match all code that has the same syntactical structure.
+You can use `$` sign + upper case letters as a [wildcard](https://en.wikipedia.org/wiki/Wildcard_character), e.g. `$MATCH`, to match any single AST node. Think of it as [regular expression dot](https://regexone.com/lesson/wildcards_dot) `.`, except it is not textual.
+
+Try the [online playground](https://ast-grep.github.io/playground.html) for a taste!
+
+## Screenshot
+![demo](https://ast-grep.github.io/image/search-replace.png)
+
+See more screenshots on the [website](https://ast-grep.github.io/).
+
+## Installation
+You can install it from [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), [pip](https://pypi.org/), [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html),  [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), [homebrew](https://brew.sh/), [scoop](https://scoop.sh/), [mise](https://github.com/jdx/mise) or [MacPorts](https://www.macports.org)!
+
+Installing from npm requires Node.js 20 or later.
+
+```bash
+npm install --global @ast-grep/cli
+# `pnpm approve-builds` may be needed
+pip install ast-grep-cli
+brew install ast-grep
+```
+
+
+<details>
+<summary>Click for more installation methods</summary>
+
+```bash
+cargo install ast-grep --locked
+cargo binstall ast-grep
+
+# install via scoop, thank @brian6932
+scoop install main/ast-grep
+
+# install via MacPorts
+sudo port install ast-grep
+
+# try ast-grep in nix-shell
+nix-shell -p ast-grep
+
+# try ast-grep with mise
+mise use -g ast-grep
+```
+</details>
+
+Or you can build ast-grep from source. You need to install rustup, clone the repository and then
+```bash
+cargo install --path ./crates/cli --locked
+```
+[Packages](https://repology.org/project/ast-grep/versions) are available on other platforms too.
+
+
+## Command line usage example
+
+ast-grep has following form.
+```
+ast-grep --pattern 'var code = $PATTERN' --rewrite 'let code = new $PATTERN' --lang ts
+```
+
+### Example
+
+* [Rewrite code in null coalescing operator](https://twitter.com/Hchan_mgn/status/1547061516993699841?s=20&t=ldDoj4U2nq-FRKQkU5GWXA)
+
+```bash
+ast-grep -p '$A && $A()' -l ts -r '$A?.()'
+```
+
+* [Rewrite](https://twitter.com/Hchan_mgn/status/1561802312846278657) [Zodios](https://github.com/ecyrbe/zodios#migrate-to-v8)
+```bash
+ast-grep -p 'new Zodios($URL,  $CONF as const,)' -l ts -r 'new Zodios($URL, $CONF)' -i
+```
+
+* [Implement eslint rule using YAML.](https://twitter.com/Hchan_mgn/status/1560108625460355073)
+
+
+## Sponsor
+![Sponsors](https://raw.githubusercontent.com/HerringtonDarkholme/sponsors/main/sponsorkit/sponsors.svg)
+
+If you find ast-grep interesting and useful for your work, please [buy me a coffee](https://github.com/sponsors/HerringtonDarkholme)
+so I can spend more time on the project!
+
+## Feature Highlight
+
+ast-grep's core is an algorithm to search and replace code based on abstract syntax tree produced by tree-sitter.
+It can help you to do lightweight static analysis and massive scale code manipulation in an intuitive way.
+
+Key highlights:
+
+* An intuitive pattern to find and replace AST.
+ast-grep's pattern looks like ordinary code you would write every day (you could say the pattern is isomorphic to code).
+
+* jQuery like API for AST traversal and manipulation.
+
+* YAML configuration to write new linting rules or code modification.
+
+* Written in compiled language, with tree-sitter based parsing and utilizing multiple cores.
+
+* Beautiful command line interface :)
+
+ast-grep's vision is to democratize abstract syntax tree magic and to liberate one from cumbersome AST programming!
+
+* If you are an open-source library author, ast-grep can help your library users adopt breaking changes more easily.
+* if you are a tech lead in your team, ast-grep can help you enforce code best practice tailored to your business need.
+* If you are a security researcher, ast-grep can help you write rules much faster.
+</file>
+
+</files>

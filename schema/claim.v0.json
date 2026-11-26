@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "hc claim envelope v0",
+  "description": "Final structured message of an agent session. Portable subset: every field required, optionality as nullable unions, no additional properties, no numeric or length keywords. basis precedes status so the verdict is written last.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task", "claims"],
+  "properties": {
+    "task": {"type": "string"},
+    "claims": {"type": "array", "items": {"$ref": "#/$defs/claim"}}
+  },
+  "$defs": {
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "basis", "command", "exit_code", "passed", "failed", "paths", "commit", "depends_on", "status"],
+      "properties": {
+        "id": {"type": "string"},
+        "type": {
+          "type": "string",
+          "enum": ["files_changed", "files_untouched", "command_ran", "tests_pass", "requirement_met", "derived_not_retrieved", "no_change_needed", "spec_conflict", "blocked", "note"]
+        },
+        "basis": {"type": "string"},
+        "command": {"type": ["string", "null"]},
+        "exit_code": {"type": ["integer", "null"]},
+        "passed": {"type": ["integer", "null"]},
+        "failed": {"type": ["integer", "null"]},
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "commit": {"type": ["string", "null"]},
+        "depends_on": {"type": "array", "items": {"type": "string"}},
+        "status": {"type": "string", "enum": ["done", "no_change_needed", "spec_conflict", "blocked"]}
+      }
+    }
+  }
+}

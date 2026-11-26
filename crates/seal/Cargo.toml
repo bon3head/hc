@@ -1,0 +1,17 @@
+[package]
+name = "seal"
+description = "Identities: per-agent ed25519 SSH keys and the allowed-signers file"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bedrock.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

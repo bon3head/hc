@@ -1,0 +1,17 @@
+error: cannot construct `Verified` with struct literal syntax due to private fields
+  --> tests/ui/forge_verified.rs:5:19
+   |
+ 5 |     let _forged = Verified {
+   |                   ^^^^^^^^
+ 6 |         claim_seq: 0,
+   |         ------------ private field
+ 7 |         claim_id: "c1".into(),
+   |         --------------------- private field
+ 8 |         kind: ClaimKind::TestsPass,
+   |         -------------------------- private field
+ 9 |         trust: Trust::Reproduced,
+   |         ------------------------ private field
+10 |         evidence: vec![],
+   |         ---------------- private field
+   |
+   = note: ...and other private field `seal` that was not provided

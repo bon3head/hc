@@ -1,0 +1,20 @@
+[package]
+name = "exhibit"
+description = "Collects evidence: git-tree snapshots, diffs and session recording"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bedrock.workspace = true
+docket.workspace = true
+seal.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

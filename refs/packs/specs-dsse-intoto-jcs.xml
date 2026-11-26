@@ -1,0 +1,1703 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: jcs/testdata/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+dsse/
+  background.md
+  envelope.md
+  LICENSE
+  protocol.md
+in-toto/
+  bundle.md
+  digest_set.md
+  envelope.md
+  field_types.md
+  LICENSE
+  predicate.md
+  resource_descriptor.md
+  statement.md
+jcs/
+  LICENSE
+  README.md
+notion/
+  LICENSE
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="dsse/background.md">
+# Background
+
+## What is the intended use case?
+
+This can be used anywhere digital signatures are needed.
+
+The initial application is for signing software supply chain metadata in [TUF]
+and [in-toto].
+
+## Why do we need this?
+
+There is no other simple, foolproof signature scheme that we are aware of.
+
+*   Raw signatures are too fragile. Every public key must be used for exactly
+    one purpose over exactly one message type, lest the system be vulnerable to
+    [confusion attacks](#motivation). In many cases, this results in a difficult
+    key management problem.
+
+*   [TUF] and [in-toto] currently use a scheme that avoids these problems but is
+    JSON-specific and relies on [canonicalization](#motivation), which is an
+    unnecessarily large attack surface.
+
+*   [JWS], though popular, has a history of
+    [vulnerable implementations](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/)
+    due to the complexity and lack of specificity in the RFC, such as not
+    verifying that `alg` matches the public key type or not verifying the root
+    CA for `x5c`. It also requires a JSON library even if the payload is not
+    JSON, though this is a minor issue.
+
+*   [PASETO] is too opinionated to be used in all cases. For example, it
+    mandates ed25519 signatures, which [Google Cloud KMS] does not support.
+    PASETO also requires JSON payloads, which may not be desirable in all cases.
+
+The intent of this project is to define a minimal signature scheme that avoids
+these issues.
+
+## Design requirements
+
+The [protocol](protocol.md):
+
+*   MUST reduce the possibility of a client misinterpreting the payload (e.g.
+    interpreting a JSON message as protobuf)
+*   MUST support arbitrary payload types (e.g. not just JSON)
+*   MUST support arbitrary crypto primitives, libraries, and key management
+    systems (e.g. Tink vs openssl, Google KMS vs Amazon KMS)
+*   SHOULD avoid depending on canonicalization for security
+*   SHOULD NOT require unnecessary encoding (e.g. base64)
+*   SHOULD NOT require the verifier to parse the payload before verifying
+
+The [data structure](envelope.md):
+
+*   MUST include both message and signature(s)
+    *   NOTE: Detached signatures are supported by having the included message
+        contain a cryptographic hash of the external data.
+*   MUST support multiple signatures in one structure / file
+*   SHOULD discourage users from reading the payload without verifying the
+    signatures
+*   SHOULD be easy to parse using common libraries (e.g. JSON)
+*   SHOULD support a hint indicating what signing key was used
+
+## Motivation
+
+There are two concerns with the current [in-toto]/[TUF] signature envelope.
+
+First, the signature scheme depends on [Canonical JSON], which has one practical
+problem and two theoretical ones:
+
+1.  Practical problem: It requires the payload to be JSON or convertible to
+    JSON. While this happens to be true of in-toto and TUF today, a generic
+    signature layer should be able to handle arbitrary payloads.
+1.  Theoretical problem 1: Two semantically different payloads could have the
+    same canonical encoding. Although there are currently no known attacks on
+    Canonical JSON, there have been attacks in the past on other
+    canonicalization schemes
+    ([example](https://latacora.micro.blog/2019/07/24/how-not-to.html#canonicalization)).
+    It is safer to avoid canonicalization altogether.
+1.  Theoretical problem 2: It requires the verifier to parse the payload before
+    verifying, which is both error-prone—too easy to forget to verify—and an
+    unnecessarily increased attack surface.
+
+The preferred solution is to transmit the encoded byte stream exactly as it was
+signed, which the verifier verifies before parsing. This is what is done in
+[JWS] and [PASETO], for example.
+
+Second, the scheme does not include an authenticated "context" indicator to
+ensure that the signer and verifier interpret the payload in the same exact way.
+For example, if in-toto were extended to support CBOR and protobuf encoding, the
+signer could get a CI/CD system to produce a CBOR message saying X and then a
+verifier to interpret it as a protobuf message saying Y. While we don't know of
+an exploitable attack on in-toto or TUF today, potential changes could introduce
+such a vulnerability. The signature scheme should be resilient against these
+classes of attacks. See [example attack](hypothetical_signature_attack.ipynb)
+for more details.
+
+## Reasoning
+
+Our goal was to create a signature envelope that is as simple and foolproof as
+possible. Alternatives such as [JWS] are extremely complex and error-prone,
+while others such as [PASETO] are overly specific. (Both are also
+JSON-specific.) We believe our proposal strikes the right balance of simplicity,
+usefulness, and security.
+
+Rationales for specific decisions:
+
+-   Why use base64 for payload and sig?
+
+    -   Because JSON strings do not allow binary data, so we need to either
+        encode the data or escape it. Base64 is a standard, reasonably
+        space-efficient way of doing so. Protocols that have a first-class
+        concept of "bytes", such as protobuf or CBOR, do not need to use base64.
+
+-   Why sign raw bytes rather than base64 encoded bytes (as per JWS)?
+
+    -   Because it's simpler. Base64 is only needed for putting binary data in a
+        text field, such as JSON. In other formats, such as protobuf or CBOR,
+        base64 isn't needed at all.
+
+-   Why does payloadType need to be signed?
+
+    -   See [Motivation](#motivation).
+
+-   Why use a pre-authentication encoding (PAE)?
+
+    -   Because we need an unambiguous way of serializing two fields,
+        payloadType and payload. PASETO already solved this problem by
+        developing its PAE, which is where we got the idea and the name.
+        [ed25519ctx] uses the same idea, though it was developed independently.
+
+-   Why not use PASETO's PAE?
+
+    -   Originally we did, but the minor difficulty of working with binary
+        encoding led us to develop a simpler ASCII-based PAE. While we were at
+        it, we switched to using a fixed number of inputs and added a version
+        string ("DSSEv1") to allow for future changes.
+        ([more info](https://github.com/dsse-lf/dsse/issues/27))
+
+-   Why not stay backwards compatible by requiring the payload to always be JSON
+    with a "_type" field? Then if you want a non-JSON payload, you could simply
+    have a field that contains the real payload, e.g. `{"_type":"my-thing",
+    "value":"base64…"}`.
+
+    1.  It encourages users to add a "_type" field to their payload, which in
+        turn:
+        -   (a) Ties the payload type to the authentication type. Ideally the
+            two would be independent.
+        -   (b) May conflict with other uses of that same field.
+        -   (c) May require the user to specify type multiple times with
+            different field names, e.g. with "@context" for
+            [JSON-LD](https://json-ld.org/).
+    2.  It would incur double base64 encoding overhead for non-JSON payloads.
+    3.  It is more complex than PAE.
+
+## Backwards Compatibility
+
+Backwards compatibility with the old [in-toto]/[TUF] format will be handled by
+the application and explained in the corresponding application-specific change
+proposal, namely [ITE-5](https://github.com/in-toto/ITE/pull/13) for in-toto and
+via the principles laid out in
+[TAP-14](https://github.com/theupdateframework/taps/blob/master/tap14.md) for
+TUF.
+
+Verifiers can differentiate between the
+[old](https://github.com/in-toto/specification/blob/d416c1f334ac6b581f75c0fa65125fb434d7a610/in-toto-spec.md#42-file-formats-general-principles)
+and new envelope format by detecting the presence of the `payload` field (new
+format) vs `signed` field (old format).
+
+[Canonical JSON]: http://wiki.laptop.org/go/Canonical_JSON
+[ed25519ctx]: https://www.cryptologie.net/article/497/eddsa-ed25519-ed25519-ietf-ed25519ph-ed25519ctx-hasheddsa-pureeddsa-wtf/
+[Google Cloud KMS]: https://cloud.google.com/security-key-management
+[in-toto]: https://in-toto.io
+[JWS]: https://tools.ietf.org/html/rfc7515
+[PASETO]: https://github.com/paseto-standard/paseto-spec/blob/master/docs/01-Protocol-Versions/Version2.md#sign
+[TUF]: https://theupdateframework.io
+</file>
+
+<file path="dsse/envelope.md">
+# DSSE Envelope
+
+May 10, 2024
+
+Version 1.0.2
+
+This document describes the recommended data structure for storing DSSE
+signatures, which we call the "JSON Envelope". For the protocol/algorithm, see
+[Protocol](protocol.md).
+
+## Standard JSON envelope
+
+See [envelope.proto](envelope.proto) for a formal schema. (Protobuf is used only
+to define the schema. JSON is the only recommended encoding.)
+
+The standard data structure for storing a signed message is a JSON message of
+the following form, called the "JSON envelope":
+
+```json
+{
+  "payload": "<Base64(SERIALIZED_BODY)>",
+  "payloadType": "<PAYLOAD_TYPE>",
+  "signatures": [{
+    "keyid": "<KEYID>",
+    "sig": "<Base64(SIGNATURE)>"
+  }]
+}
+```
+
+See [Protocol](protocol.md) for a definition of parameters and functions.
+
+Base64() is [Base64 encoding](https://tools.ietf.org/html/rfc4648), transforming
+a byte sequence to a unicode string. Either standard or URL-safe encoding is
+allowed.
+
+### Multiple signatures
+
+An envelope MAY have more than one signature, which is equivalent to separate
+envelopes with individual signatures.
+
+```json
+{
+  "payload": "<Base64(SERIALIZED_BODY)>",
+  "payloadType": "<PAYLOAD_TYPE>",
+  "signatures": [{
+      "keyid": "<KEYID_1>",
+      "sig": "<SIG_1>"
+    }, {
+      "keyid": "<KEYID_2>",
+      "sig": "<SIG_2>"
+  }]
+}
+```
+
+### Parsing rules
+
+*   The following fields are REQUIRED and MUST be set, even if empty: `payload`,
+    `payloadType`, `signature`, `signature.sig`.
+*   The following fields are OPTIONAL and MAY be unset: `signature.keyid`.
+    An unset field MUST be treated the same as set-but-empty.
+*   Producers, or future versions of the spec, MAY add additional fields.
+    Consumers MUST ignore unrecognized fields.
+
+## Other data structures
+
+The standard envelope is JSON message with an explicit `payloadType`.
+Optionally, applications may encode the signed message in other methods without
+invalidating the signature:
+
+-   An encoding other than JSON, such as CBOR or protobuf.
+-   Use a default `payloadType` if omitted and/or code `payloadType` as a
+    shorter string or enum.
+
+At this point we do not standardize any other encoding. If a need arises, we may
+do so in the future.
+
+## Security considerations
+
+The following advisories are relevant to all envelope formats, not just the
+standard JSON envelope.
+
+**Important:** Implementations MUST ensure that the same payload bytes that are
+verified are the ones sent to the application layer. In particular,
+implementations MUST NOT re-parse the envelope after verification to pull out
+the payload. Failure to adhere to this requirement can lead to security
+vulnerabilities.
+</file>
+
+<file path="dsse/LICENSE">
+Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+</file>
+
+<file path="dsse/protocol.md">
+# DSSE Protocol
+
+May 10, 2024
+
+Version 1.0.2
+
+This document describes the protocol/algorithm for creating and verifying DSSE
+signatures, independent of how they are transmitted or stored. For the
+recommended data structure, see [Envelope](envelope.md).
+
+## Signature Definition
+
+A signature is defined as:
+
+```none
+SIGNATURE = Sign(PAE(UTF8(PAYLOAD_TYPE), SERIALIZED_BODY))
+```
+
+Parameters:
+
+Name            | Type   | Required | Authenticated
+--------------- | ------ | -------- | -------------
+SERIALIZED_BODY | bytes  | Yes      | Yes
+PAYLOAD_TYPE    | string | Yes      | Yes
+KEYID           | string | No       | No
+
+*   SERIALIZED_BODY: Arbitrary byte sequence to be signed.
+
+*   PAYLOAD_TYPE: Opaque, case-sensitive string that uniquely and unambiguously
+    identifies how to interpret `payload`. This includes both the encoding
+    (JSON, CBOR, etc.) as well as the meaning/schema. To prevent collisions, the
+    value SHOULD be either:
+
+    *   [Media Type](https://www.iana.org/assignments/media-types/), a.k.a. MIME
+        type or Content Type
+        *   Example: `application/vnd.in-toto+json`.
+        *   IMPORTANT: This SHOULD be an application-specific type describing
+            both encoding and schema, NOT a generic type like
+            `application/json`. The problem with generic types is that two
+            different applications could use the same encoding (e.g. JSON) but
+            interpret the payload differently.
+        *   SHOULD be lowercase.
+    *   [URI](https://tools.ietf.org/html/rfc3986)
+        *   Example: `https://example.com/MyMessage/v1-json`.
+        *   SHOULD resolve to a human-readable description but MAY be
+            unresolvable.
+        *   SHOULD be case-normalized (section 6.2.2.1)
+
+*   KEYID: Optional, unauthenticated hint indicating what key and algorithm was
+    used to sign the message. As with Sign(), details are agreed upon
+    out-of-band by the signer and verifier. It **MUST NOT** be used for security
+    decisions; it may only be used to narrow the selection of possible keys to
+    try.
+
+Functions:
+
+*   PAE() is the "Pre-Authentication Encoding", where parameters `type` and
+    `body` are byte sequences:
+
+    ```none
+    PAE(type, body) = "DSSEv1" + SP + LEN(type) + SP + type + SP + LEN(body) + SP + body
+    +               = concatenation
+    SP              = ASCII space [0x20]
+    "DSSEv1"        = ASCII [0x44, 0x53, 0x53, 0x45, 0x76, 0x31]
+    LEN(s)          = ASCII decimal encoding of the byte length of s, with no leading zeros
+    ```
+
+*   Sign() is an arbitrary digital signature format. Details are agreed upon
+    out-of-band by the signer and verifier. This specification places no
+    restriction on the signature algorithm or format.
+
+*   UTF8() is [UTF-8 encoding](https://tools.ietf.org/html/rfc3629),
+    transforming a unicode string to a byte sequence.
+
+## Protocol
+
+Out of band:
+
+-   Agree on a PAYLOAD_TYPE and cryptographic details, optionally including
+    KEYID.
+
+To sign:
+
+-   Serialize the message according to PAYLOAD_TYPE. Call the result
+    SERIALIZED_BODY.
+-   Sign PAE(UTF8(PAYLOAD_TYPE), SERIALIZED_BODY). Call the result SIGNATURE.
+-   Optionally, compute a KEYID.
+-   Encode and transmit SERIALIZED_BODY, PAYLOAD_TYPE, SIGNATURE, and KEYID,
+    preferably using the recommended [JSON envelope](envelope.md).
+
+To verify:
+
+-   Receive and decode SERIALIZED_BODY, PAYLOAD_TYPE, SIGNATURE, and KEYID, such
+    as from the recommended [JSON envelope](envelope.md). Reject if decoding
+    fails.
+-   Optionally, filter acceptable public keys by KEYID.
+-   Verify SIGNATURE against PAE(UTF8(PAYLOAD_TYPE), SERIALIZED_BODY). Reject if
+    the verification fails.
+-   Reject if PAYLOAD_TYPE is not a supported type.
+-   Parse SERIALIZED_BODY according to PAYLOAD_TYPE. Reject if the parsing
+    fails.
+
+Either standard or URL-safe base64 encodings are allowed. Signers may use
+either, and verifiers **MUST** accept either.
+
+**Important:** Implementations MUST ensure that the same SERIALIZED_BODY that is
+verified is the same sent to the application layer. In particular,
+implementations MUST NOT re-parse the envelope after verification to pull out
+the payload. Failure to adhere to this requirement can lead to security
+vulnerabilities.
+
+## Multi-signature Verification
+
+Multi-signature enhances the security by allowing multiple signers to sign the
+same payload. The resulting signatures are encoded and transmitted, preferably
+using the recommended [JSON envelope](envelope.md).
+
+A `(t, n)`-ENVELOPE is valid if the enclosed signatures pass the verification
+against at least `t` of `n` unique trusted public keys where `t` is
+application-specific.
+
+To verify a `(t, n)`-ENVELOPE:
+
+-   Receive and decode SERIALIZED_BODY, PAYLOAD_TYPE, SIGNATURES from ENVELOPE.
+    Reject if decoding fails.
+-   For each (SIGNATURE, KEYID) in SIGNATURES,
+    -   Optionally, filter acceptable public keys by KEYID.
+    -   Verify SIGNATURE against PAE(UTF8(PAYLOAD_TYPE), SERIALIZED_BODY). Skip
+        over if the verification fails.
+    -   Add the accepted public key to the set ACCEPTED_KEYS.
+    -   Break if the number of unique keys in ACCEPTED_KEYS is greater or equal
+        to `t`.
+-   Reject if the unique keys in ACCEPTED_KEYS is less than `t`.
+-   Reject if PAYLOAD_TYPE is not a supported type.
+-   Parse SERIALIZED_BODY according to PAYLOAD_TYPE. Reject if the parsing
+    fails.
+
+## Test Vectors
+
+See [reference implementation](implementation/signing_spec.py). Here is an
+example.
+
+SERIALIZED_BODY:
+
+```none
+hello world
+```
+
+PAYLOAD_TYPE:
+
+```none
+http://example.com/HelloWorld
+```
+
+PAE:
+
+```none
+DSSEv1 29 http://example.com/HelloWorld 11 hello world
+```
+
+Cryptographic keys:
+
+```none
+Algorithm: ECDSA over NIST P-256 and SHA-256, with deterministic-rfc6979
+Signature: raw concatenation of r and s (Cryptodome binary encoding)
+X: 46950820868899156662930047687818585632848591499744589407958293238635476079160
+Y: 5640078356564379163099075877009565129882514886557779369047442380624545832820
+d: 97358161215184420915383655311931858321456579547487070936769975997791359926199
+```
+
+Result (using the recommended [JSON envelope](envelope.md)):
+
+```json
+{"payload": "aGVsbG8gd29ybGQ=",
+ "payloadType": "http://example.com/HelloWorld",
+ "signatures": [{"sig": "A3JqsQGtVsJ2O2xqrI5IcnXip5GToJ3F+FnZ+O88SjtR6rDAajabZKciJTfUiHqJPcIAriEGAHTVeCUjW2JIZA=="}]}
+```
+
+[Canonical JSON]: http://wiki.laptop.org/go/Canonical_JSON
+[in-toto]: https://in-toto.io
+[JWS]: https://tools.ietf.org/html/rfc7515
+[PASETO]: https://github.com/paragonie/paseto/blob/master/docs/01-Protocol-Versions/Version2.md#sig
+[TUF]: https://theupdateframework.io
+</file>
+
+<file path="in-toto/bundle.md">
+# Bundle layer specification
+
+An attestation Bundle is a collection of multiple attestations in a single
+file. This allows attestations from multiple different points in the software
+supply chain (e.g. Provenance, Code Review, Test Result, vuln scan, ...) to
+be grouped together, allowing users to make decisions based on all available
+information.
+
+**NOTE**: The Bundle is not authenticated as a whole. Instead each individual
+attestation is authenticated using signature formats like [DSSE]. As such,
+an attacker might be able to delete valid attestations, replay obsolete
+attestations, and/or inject invalid or irrelevant attestations in a Bundle
+without being detected.
+
+Our Bundle specification aims to reduce the risks of such attacks.
+In addition, predicates that follow the [monotonic principle] should not
+have any issues with deletion attacks.
+
+## Data structure
+
+Attestation Bundles use [JSON Lines] to store multiple attestations.
+
+-   Each attestation within a Bundle MAY have different signing keys,
+    `_type`, `subject`, and/or `predicateType`.
+-   Each line within a Bundle SHOULD be an [Envelope]. Consumers MUST ignore
+    unrecognized lines.
+-   Consumers MUST ignore attestations with unrecognized keys, types,
+    subjects, or predicates.
+-   Processing of a Bundle MUST NOT depend on the order of the attestations.
+
+## File naming convention
+
+Bundles SHOULD use the suffix `.intoto.jsonl`.
+
+-   A Bundle of attestations relevant for `<filename>` SHOULD be named
+    `<filename>.intoto.jsonl`.
+-   Attestations in the Bundle MAY have different subjects, but they SHOULD
+    all be relevant to that file or its dependencies.
+
+### Example
+
+A package named `foo-1.2.3.tar.gz` with hash `abcd` that was built from git
+commit `1234` could have a Bundle name `foo-1.2.3.tar.gz.intoto.jsonl` with
+two attestations, one with subject `abcd` and one with subject `1234`.
+
+## Storage convention
+
+The media type `application/vnd.in-toto.bundle` SHOULD be used to denote
+a Bundle in arbitrary storage systems.
+
+-   The media type for a Bundle does not indicate an encoding since Bundles
+    MUST be encoded as JSON lines, and the encoding of each attestation
+    within the Bundle SHOULD be indicated at the [Envelope] layer.
+-   The predicate type of individual attestations within the stored Bundle
+    SHOULD NOT be indicated in the media type for the Bundle, as a bundle may
+    contain attestations with different predicate types.
+-   To obtain predicate information that is authenticated, consumers MUST
+    download and parse each line in a Bundle separately.
+
+## Example use case
+
+The Fooly app has a CI/CD system which builds the application from source,
+runs a NoVulnz vulnerability scan on the results, produces an SPDX SBOM, and
+then deploys the app to an app store.
+
+### Build
+
+The Fooly builder builds the app (`fooly.apk` with hash `aaa...`) and
+produces a generic [SLSA Provenance].  The Fooly builder also produces a more
+detailed attestation that contains all the logs of the build as an in-toto
+[Statement] with `predicateType=https://fooly.app/Builder/v1`. The builder
+places _both_ of these signed attestations in a new file named
+`fooly.apk.intoto.jsonl`.
+
+```jsonl
+{ "payloadType": "application/vnd.in-toto.provenance+json", "payload": "a...", "signatures": [w...] }
+{ "payloadType": "application/vnd.in-toto+json", "payload": "b...", "signatures": [w...] }
+```
+
+### Vulnerability scanning
+
+The CI/CD system then requests a third-party vulnerability scan on
+`fooly.apk`. The vulnerability scanner doesn't use in-toto Statements but
+instead uses their own custom `payloadType=application/vnd.novulz+cbor`,
+which they put in a [DSSE] envelope. This attestation indicates `fooly.apk`
+with hash `aaa...` has 0 critical vulnerabilities and 3 medium
+vulnerabilities.
+
+The TestResult is then appended to the contents of `fooly.apk.intoto.jsonl`
+
+```jsonl
+{ "payloadType": "application/vnd.in-toto.provenance+json", "payload": "a...", "signatures": [w...] }
+{ "payloadType": "application/vnd.in-toto+json", "payload": "b...", "signatures": [w...] }
+{ "payloadType": "application/vnd.novulz+cbor", "payload": "c...", "signatures": [x...] }
+```
+
+### SBOM generation
+
+The CI/CD system then generates an SPDX SBOM attestation for `fooly.apk`
+with hash `aaa...` using an in-toto Statement with
+[`predicateType=https://spdx.dev/Document`](https://github.com/in-toto/attestation/blob/main/spec/predicates/spdx3.md)
+and appending that to the contents of `fooly.apk.intoto.jsonl`.
+
+```jsonl
+{ "payloadType": "application/vnd.in-toto.provenance+json", "payload": "a...", "signatures": [w...] }
+{ "payloadType": "application/vnd.in-toto+json", "payload": "b...", "signatures": [w...] }
+{ "payloadType": "application/vnd.novulz+cbor", "payload": "c...", "signatures": [x...] }
+{ "payloadType": "application/vnd.in-toto.spdx+json", "payload": "d...", "signatures": [y...] }
+```
+
+### Deployment
+
+Just prior to deployment the CI/CD system checks `fooly.apk` with a policy
+engine (providing `fooly.apk.intoto.jsonl` as it does so) to ensure the app
+is safe to publish. The policy engine used doesn't understand
+`predicateType=https://spdx.dev/Document`, so it is ignored.
+
+Satisfied with the result CI/CD system now deploys `fooly.apk` to the app
+store.
+
+### Attestation publishing
+
+Fooly Inc. wants to publish all of the accumulated attestations for evey
+published app _except for_ the internal build attestation. The CI/CD system
+then iterates through all the attestations, removing the attestation with
+`predicateType=https://fooly.app/Builder/v1` and publishes to their website:
+
+```jsonl
+{ "payloadType": "application/vnd.in-toto+json", "payload": "a...", "signatures": [w...] }
+{ "payloadType": "application/vnd.novulz+cbor", "payload": "c...", "signatures": [x...] }
+{ "payloadType": "application/vnd.in-toto+json", "payload": "d...", "signatures": [y...] }
+```
+
+## Viewing bundles
+
+Large attestations might wind up being difficult for a person to read if
+they're serialized to a single line each.  An easy way to make it more
+legible for people is to use the `jq` command.
+
+Example:
+
+```shell
+$ grep . ~/multiple.intoto.jsonl | jq
+{
+  "payloadType": "application/vnd.in-toto+json",
+  "payload": "a...",
+  "signatures": []
+}
+{
+  "payloadType": "application/vnd.in-toto+json",
+  "payload": "b...",
+  "signatures": []
+}
+{
+  "payloadType": "application/vnd.novulz+cbor",
+  "payload": "c...",
+  "signatures": []
+}
+{
+  "payloadType": "application/vnd.in-toto+json",
+  "payload": "d...",
+  "signatures": []
+}
+```
+
+[DSSE]: https://github.com/secure-systems-lab/dsse
+[Envelope]: envelope.md
+[JSON Lines]: https://jsonlines.org/
+[SLSA Provenance]: https://slsa.dev/provenance
+[monotonic principle]: https://github.com/in-toto/attestation/tree/main/spec/v1#parsing-rules
+</file>
+
+<file path="in-toto/digest_set.md">
+# DigestSet field type specification
+
+Set of one or more cryptographic digests, or other immutable references,
+for a single software artifact or metadata object.
+
+## Schema
+
+```json
+{
+  "<ALGORITHM_1>": "<VALUE>",
+  "<ALGORITHM_2>": "<VALUE>",
+  ... 
+}
+```
+
+## Fields
+
+A DigestSet is represented as a _JSON object_ mapping algorithm name to
+a string encoding of the digest using that algorithm. The named standard
+algorithms below use lowercase hex encoding. Usually there is just a
+single key/value pair, but multiple entries MAY be used for algorithm
+agility.
+
+Each entry in a DigestSet MUST be an immutable reference to an artifact. It is
+STRONGLY RECOMMENDED to use a commonly accepted, cryptographically secure digest
+algorithm to achieve this immutability. See [Use cases for non-cryptographic,
+immutable, digests](#use-cases-for-non-cryptographic-immutable-digests) for
+further guidance.
+
+### Supported algorithms
+
+#### `sha256`, `sha224`, `sha384`, `sha512`, `sha512_224`, `sha512_256`, `sha3_224`, `sha3_256`, `sha3_384`, `sha3_512`, `shake128`, `shake256`, `blake2b`, `blake2s`, `ripemd160`, `sm3`, `gost`, `sha1`, `md5`
+
+Standard cryptographic hash algorithms using [the NIST names][] (converting to
+lowercase and replacing `-` with `_`) as keys and lowercase hex-encoded values,
+for cases when the method of serialization is obvious or well known.
+
+#### `dirHash`
+
+The [directory Hash1][] function, omitting the "h1:" prefix
+and output in lowercase hexadecimal instead of base64. This algorithm was
+designed for go modules but can be used to digest the _contents_ of an
+arbitrary archive or file tree. Equivalent to extracting the archive to an
+empty directory and running the following command in that directory:
+
+```bash
+find . -type f | cut -c3- | LC_ALL=C sort | xargs -r sha256sum | sha256sum | cut -f1 -d' '
+```
+
+For example, the module dirhash
+`h1:Khu2En+0gcYPZ2kuIihfswbzxv/mIHXgzPZ018Oty48=` would be encoded as
+`{"dirHash1": "2a1bb6127fb481c60f67692e22285fb306f3c6ffe62075e0ccf674d7c3adcb8f"}`.
+
+<details>
+<summary>Detailed example</summary>
+
+The go module `github.com/marklodato/go-hello-world@v0.0.1` has module
+dirhash `h1:Khu2En+0gcYPZ2kuIihfswbzxv/mIHXgzPZ018Oty48=`:
+
+```bash
+$ curl https://sum.golang.org/lookup/github.com/marklodato/go-hello-world@v0.0.1
+...
+github.com/marklodato/go-hello-world v0.0.1 h1:Khu2En+0gcYPZ2kuIihfswbzxv/mIHXgzPZ018Oty48=
+...
+```
+
+To compute the dirhash by hand, first fetch the module archive and extract
+it to an empty directory:
+
+```bash
+curl -O https://proxy.golang.org/github.com/marklodato/go-hello-world/@v/v0.0.1.zip
+mkdir tmp
+cd tmp
+unzip ../v0.0.1.zip
+```
+
+We can see all of the files in the directory using the first part of the
+command above:
+
+```bash
+$ find . -type f | cut -c3- | LC_ALL=C sort | xargs -r sha256sum
+3a137eef6458bfb76bb2c63fc29ffc7166604d2d2e09ed9d8250a534122a8364  github.com/marklodato/go-hello-world@v0.0.1/README.md
+28e7c942a036902d981759d0bf5704d2bfc7cb500caf68b84711b234af01c6a5  github.com/marklodato/go-hello-world@v0.0.1/go.mod
+ddc4da627d9a9f45fb29641a1b185d6f53287ecfd921aacbf4fe54b7a86fe8d1  github.com/marklodato/go-hello-world@v0.0.1/main.go
+```
+
+The dirhash is the sha256 sum over the output of the previous command:
+
+```bash
+$ find . -type f | cut -c3- | LC_ALL=C sort | xargs -r sha256sum | sha256sum | cut -f1 -d' '
+2a1bb6127fb481c60f67692e22285fb306f3c6ffe62075e0ccf674d7c3adcb8f
+```
+
+This is equivalent to the base64 encoded version:
+
+```bash
+$ echo '2a1bb6127fb481c60f67692e22285fb306f3c6ffe62075e0ccf674d7c3adcb8f' | xxd -r -p | {printf 'h1:'; base64}
+h1:Khu2En+0gcYPZ2kuIihfswbzxv/mIHXgzPZ018Oty48=
+```
+
+</details>
+
+#### `gitCommit`, `gitTree`, `gitBlob`, `gitTag`
+
+The lowercase hex SHA-1 (40 character) or SHA-256 (64 character) of a git
+commit, tree, blob, or tag object, respectively. The `gitTree` and `gitBlob` in
+particular can be used for arbitrary trees or files, even outside git.
+
+This hash is computed over `<type> SP <size> NUL <content>`, where:
+
+-   `<type>` is one of `commit`, `tree`, `blob`, `tag`
+-   `SP` is the ASCII space character, 0x20
+-   `<size>` is the number of bytes in `<content>`, represented as a decimal
+    ASCII number with no leading zeros
+-   `NUL` is the ASCII NUL character, 0x00
+-   `<content>` is git representation of the object:
+    -   For `commit`, the raw commit object ([more info][so-commit][^git-docs])
+    -   For `tree`,  the raw tree object, which is a series of
+        `<unix-octal-mode> <name> NUL <binary-digest>` entries, sorted by
+        `<name>` in the C locale ([more info][so-tree][^git-docs])
+    -   For `blob`, the raw file contents
+    -   For `tag`, the raw tag object
+
+For more information, see [Git Objects] in the Git Book.[^git-docs]
+
+Example of `gitBlob` for the file containing the 5 bytes `Hello` (no newline):
+
+```bash
+$ printf 'blob 5\0Hello' | sha1sum | cut -f1 -d' '
+5ab2f8a4323abafb10abb68657d9d39f1a775057
+$ printf 'Hello' | git hash-object -t blob --stdin
+5ab2f8a4323abafb10abb68657d9d39f1a775057
+```
+
+### Guidelines
+
+It is RECOMMENDED to use at least `sha256` for compatibility between
+producers and consumers, unless a different hash algorithm is more
+conventional (e.g. `gitCommit` for git).
+
+Consumers MUST only accept algorithms that they consider secure and MUST
+ignore unrecognized or unaccepted algorithms. For example, most
+applications SHOULD NOT accept "md5" because it lacks collision resistance.
+
+Two DigestSets SHOULD be considered matching if ANY acceptable field
+matches.
+
+**New algorithms MUST document how the value is encoded, e.g. URL-safe base64,
+lowercase hex, etc.**
+
+### Use cases for non-cryptographic, immutable, digests
+
+While cryptographic digests are the strongly recommended immutable identifier,
+users might have need to refer to an artifact by some other means. For example,
+it might be technically infeasible to compute a digest over the content, or
+the user might interact with the content through an interface that doesn't
+expose them to the entirety of the content.
+
+In these situations, users MAY use a non-cryptographic identifier in a DigestSet
+so long as the risk of the object being mutated is acceptable for the
+application.
+
+One concrete example of where a non-cryptographic hash can be useful is when
+referring to Virtual Machine images. Often these images are very large
+(impractical to run a cryptographic hash over) and users often interact with
+them via APIs that the platform provides that don't involve the user having
+complete custody of the content. Platforms like AWS and GCP provide 'ids' for
+users to use when referring to these images. A user may say something like
+"create an instance with image 123". In that case the user doesn't actually have
+the bits that correspond to 'image 123' so they cannot digest it themselves. And
+by the time the image has started it can be difficult, if not impossible, to
+digest the original content that was used to boot the instance.
+
+These IDs can often be treated as immutable and may be perfectly suited to users
+threat profiles. Allowing DigestSets to use these types of identifiers allows
+providers to make statements about the content of these VM images using the
+identifiers their users have ready access to.
+
+In addition, using an ID like this does not preclude including a cryptographic
+hash in the DigestSet as well. If possible including both may provide the most
+flexibility for the user's various use cases.
+
+Per the specification [guidelines](#guidelines), the value encoding for
+non-cryptographic digests is identifier-specific. See the `subject` [field
+details](statement.md#fields) for Statement `subject`-specific requirements.
+
+## Examples
+
+-   `{"sha256": "abcd", "sha512": "1234"}` matches `{"sha256": "abcd"}`
+-   `{"sha256": "abcd"}` does not match `{"sha256": "fedb", "sha512": "abcd"}`
+-   `{"somecoolhash": "abcd"}` uses a non-predefined algorithm
+-   `{"arn": "arn:aws:ec2:region:123:image/ami-123abcd"}` for a non-cryptographic VM image digest using an Amazon Resource Name (ARN) in the `subject` field of a Statement
+
+<!-- Add a horizontal rule to separate footnotes -->
+
+---
+
+[^git-docs]: At the time of writing (2023-03), git has no official documentation
+    of the internal object format used for hashing. The [Git Objects]
+    chapter of the Git Book is the closest thing to official documentation, but
+    it lacks many details, such as the raw tree object format. The best
+    documentation we have found are the linked Stack Overflow articles. If you
+    can find a better, more official reference, please open an issue.
+
+[Git Objects]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
+[directory Hash1]: https://cs.opensource.google/go/x/mod/+/refs/tags/v0.5.0:sumdb/dirhash/hash.go
+[so-commit]: https://stackoverflow.com/a/37438460
+[so-tree]: https://stackoverflow.com/a/35902553
+[the NIST names]: https://csrc.nist.gov/projects/hash-functions
+</file>
+
+<file path="in-toto/envelope.md">
+# Envelope layer specification
+
+The Envelope is the outermost layer of the attestation, handling serialization
+and authentication (via digital signatures).
+
+## Schema
+
+The RECOMMENDED format and protocol for Envelopes are defined per [DSSE v1.0].
+Producers MAY use other signature methods and formats that meet the [ITE-5]
+specification:
+
+-   MUST support the inclusion of multiple signatures in a single envelope
+-   SHOULD include an authenticated payload type
+-   SHOULD avoid depending on canonicalization for security
+-   SHOULD support a hint indicating what signing key was used, i.e., a KEYID
+-   SHOULD NOT require the verifier to parse the payload before verifying
+-   SHOULD NOT require the inclusion of signing key algorithms in the signature
+
+### Alternative Envelope schemas
+
+-   The [Sigstore Bundle], while [supporting DSSE], is not currently [ITE-5]
+    compliant because it requires a _single signature_ in the envelope.[^1]
+-   The [COSE_Sign] structure is [ITE-5] compliant, whereas the `COSE_Sign1`
+    format that supports only one signer is NOT compliant.
+
+## Fields
+
+The in-toto Attestation Framework has the following general field requirements
+for an Envelope:
+
+-   `signatures` (or equivalent) is REQUIRED and MUST be defined as an array of
+    digital signatures. The encoding of the signature bytes is determined by the
+    envelope schema.
+-   A `keyid` (or equivalent) SHOULD be included for each signing key used. The
+    envelope schema MAY nest this field within the signature array.
+-   `payload` (or equivalent) SHOULD be included and contain the in-toto
+    [Statement] that was signed.
+-   `payloadType` (or equivalent) MUST be signed along with the `payload`.
+    It MUST take the form `application/vnd.in-toto+<encoding>` to indicate
+    an in-toto [Statement] payload and its serialized `<encoding>` format.
+
+In addition, the Envelope spec has the following specific requirements for the
+standard [DSSE][DSSE v1.0] fields.
+
+-   `payloadType` MUST be set to `application/vnd.in-toto.<predicate>+json` or to
+    `application/vnd.in-toto+json`. This indicates that the Envelope contains
+    a JSON object with a `_type` field specifying its schema. If the
+    predicate-specific media type is used, the following requirements apply:
+    -   `<predicate>` MUST match the [predicate specification filename] without
+        the file extension.
+    -   Consumers SHOULD NOT rely upon the media type for individual attestations
+        as faithful indicators of predicate type. Consumer SHOULD only rely on the
+        `predicateType` field in the [Statement] layer.
+    -   To obtain predicate information that is authenticated, consumers MUST
+        parse the Envelope's `payload`, and verify it against its `signatures`.
+    -   The predicate version is not specified in the media type; it is handled
+        in the [Statement] layer.
+-   `payload` MUST be a base64-encoded JSON [Statement].
+
+## File naming convention
+
+If stored in a dedicated file by itself, and not as part of a [Bundle], an
+Envelope SHOULD use the suffix `.json`.
+
+-   For attestations intended for consumption by [in-toto-verify], an
+    Envelope containing an attestation about a particular software supply
+    chain step `<step-name>` SHOULD be named `<step-name>.json`.
+-   For other verifiers, or cases in which a step name cannot be easily
+    determined, the attestation producer and consumer MAY agree on an
+    arbitrary filename: `<env-name>.json`.
+-   If multiple Envelopes are produced for the same step by different
+    [functionaries] uniquely identified by a public key, an Envelope name
+    SHOULD include the truncated [KEYID] of the public key `<keyid[0:8]>` of
+    the signing functionary: `<step/env-name>.<keyid[0:8]>.json`.
+
+## Storage convention
+
+The media type `application/vnd.in-toto.<predicate>+dsse` SHOULD
+be used to denote an individual attestation in arbitrary storage systems.
+
+-   The `<predicate>` MUST match the [predicate specification filename]
+    without the file extension. Predicate versioning is handled in the
+    [Statement] layer.
+-   Consumers SHOULD NOT rely upon the media type for individual attestations
+    as faithful indicators of predicate type. Consumer SHOULD only rely on the
+    `predicateType` field in the [Statement] layer.
+-   To obtain predicate information that is authenticated, consumers MUST
+    parse the Envelope's `payload`, and verify it against its `signatures`.
+
+### Examples
+
+Example media types for single DSSE-signed attestation predicates include:
+
+-   SLSA Provenance: `application/vnd.in-toto.provenance+dsse`
+-   SPDX: `application/vnd.in-toto.spdx+dsse`
+-   VSA: `application/vnd.in-toto.vsa+dsse`
+
+[^1]: There is an [ongoing discussion](https://github.com/sigstore/sig-clients/issues/9) about supporting [DSSE Signature Extensions](https://github.com/secure-systems-lab/dsse/blob/devel/envelope.md#signature-extensions-experimental) to extend the current features of Sigstore Bundles.
+
+[Bundle]: bundle.md
+[COSE_Sign]: https://datatracker.ietf.org/doc/html/rfc8152#section-4.1
+[DSSE v1.0]: https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md
+[ITE-5]: https://github.com/in-toto/ITE/tree/master/ITE/5#specification
+[KEYID]: https://github.com/in-toto/docs/blob/v1.0/in-toto-spec.md#421-key-formats
+[Sigstore Bundle]: https://docs.sigstore.dev/about/bundle/
+[Statement]: statement.md
+[in-toto-verify]: https://github.com/in-toto/in-toto#verification
+[functionaries]: https://github.com/in-toto/docs/blob/v1.0/in-toto-spec.md#212-functionaries
+[predicate specification filename]: ../predicates
+[supporting DSSE]: https://docs.sigstore.dev/about/bundle/#dsse
+</file>
+
+<file path="in-toto/field_types.md">
+# Field type specifications
+
+The in-toto Attestation Framework defines several field types that may be of
+common interest:
+
+-   [DigestSet]
+-   [ResourceURI]
+-   [TypeURI]
+-   [Timestamp]
+-   [ResourceDescriptor]
+
+## ResourceURI
+
+Uniform Resource Identifier as specified in [RFC 3986][], used to identify
+and locate any resource, service, or software artifact.
+
+**Format:**
+
+A ResourceURI is represented as a case sensitive _string_ and MUST be case
+normalized as per section 6.2.2.1 of RFC 3986, meaning that the scheme and
+authority MUST be in lowercase.
+
+> SHOULD resolve to the artifact, but MAY be unresolvable. It is RECOMMENDED
+> to use [Package URL][] (`pkg:`) or [SPDX Download Location][] (e.g.
+> `git+https:`).
+
+**Example:**
+
+`"pkg:deb/debian/stunnel@5.50-3?arch=amd64"`.
+
+## TypeURI
+
+Uniform Resource Identifier as specified in [RFC 3986][], used as a
+collision-resistant type identifier.
+
+**Format:**
+
+A TypeURI is represented as a case sensitive _string_ and MUST be case
+normalized as per section 6.2.2.1 of RFC 3986, meaning that the scheme and
+authority MUST be in lowercase.
+
+> SHOULD resolve to a human-readable description, but MAY be unresolvable.
+> SHOULD include a version number to allow for revisions.
+>
+> TypeURIs are not registered. The natural namespacing of URIs is sufficient
+> to prevent collisions.
+
+**Example:**
+
+`"https://in-toto.io/Statement/v1"`.
+
+## Timestamp
+
+A point in time.
+
+**Format:**
+
+A timestamp is represented as a _string_ and MUST be in [RFC 3339][] format
+in the UTC timezone ("Z").
+
+**Example:**
+
+`"1985-04-12T23:20:50.52Z"`.
+
+[DigestSet]: digest_set.md
+[Package URL]: https://github.com/package-url/purl-spec/
+[RFC 3339]: https://tools.ietf.org/html/rfc3339
+[RFC 3986]: https://tools.ietf.org/html/rfc3986
+[ResourceDescriptor]: resource_descriptor.md
+[ResourceURI]: #resourceuri
+[SPDX Download Location]: https://spdx.github.io/spdx-spec/v2.3/package-information/#77-package-download-location-field
+[Timestamp]: #timestamp
+[TypeURI]: #typeuri
+</file>
+
+<file path="in-toto/LICENSE">
+Copyright 2021 in-toto Developers
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+</file>
+
+<file path="in-toto/predicate.md">
+# Predicate layer specification
+
+The Predicate is the innermost layer of the attestation, containing arbitrary
+metadata about the [Statement]'s `subject`.
+
+## Schema
+
+```jsonc
+"predicateType": "<URI>",
+"predicate": {
+    // arbitrary object
+}
+```
+
+## Fields
+
+A predicate has a required `predicateType` ([TypeURI]) identifying what the
+predicate means, plus an optional `predicate` [JSON] object containing
+additional, type-dependent parameters.
+
+Users are expected to choose an [existing predicate type] that
+fits their needs, or develop a new one if no existing one satisfies.
+New predicate types MAY be vetted by the in-toto attestation maintainers.
+
+Additional [parsing rules] apply.
+
+[JSON]: https://www.json.org
+[Statement]: statement.md
+[TypeURI]: field_types.md#TypeURI
+[parsing rules]: README.md#parsing-rules
+[existing predicate type]: ../predicates
+</file>
+
+<file path="in-toto/resource_descriptor.md">
+# ResourceDescriptor field type specification
+
+A size-efficient description of any software artifact or resource (mutable
+or immutable).
+
+## Schema
+
+```json
+{
+  "name": "<NAME>",
+  "uri": "<RESOURCE URI>",
+  "digest": { "<ALGORITHM>": "<HEX VALUE>", ... },
+  "content": "<BASE64 VALUE>", // converted from bytes for JSON 
+  "downloadLocation": "<RESOURCE URI>",
+  "mediaType": "<MIME TYPE>",
+  "annotations": {
+    "<FIELD_1>": /* value */,
+    "<FIELD_2>": /* value */,
+    ...
+  }
+}
+```
+
+## Fields
+
+Though all fields are optional, a ResourceDescriptor MUST specify one of `uri`,
+`digest` or `content` at a minimum. Further, a context that uses the
+ResourceDescriptor can require one or more fields. For example, a predicate may
+require the `name` and `digest` fields. Note that those requirements cannot
+override the minimum requirement of one of `uri`, `digest`, or `content`
+specified here.
+
+`name` _string, optional_
+
+> Machine-readable identifier for distinguishing between descriptors.
+>
+> The semantics are up to the producer and consumer. The `name` SHOULD be
+> stable, such as a filename, to allow consumers to reliably use the `name`
+> as part of their policy.
+
+`uri` _[ResourceURI], optional_
+
+> A URI used to identify the resource or artifact globally.
+> This field is REQUIRED unless either `digest` or `content` is set.
+
+`digest` _[DigestSet], optional_
+
+> A set of cryptographic digests of the contents of the resource or artifact.
+> This field is REQUIRED unless either `uri` or `content` is set.
+>
+> When known, the producer SHOULD set this field to denote an immutable
+> artifact or resource. The producer and consumer SHOULD agree on acceptable
+> algorithms.
+
+`content` _bytes, optional_
+
+> The contents of the resource or artifact.
+> This field is REQUIRED unless either `uri` or `digest` is set.
+>
+> The producer MAY use this field in scenarios where including the contents
+> of the resource/artifact directly in the attestation is deemed more
+> efficient for consumers than providing a pointer to another location. To
+> maintain size efficiency, the size of `content` SHOULD be less than 1KB.
+>
+> The semantics are up to the producer and consumer. The `uri` or
+> `mediaType` MAY be used by the producer as hints for how consumers should
+> parse `content`.
+
+`downloadLocation` _[ResourceURI], optional_
+
+> The location of the described resource or artifact, if different from the
+> `uri`.
+>
+> To enable automated downloads by consumers, the specified location SHOULD
+> be resolvable.
+
+`mediaType` _string, optional_
+
+> The [MIME Type][] (i.e., media type) of the described resource or artifact.
+>
+> For resources or artifacts that do not have a standardized MIME type,
+> producers SHOULD follow [RFC 6838][] (Sections 3.2-3.4) conventions of
+> prefixing types with `x.`, `prs.`, or `vnd.` to avoid collisions with other
+> producers.
+
+`annotations` _map <string, value>, optional_
+
+> This field MAY be used to provide additional information or metadata about
+> the resource or artifact that may be useful to the consumer when evaluating
+> the attestation against a policy.
+>
+> For maximum flexibility annotations may be any mapping from a field name to
+> any JSON value (string, number, object, array, boolean or _null_).
+>
+> The producer and consumer SHOULD agree on the semantics, and acceptable
+> fields and values in the `annotations` map. Producers SHOULD follow the
+> same naming conventions for annotation fields as for [extension fields].
+
+## Semantics
+
+Though the ResourceDescriptor allows for a high degree of flexibility,
+certain field combinations typically have specific semantics.
+For consistency, we RECOMMEND the following:
+
+-   A descriptor that specifies a `digest` is assumed to refer to an
+immutable resource or artifact. The `digest` SHOULD match the resource or
+artifact specified in one of the `name`, `uri`, `content` or
+`downloadLocation` fields. The field that consumers are expected to match
+the `digest` against is ultimately determined by the predicate type, and
+SHOULD be documented by the predicate specification.
+-   A descriptor without a `content` field, is assumed to serve as a
+pointer to the resource/artifact.
+-   When `uri` and `name` are specified, the scope of `name` is assumed to be
+local to the attestation. The `name` SHOULD be compared to the `uri` to match
+the descriptor against the resource or artifact referenced universally.
+
+## Examples
+
+Pointer to a file:
+
+```jsonc
+{
+  "name": "Foo.apk",
+  "uri": "git+https://android.googlesource.com/platform/vendor/foo/bar@16244f4e7524d44a8f3060905eaf9190e96e9fb0#prebuilts/Foo/Foo.apk",
+  "digest": { "sha256": "7f4714fd..." }
+}
+```
+
+Pointer to a git repo (with annotations):
+
+```jsonc
+{
+  "uri": "git+https://github.com/actions/runner",
+  "digest": { "sha1": "d61b27b8395512..." },
+  "annotations": { "twoPartyReview": false }
+}
+```
+
+Pointer to another in-toto attestation:
+  
+```jsonc
+ { 
+   "name": "gcc_9.3.0-1ubuntu2_amd64.intoto.json",
+   "digest": { "sha256": "abcdabcde..." },
+   "downloadLocation": "http://example.com/rebuilderd-instance/gcc_9.3.0-1ubuntu2_amd64.intoto.json",
+   "mediaType": "application/x.dsse+json"
+ }
+```
+
+Pointer to build service:
+
+```jsonc
+{
+  "uri": "https://cloudbuild.googleapis.com/GoogleHostedWorker@v1"
+}
+```
+
+Descriptor for Tekton TaskRun:
+
+```jsonc
+{
+  "uri": "https://tekton.dev/TaskRun/check/result/report",
+  "digest": {
+    "sha256": "ec87961dbfe8e7d8a73890c602ac7bd407b80b9e31c326beb9110bdd255f12e6"
+  },
+  "content": "eyAicmVzdWx0IjogIlNVQ0NFU1MiLCAidGltZXN0YW1wIjogIjE2Nzc4NzIyMzYiLCAic3VjY2Vzc2VzIjogMjIsICJmYWlsdXJlcyI6IDAsICJ3YXJuaW5ncyI6MCB9",
+  "mediaType": "application/json"
+}
+```
+
+[DigestSet]: digest_set.md
+[MIME Type]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+[RFC 6838]: https://www.rfc-editor.org/rfc/rfc6838.html#section-3.2
+[ResourceURI]: field_types.md#ResourceURI
+[extension fields]: ./#parsing-rules
+</file>
+
+<file path="in-toto/statement.md">
+# Statement layer specification
+
+The Statement is the middle layer of the attestation, binding it to a
+particular subject and unambiguously identifying the types of the
+[Predicate].
+
+## Schema
+
+```jsonc
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "<NAME>",
+      "digest": {"<ALGORITHM>": "<HEX_VALUE>"}
+    },
+    ...
+  ],
+  "predicateType": "<URI>",
+  "predicate": { ... }
+}
+```
+
+## Fields
+
+The Statement is represented as a [JSON] object with the following fields.
+Additional [parsing rules] apply.
+
+`_type` _string ([TypeURI]), required_
+
+> Identifier for the schema of the Statement. Always
+> `https://in-toto.io/Statement/v1` for this version of the spec.
+
+`subject` _array of [ResourceDescriptor] objects, required_
+
+> Set of software artifacts that the attestation applies to. Each element
+> represents a single software artifact. Each element MUST have `digest` set.
+>
+> Subjects are assumed to be _immutable_, i.e. the artifacts identified by the
+> subject SHOULD NOT change.
+>
+> The `name` field may be used as an identifier to distinguish this artifact
+> from others within the `subject`. Similarly, other ResourceDescriptor fields
+> may be used as required by the context. The semantics are up to the producer
+> and consumer and they MAY use them when evaluating policy. If the name is not
+> meaningful, leave the field unset or use "\_". For example, a
+> [SLSA Provenance] attestation might use the name to specify output filename,
+> expecting the consumer to only consider entries with a particular name.
+> Alternatively, a vulnerability scan attestation might leave name unset because
+> the results apply regardless of what the artifact is named.
+>
+> If set, `name` and `uri` SHOULD be unique within subject.
+>
+> IMPORTANT: Subject artifacts are matched purely by digest, regardless of
+> content type. If this matters to you, please comment on
+> [GitHub Issue #28](https://github.com/in-toto/attestation/issues/28)
+
+`predicateType` _string ([TypeURI]), required_
+
+> URI identifying the type of the [Predicate].
+
+`predicate` _object, optional_
+
+> Additional parameters of the [Predicate]. Unset is treated the same as
+> set-but-empty. MAY be omitted if `predicateType` fully describes the
+> predicate.
+
+[ResourceDescriptor]: resource_descriptor.md
+[JSON]: https://www.json.org/json-en.html
+[Predicate]: predicate.md
+[SLSA Provenance]: https://slsa.dev/provenance
+[TypeURI]: field_types.md#TypeURI
+[parsing rules]: README.md#parsing-rules
+</file>
+
+<file path="jcs/LICENSE">
+Copyright 2018 Anders Rundgren
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       https://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+</file>
+
+<file path="jcs/README.md">
+![JCS](https://cyberphone.github.io/doc/security/jcs.svg)
+
+# JSON Canonicalization
+
+Cryptographic operations like hashing and signing depend on that the target 
+data does not change during serialization, transport, or parsing. 
+By applying the rules defined by JCS (JSON Canonicalization Scheme), 
+data provided in the JSON [[RFC8259](https://tools.ietf.org/html/rfc8259)]
+format can be exchanged "as is", while still being subject to secure cryptographic operations.
+JCS achieves this by building on the serialization formats for JSON
+primitives as defined by ECMAScript [[ES](https://ecma-international.org/ecma-262/)],
+constraining JSON data to the I-JSON [[RFC7493](https://tools.ietf.org/html//rfc7493)] subset,
+and through a platform independent property sorting scheme.
+
+Public RFC: https://tools.ietf.org/html/rfc8785
+
+The JSON Canonicalization Scheme concept in a nutshell:
+- Serialization of primitive JSON data types using methods compatible with ECMAScript's `JSON.stringify()`
+- Lexicographic sorting of JSON `Object` properties in a *recursive* process
+- JSON `Array` data is also subject to canonicalization, *but element order remains untouched*
+
+### Sample Input:
+```code
+{
+  "numbers": [333333333.33333329, 1E30, 4.50, 2e-3, 0.000000000000000000000000001],
+  "string": "\u20ac$\u000F\u000aA'\u0042\u0022\u005c\\\"\/",
+  "literals": [null, true, false]
+}
+```
+### Expected Output:
+```code
+{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"€$\u000f\nA'B\"\\\\\"/"}
+```
+
+Note: for platform interoperable canonicalization, the output must be converted to UTF-8
+as well, here shown in hexadecimal notation:
+
+```code
+7b 22 6c 69 74 65 72 61 6c 73 22 3a 5b 6e 75 6c 6c 2c 74 72 75 65 2c 66 61 6c 73 65 5d 2c 22 6e
+75 6d 62 65 72 73 22 3a 5b 33 33 33 33 33 33 33 33 33 2e 33 33 33 33 33 33 33 2c 31 65 2b 33 30
+2c 34 2e 35 2c 30 2e 30 30 32 2c 31 65 2d 32 37 5d 2c 22 73 74 72 69 6e 67 22 3a 22 e2 82 ac 24
+5c 75 30 30 30 66 5c 6e 41 27 42 5c 22 5c 5c 5c 5c 5c 22 2f 22 7d
+```
+### Implementations
+|Language|URL|
+|--------|---|
+|Rust|https://crates.io/crates/serde_json_canonicalizer|
+|JavaScript|https://www.npmjs.com/package/canonicalize|
+|Java|https://github.com/erdtman/java-json-canonicalization|
+|Go|https://github.com/cyberphone/json-canonicalization/tree/master/go|
+|.NET/C#|https://github.com/cyberphone/json-canonicalization/tree/master/dotnet|
+|Python|https://github.com/cyberphone/json-canonicalization/tree/master/python3|
+|Elixir|https://github.com/pzingg/jcs|
+|Ruby|https://github.com/dryruby/json-canonicalization|
+|PHP|https://github.com/aywan/php-json-canonicalization|
+
+### Combining JCS and JWS (RFC7515)
+[JWS-JCS](https://github.com/cyberphone/jws-jcs#combining-detached-jws-with-jcs-json-canonicalization-scheme)
+
+### On-line Browser JCS Test
+https://cyberphone.github.io/doc/security/browser-json-canonicalization.html
+
+### ECMAScript Proposal: JSON.canonify()
+[JSON.canonify()](https://github.com/cyberphone/json-canonicalization/blob/master/JSON.canonify.md)
+
+### Other Canonicalization Efforts
+https://tools.ietf.org/html/draft-staykov-hu-json-canonical-form-00
+
+http://wiki.laptop.org/go/Canonical_JSON
+
+https://gibson042.github.io/canonicaljson-spec/
+
+https://gist.github.com/mikesamuel/20710f94a53e440691f04bf79bc3d756
+</file>
+
+<file path="notion/LICENSE">
+Copyright 2021 Notion Labs, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</file>
+
+</files>

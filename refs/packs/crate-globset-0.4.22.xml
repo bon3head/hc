@@ -1,0 +1,1379 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: README.md, src/**/*.rs, examples/**/*.rs, binding_rust/**/*.rs
+- Files matching these patterns are excluded: **/tests/**, **/benches/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  fnv.rs
+  glob.rs
+  lib.rs
+  pathutil.rs
+  serde_impl.rs
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/fnv.rs">
+/// A convenience alias for creating a hash map with an FNV hasher.
+pub(crate) type HashMap<K, V> =
+⋮----
+/// A hasher that implements the Fowler–Noll–Vo (FNV) hash.
+pub(crate) struct Hasher(u64);
+⋮----
+impl Hasher {
+⋮----
+impl Default for Hasher {
+fn default() -> Hasher {
+⋮----
+fn finish(&self) -> u64 {
+⋮----
+fn write(&mut self, bytes: &[u8]) {
+</file>
+
+<file path="src/glob.rs">
+use std::fmt::Write;
+⋮----
+use regex_automata::meta::Regex;
+⋮----
+/// Describes a matching strategy for a particular pattern.
+///
+/// This provides a way to more quickly determine whether a pattern matches
+/// a particular file path in a way that scales with a large number of
+/// patterns. For example, if many patterns are of the form `*.ext`, then it's
+/// possible to test whether any of those patterns matches by looking up a
+/// file path's extension in a hash table.
+⋮----
+pub(crate) enum MatchStrategy {
+/// A pattern matches if and only if the entire file path matches this
+/// literal string.
+⋮----
+/// A pattern matches if and only if the file path's basename matches this
+/// literal string.
+⋮----
+/// A pattern matches if and only if the file path's extension matches this
+/// literal string.
+⋮----
+/// A pattern matches if and only if this prefix literal is a prefix of the
+/// candidate file path.
+⋮----
+/// A pattern matches if and only if this prefix literal is a prefix of the
+/// candidate file path.
+///
+/// An exception: if `component` is true, then `suffix` must appear at the
+/// beginning of a file path or immediately following a `/`.
+⋮----
+/// The actual suffix.
+suffix: String,
+/// Whether this must start at the beginning of a path component.
+component: bool,
+⋮----
+/// A pattern matches only if the given extension matches the file path's
+/// extension. Note that this is a necessary but NOT sufficient criterion.
+/// Namely, if the extension matches, then a full regex search is still
+/// required.
+⋮----
+/// A regex that only needs to inspect the final path component.
+⋮----
+/// A regex needs to be used for matching.
+⋮----
+impl MatchStrategy {
+/// Returns a matching strategy for the given pattern.
+pub(crate) fn new(pat: &Glob) -> MatchStrategy {
+⋮----
+/// Glob represents a successfully parsed shell glob pattern.
+///
+/// It cannot be used directly to match file paths, but it can be converted
+/// to a regular expression string or a matcher.
+⋮----
+pub struct Glob {
+glob: String,
+re: String,
+opts: GlobOptions,
+tokens: Tokens,
+⋮----
+fn as_ref(&self) -> &Glob {
+⋮----
+impl PartialEq for Glob {
+fn eq(&self, other: &Glob) -> bool {
+⋮----
+fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+type Err = Error;
+⋮----
+fn from_str(glob: &str) -> Result<Self, Self::Err> {
+⋮----
+/// A matcher for a single pattern.
+⋮----
+pub struct GlobMatcher {
+/// The underlying pattern.
+pat: Glob,
+/// The pattern, as a compiled regex.
+re: Regex,
+⋮----
+impl GlobMatcher {
+/// Tests whether the given path matches this pattern or not.
+pub fn is_match<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Tests whether the given path matches this pattern or not.
+pub fn is_match_candidate(&self, path: &Candidate<'_>) -> bool {
+⋮----
+/// Returns the `Glob` used to compile this matcher.
+pub fn glob(&self) -> &Glob {
+⋮----
+/// A strategic matcher for a single pattern.
+⋮----
+struct GlobStrategic {
+/// The match strategy to use.
+strategy: MatchStrategy,
+/// The pattern, as a compiled regex.
+re: Regex,
+⋮----
+impl GlobStrategic {
+/// Tests whether the given path matches this pattern or not.
+fn is_match<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Tests whether the given path matches this pattern or not.
+fn is_match_candidate(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+/// A builder for a pattern.
+///
+/// This builder enables configuring the match semantics of a pattern. For
+/// example, one can make matching case insensitive.
+///
+/// The lifetime `'a` refers to the lifetime of the pattern string.
+⋮----
+pub struct GlobBuilder<'a> {
+/// The glob pattern to compile.
+glob: &'a str,
+/// Options for the pattern.
+opts: GlobOptions,
+⋮----
+struct GlobOptions {
+/// Whether to match case insensitively.
+case_insensitive: bool,
+/// Whether to require a literal separator to match a separator in a file
+/// path. e.g., when enabled, `*` won't match `/`.
+literal_separator: bool,
+/// Whether or not to use `\` to escape special characters.
+/// e.g., when enabled, `\*` will match a literal `*`.
+backslash_escape: bool,
+/// Whether or not an empty case in an alternate will be removed.
+/// e.g., when enabled, `{,a}` will match "" and "a".
+empty_alternates: bool,
+/// Whether or not an unclosed character class is allowed. When an unclosed
+/// character class is found, the opening `[` is treated as a literal `[`.
+/// When this isn't enabled, an opening `[` without a corresponding `]` is
+/// treated as an error.
+allow_unclosed_class: bool,
+⋮----
+impl GlobOptions {
+fn default() -> GlobOptions {
+⋮----
+struct Tokens(Vec<Token>);
+⋮----
+type Target = Vec<Token>;
+fn deref(&self) -> &Vec<Token> {
+⋮----
+fn deref_mut(&mut self) -> &mut Vec<Token> {
+⋮----
+enum Token {
+⋮----
+Class { negated: bool, ranges: Vec<(char, char)> },
+⋮----
+impl Glob {
+/// Builds a new pattern with default options.
+pub fn new(glob: &str) -> Result<Glob, Error> {
+⋮----
+/// Returns a matcher for this pattern.
+pub fn compile_matcher(&self) -> GlobMatcher {
+⋮----
+/// Returns a strategic matcher.
+///
+/// This isn't exposed because it's not clear whether it's actually
+/// faster than just running a regex for a *single* pattern. If it
+/// is faster, then GlobMatcher should do it automatically.
+⋮----
+fn compile_strategic_matcher(&self) -> GlobStrategic {
+⋮----
+/// Returns the original glob pattern used to build this pattern.
+pub fn glob(&self) -> &str {
+⋮----
+/// Returns the regular expression string for this glob.
+///
+/// Note that regular expressions for globs are intended to be matched on
+/// arbitrary bytes (`&[u8]`) instead of Unicode strings (`&str`). In
+/// particular, globs are frequently used on file paths, where there is no
+/// general guarantee that file paths are themselves valid UTF-8. As a
+/// result, callers will need to ensure that they are using a regex API
+/// that can match on arbitrary bytes. For example, the
+/// [`regex`](https://crates.io/regex)
+/// crate's
+/// [`Regex`](https://docs.rs/regex/*/regex/struct.Regex.html)
+/// API is not suitable for this since it matches on `&str`, but its
+/// [`bytes::Regex`](https://docs.rs/regex/*/regex/bytes/struct.Regex.html)
+/// API is suitable for this.
+pub fn regex(&self) -> &str {
+⋮----
+/// Returns the pattern as a literal if and only if the pattern must match
+/// an entire path exactly.
+///
+/// The basic format of these patterns is `{literal}`.
+fn literal(&self) -> Option<String> {
+⋮----
+/// Returns an extension if this pattern matches a file path if and only
+/// if the file path has the extension returned.
+///
+/// Note that this extension returned differs from the extension that
+/// std::path::Path::extension returns. Namely, this extension includes
+/// the '.'. Also, paths like `.rs` are considered to have an extension
+/// of `.rs`.
+fn ext(&self) -> Option<String> {
+⋮----
+// If there was no recursive prefix, then we only permit
+// `*` if `*` can match a `/`. For example, if `*` can't
+// match `/`, then `*.c` doesn't match `foo/bar.c`.
+⋮----
+/// This is like `ext`, but returns an extension even if it isn't sufficient
+/// to imply a match. Namely, if an extension is returned, then it is
+/// necessary but not sufficient for a match.
+fn required_ext(&self) -> Option<String> {
+⋮----
+// We don't care at all about the beginning of this pattern. All we
+// need to check for is if it ends with a literal of the form `.ext`.
+let mut ext: Vec<char> = vec![]; // built in reverse
+⋮----
+/// Returns a literal prefix of this pattern if the entire pattern matches
+/// if the literal prefix matches.
+fn prefix(&self) -> Option<String> {
+⋮----
+// If a trailing `*` can't match a `/`, then we can't
+// assume a match of the prefix corresponds to a match
+// of the overall pattern. e.g., `foo/*` with
+// `literal_separator` enabled matches `foo/bar` but not
+// `foo/bar/baz`, even though `foo/bar/baz` has a `foo/`
+// literal prefix.
+⋮----
+/// Returns a literal suffix of this pattern if the entire pattern matches
+/// if the literal suffix matches.
+///
+/// If a literal suffix is returned and it must match either the entire
+/// file path or be preceded by a `/`, then also return true. This happens
+/// with a pattern like `**/foo/bar`. Namely, this pattern matches
+/// `foo/bar` and `baz/foo/bar`, but not `foofoo/bar`. In this case, the
+/// suffix returned is `/foo/bar` (but should match the entire path
+/// `foo/bar`).
+///
+/// When this returns true, the suffix literal is guaranteed to start with
+/// a `/`.
+fn suffix(&self) -> Option<(String, bool)> {
+⋮----
+// We only care if this follows a path component if the next
+// token is a literal.
+⋮----
+// If literal_separator is enabled, then a `*` can't
+// necessarily match everything, so reporting a suffix match
+// as a match of the pattern would be a false positive.
+⋮----
+/// If this pattern only needs to inspect the basename of a file path,
+/// then the tokens corresponding to only the basename match are returned.
+///
+/// For example, given a pattern of `**/*.foo`, only the tokens
+/// corresponding to `*.foo` are returned.
+///
+/// Note that this will return None if any match of the basename tokens
+/// doesn't correspond to a match of the entire pattern. For example, the
+/// glob `foo` only matches when a file path has a basename of `foo`, but
+/// doesn't *always* match when a file path has a basename of `foo`. e.g.,
+/// `foo` doesn't match `abc/foo`.
+fn basename_tokens(&self) -> Option<&[Token]> {
+⋮----
+// With nothing to gobble up the parent portion of a path,
+// we can't assume that matching on only the basename is
+// correct.
+⋮----
+Token::Literal(_) => {} // OK
+⋮----
+// In this case, `*` and `?` can match a path
+// separator, which means this could reach outside
+// the basename.
+⋮----
+/// Returns the pattern as a literal if and only if the pattern exclusively
+/// matches the basename of a file path *and* is a literal.
+///
+/// The basic format of these patterns is `**/{literal}`, where `{literal}`
+/// does not contain a path separator.
+fn basename_literal(&self) -> Option<String> {
+⋮----
+/// Returns a regex for the basename when it determines the whole match.
+fn basename_regex(&self) -> Option<String> {
+⋮----
+/// Create a new builder for the pattern given.
+///
+/// The pattern is not compiled until `build` is called.
+pub fn new(glob: &'a str) -> GlobBuilder<'a> {
+⋮----
+/// Parses and builds the pattern.
+pub fn build(&self) -> Result<Glob, Error> {
+⋮----
+// OK because of how the branches/alternate_stack are managed.
+// If we end up here, then there *must* be a bug in the parser
+// somewhere.
+⋮----
+/// Toggle whether the pattern matches case insensitively or not.
+///
+/// This is disabled by default.
+pub fn case_insensitive(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// Toggle whether a literal `/` is required to match a path separator.
+///
+/// By default this is false: `*` and `?` will match `/`.
+pub fn literal_separator(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// When enabled, a back slash (`\`) may be used to escape
+/// special characters in a glob pattern. Additionally, this will
+/// prevent `\` from being interpreted as a path separator on all
+/// platforms.
+///
+/// This is enabled by default on platforms where `\` is not a
+/// path separator and disabled by default on platforms where `\`
+/// is a path separator.
+pub fn backslash_escape(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// Toggle whether an empty pattern in a list of alternates is accepted.
+///
+/// For example, if this is set then the glob `foo{,.txt}` will match both
+/// `foo` and `foo.txt`.
+///
+/// By default this is false.
+pub fn empty_alternates(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+/// Toggle whether unclosed character classes are allowed. When allowed,
+/// a `[` without a matching `]` is treated literally instead of resulting
+/// in a parse error.
+///
+/// For example, if this is set then the glob `[abc` will be treated as the
+/// literal string `[abc` instead of returning an error.
+///
+/// By default, this is false. Generally speaking, enabling this leads to
+/// worse failure modes since the glob parser becomes more permissive. You
+/// might want to enable this when compatibility (e.g., with POSIX glob
+/// implementations) is more important than good error messages.
+pub fn allow_unclosed_class(&mut self, yes: bool) -> &mut GlobBuilder<'a> {
+⋮----
+impl Tokens {
+/// Convert this pattern to a string that is guaranteed to be a valid
+/// regular expression and will represent the matching semantics of this
+/// glob pattern and the options given.
+fn to_regex_with(options: &GlobOptions, tokens: &[Token]) -> String {
+⋮----
+// Special case. If the entire glob is just `**`, then it should match
+// everything.
+⋮----
+fn tokens_to_regex(
+⋮----
+// Exclude '/'
+⋮----
+// A non-negated class that only contained '/' cannot match anything
+// when literal_separator is enabled.
+⋮----
+// Not strictly necessary, but nicer to look at.
+⋮----
+// It is possible to have an empty set in which case the
+// resulting alternation '()' would be an error.
+⋮----
+/// Convert a Unicode scalar value to an escaped string suitable for use as
+/// a literal in a non-Unicode regex.
+fn char_to_escaped_literal(c: char) -> String {
+⋮----
+/// Converts an arbitrary sequence of bytes to a UTF-8 string. All non-ASCII
+/// code units are converted to their escaped form.
+fn bytes_to_escaped_literal(bs: &[u8]) -> String {
+⋮----
+struct Parser<'a> {
+/// The glob to parse.
+glob: &'a str,
+/// Marks the index in `stack` where the alternation started.
+alternates_stack: Vec<usize>,
+/// The set of active alternation branches being parsed.
+/// Tokens are added to the end of the last one.
+branches: Vec<Tokens>,
+/// A character iterator over the glob pattern to parse.
+chars: std::iter::Peekable<std::str::Chars<'a>>,
+/// The previous character seen.
+prev: Option<char>,
+/// The current character.
+cur: Option<char>,
+/// Whether we failed to find a closing `]` for a character
+/// class. This can only be true when `GlobOptions::allow_unclosed_class`
+/// is enabled. When enabled, it is impossible to ever parse another
+/// character class with this glob. That's because classes cannot be
+/// nested *and* the only way this happens is when there is never a `]`.
+///
+/// We track this state so that we don't end up spending quadratic time
+/// trying to parse something like `[[[[[[[[[[[[[[[[[[[[[[[...`.
+found_unclosed_class: bool,
+/// Glob options, which may influence parsing.
+opts: &'a GlobOptions,
+⋮----
+fn error(&self, kind: ErrorKind) -> Error {
+⋮----
+fn parse(&mut self) -> Result<(), Error> {
+⋮----
+fn push_alternate(&mut self) -> Result<(), Error> {
+// Bound alternate nesting so recursive token-to-regex compilation and
+// token tree drop cannot overflow the stack, while staying well within
+// regex-syntax's default group nesting limit (250).
+⋮----
+fn pop_alternate(&mut self) -> Result<(), Error> {
+⋮----
+fn push_token(&mut self, tok: Token) -> Result<(), Error> {
+⋮----
+fn pop_token(&mut self) -> Result<Token, Error> {
+⋮----
+fn have_tokens(&self) -> Result<bool, Error> {
+⋮----
+fn parse_comma(&mut self) -> Result<(), Error> {
+// If we aren't inside a group alternation, then don't
+// treat commas specially. Otherwise, we need to start
+// a new alternate branch.
+⋮----
+fn parse_backslash(&mut self) -> Result<(), Error> {
+⋮----
+// Normalize all patterns to use / as a separator.
+⋮----
+fn parse_star(&mut self) -> Result<(), Error> {
+⋮----
+fn parse_class(&mut self) -> Result<(), Error> {
+// Save parser state for potential rollback to literal '[' parsing.
+⋮----
+fn add_to_last_range(
+⋮----
+// invariant: in_range is only set when there is
+// already at least one character seen.
+⋮----
+// Check for POSIX character class syntax: [[:name:]]
+// We expand these directly into char ranges at parse
+// time so that Token::Class remains unchanged.
+⋮----
+// Not a valid POSIX class, treat '[' as literal
+⋮----
+// invariant: in_range is only set when there is
+// already at least one character seen.
+⋮----
+// Means that the last character in the class was a '-', so add
+// it as a literal.
+⋮----
+/// Try to parse a POSIX character class like `[:space:]` inside a
+/// bracket expression. Called when we've just consumed `[` and peeked
+/// `:`. Returns the equivalent ASCII char ranges on success, or `None`
+/// if this isn't a valid POSIX class (in which case the parser state
+/// is restored).
+fn try_parse_posix_class(&mut self) -> Option<&'static [(char, char)]> {
+⋮----
+// Consume the ':'
+⋮----
+// Collect the class name (only lowercase ascii)
+⋮----
+self.bump(); // consume ']'
+⋮----
+// Not a valid POSIX class, restore state
+⋮----
+fn bump(&mut self) -> Option<char> {
+⋮----
+fn peek(&mut self) -> Option<char> {
+⋮----
+/// Returns the ASCII char ranges for a POSIX character class name.
+/// All definitions are ASCII-only to avoid locale-dependent behavior.
+fn posix_class_ranges(name: &str) -> Option<&'static [(char, char)]> {
+⋮----
+fn starts_with(needle: &[u8], haystack: &[u8]) -> bool {
+⋮----
+fn ends_with(needle: &[u8], haystack: &[u8]) -> bool {
+⋮----
+mod tests {
+⋮----
+struct Options {
+casei: Option<bool>,
+litsep: Option<bool>,
+bsesc: Option<bool>,
+ealtre: Option<bool>,
+unccls: Option<bool>,
+⋮----
+macro_rules! syntax {
+⋮----
+macro_rules! syntaxerr {
+⋮----
+macro_rules! toregex {
+⋮----
+macro_rules! matches {
+⋮----
+macro_rules! nmatches {
+⋮----
+fn s(string: &str) -> String {
+⋮----
+fn class(s: char, e: char) -> Token {
+⋮----
+fn classn(s: char, e: char) -> Token {
+⋮----
+fn rclass(ranges: &[(char, char)]) -> Token {
+⋮----
+fn rclassn(ranges: &[(char, char)]) -> Token {
+⋮----
+// POSIX character classes expand into ranges
+⋮----
+// Negated POSIX class
+⋮----
+// Mixed: range + POSIX class
+⋮----
+// Multiple POSIX classes
+⋮----
+// Invalid POSIX class name: consumed up to ':]', '[' pushed as
+// literal in the bracket expression, the bracket closes at next ']'.
+⋮----
+fn nested_alternates_depth_limit() {
+⋮----
+// POSIX character class matching
+⋮----
+// Negated
+⋮----
+// Mixed with ranges
+⋮----
+// In filenames (the original issue's use case)
+⋮----
+// Multiple POSIX classes
+⋮----
+// Edge: dash with POSIX class
+⋮----
+macro_rules! extract {
+⋮----
+macro_rules! literal {
+⋮----
+macro_rules! basetokens {
+⋮----
+macro_rules! ext {
+⋮----
+macro_rules! required_ext {
+⋮----
+macro_rules! prefix {
+⋮----
+macro_rules! suffix {
+⋮----
+macro_rules! baseliteral {
+⋮----
+fn class_literal_separator() {
+</file>
+
+<file path="src/lib.rs">
+/*!
+The globset crate provides cross platform single glob and glob set matching.
+
+Glob set matching is the process of matching one or more glob patterns against
+a single candidate path simultaneously, and returning all of the globs that
+matched. For example, given this set of globs:
+
+* `*.rs`
+* `src/lib.rs`
+* `src/**/foo.rs`
+
+and a path `src/bar/baz/foo.rs`, then the set would report the first and third
+globs as matching.
+
+# Example: one glob
+
+This example shows how to match a single glob against a single file path.
+
+```
+use globset::Glob;
+
+let glob = Glob::new("*.rs")?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(glob.is_match("foo/bar.rs"));
+assert!(!glob.is_match("Cargo.toml"));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+# Example: configuring a glob matcher
+
+This example shows how to use a `GlobBuilder` to configure aspects of match
+semantics. In this example, we prevent wildcards from matching path separators.
+
+```
+use globset::GlobBuilder;
+
+let glob = GlobBuilder::new("*.rs")
+    .literal_separator(true).build()?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(!glob.is_match("foo/bar.rs")); // no longer matches
+assert!(!glob.is_match("Cargo.toml"));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+# Example: match multiple globs at once
+
+This example shows how to match multiple glob patterns at once.
+
+```
+use globset::{Glob, GlobSetBuilder};
+
+let mut builder = GlobSetBuilder::new();
+// A GlobBuilder can be used to configure each glob's match semantics
+// independently.
+builder.add(Glob::new("*.rs")?);
+builder.add(Glob::new("src/lib.rs")?);
+builder.add(Glob::new("src/**/foo.rs")?);
+let set = builder.build()?;
+
+assert_eq!(set.matches("src/bar/baz/foo.rs"), vec![0, 2]);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+# Syntax
+
+Standard Unix-style glob syntax is supported:
+
+* `?` matches any single character. (If the `literal_separator` option is
+  enabled, then `?` can never match a path separator.)
+* `*` matches zero or more characters. (If the `literal_separator` option is
+  enabled, then `*` can never match a path separator.)
+* `**` recursively matches directories but are only legal in three situations.
+  First, if the glob starts with <code>\*\*&#x2F;</code>, then it matches
+  all directories. For example, <code>\*\*&#x2F;foo</code> matches `foo`
+  and `bar/foo` but not `foo/bar`. Secondly, if the glob ends with
+  <code>&#x2F;\*\*</code>, then it matches all sub-entries. For example,
+  <code>foo&#x2F;\*\*</code> matches `foo/a` and `foo/a/b`, but not `foo`.
+  Thirdly, if the glob contains <code>&#x2F;\*\*&#x2F;</code> anywhere within
+  the pattern, then it matches zero or more directories. Using `**` anywhere
+  else is illegal (N.B. the glob `**` is allowed and means "match everything").
+* `{a,b}` matches `a` or `b` where `a` and `b` are arbitrary glob patterns.
+  (N.B. Nesting `{...}` is allowed.)
+* `[ab]` matches `a` or `b` where `a` and `b` are characters. Use
+  `[!ab]` to match any character except for `a` and `b`.
+* `[[:alpha:]]`, `[[:digit:]]`, `[[:space:]]` etc. match POSIX character
+  classes using ASCII-only definitions. Supported classes: `alnum`, `alpha`,
+  `blank`, `cntrl`, `digit`, `graph`, `lower`, `print`, `punct`, `space`,
+  `upper`, `xdigit`. These can be combined with regular ranges, e.g.,
+  `[[:digit:]a-f]` matches hexadecimal digits.
+* Metacharacters such as `*` and `?` can be escaped with character class
+  notation. e.g., `[*]` matches `*`.
+* When backslash escapes are enabled, a backslash (`\`) will escape all meta
+  characters in a glob. If it precedes a non-meta character, then the slash is
+  ignored. A `\\` will match a literal `\\`. Note that this mode is only
+  enabled on Unix platforms by default, but can be enabled on any platform
+  via the `backslash_escape` setting on `Glob`.
+
+A `GlobBuilder` can be used to prevent wildcards from matching path separators,
+or to enable case insensitive matching.
+
+# Crate Features
+
+This crate includes optional features that can be enabled if necessary.
+These features are not required but may be useful depending on the use case.
+
+The following features are available:
+
+* **arbitrary** -
+  Enabling this feature introduces a public dependency on the
+  [`arbitrary`](https://crates.io/crates/arbitrary)
+  crate. Namely, it implements the `Arbitrary` trait from that crate for the
+  [`Glob`] type. This feature is disabled by default.
+*/
+⋮----
+mod fnv;
+mod glob;
+mod pathutil;
+⋮----
+mod serde_impl;
+⋮----
+macro_rules! debug {
+⋮----
+macro_rules! debug {
+⋮----
+/// Represents an error that can occur when parsing a glob pattern.
+⋮----
+pub struct Error {
+/// The original glob provided by the caller.
+glob: Option<String>,
+/// The kind of error.
+kind: ErrorKind,
+⋮----
+/// The kind of error that can occur when parsing a glob pattern.
+⋮----
+pub enum ErrorKind {
+/// **DEPRECATED**.
+///
+/// This error used to occur for consistency with git's glob specification,
+/// but the specification now accepts all uses of `**`. When `**` does not
+/// appear adjacent to a path separator or at the beginning/end of a glob,
+/// it is now treated as two consecutive `*` patterns. As such, this error
+/// is no longer used.
+⋮----
+/// Occurs when a character class (e.g., `[abc]`) is not closed.
+⋮----
+/// Occurs when a range in a character (e.g., `[a-z]`) is invalid. For
+/// example, if the range starts with a lexicographically larger character
+/// than it ends with.
+⋮----
+/// Occurs when a `}` is found without a matching `{`.
+⋮----
+/// Occurs when a `{` is found without a matching `}`.
+⋮----
+/// **DEPRECATED**.
+///
+/// This error used to occur when an alternating group was nested inside
+/// another alternating group, e.g., `{{a,b},{c,d}}`. However, this is now
+/// supported and as such this error cannot occur.
+⋮----
+/// Occurs when alternating groups are nested too deeply.
+⋮----
+/// Occurs when an unescaped '\' is found at the end of a glob.
+⋮----
+/// An error associated with parsing or compiling a regex.
+⋮----
+fn description(&self) -> &str {
+⋮----
+impl Error {
+/// Return the glob that caused this error, if one exists.
+pub fn glob(&self) -> Option<&str> {
+⋮----
+/// Return the kind of this error.
+pub fn kind(&self) -> &ErrorKind {
+⋮----
+impl ErrorKind {
+fn description(&self) -> &str {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+fn new_regex(pat: &str) -> Result<Regex, Error> {
+⋮----
+fn new_regex_set(pats: Vec<String>) -> Result<Regex, Error> {
+⋮----
+/// GlobSet represents a group of globs that can be matched together in a
+/// single pass.
+⋮----
+pub struct GlobSet {
+len: usize,
+strats: Vec<GlobSetMatchStrategy>,
+pats: Vec<Glob>,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+⋮----
+impl GlobSet {
+/// Create a new [`GlobSetBuilder`]. A `GlobSetBuilder` can be used to add
+/// new patterns. Once all patterns have been added, `build` should be
+/// called to produce a `GlobSet`, which can then be used for matching.
+⋮----
+pub fn builder() -> GlobSetBuilder {
+⋮----
+/// Create an empty `GlobSet`. An empty set matches nothing.
+⋮----
+pub const fn empty() -> GlobSet {
+⋮----
+/// Returns true if this set is empty, and therefore matches nothing.
+⋮----
+pub fn is_empty(&self) -> bool {
+⋮----
+/// Returns the number of globs in this set.
+⋮----
+pub fn len(&self) -> usize {
+⋮----
+/// Returns true if any glob in this set matches the path given.
+pub fn is_match<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Returns true if any glob in this set matches the path given.
+///
+/// This takes a Candidate as input, which can be used to amortize the
+/// cost of preparing a path for matching.
+pub fn is_match_candidate(&self, path: &Candidate<'_>) -> bool {
+⋮----
+/// Returns true if all globs in this set match the path given.
+///
+/// This will return true if the set of globs is empty, as in that case all
+/// `0` of the globs will match.
+///
+/// ```
+/// use globset::{Glob, GlobSetBuilder};
+///
+/// let mut builder = GlobSetBuilder::new();
+/// builder.add(Glob::new("src/*").unwrap());
+/// builder.add(Glob::new("**/*.rs").unwrap());
+/// let set = builder.build().unwrap();
+///
+/// assert!(set.matches_all("src/foo.rs"));
+/// assert!(!set.matches_all("src/bar.c"));
+/// assert!(!set.matches_all("test.rs"));
+/// ```
+pub fn matches_all<P: AsRef<Path>>(&self, path: P) -> bool {
+⋮----
+/// Returns true if all globs in this set match the path given.
+///
+/// This takes a Candidate as input, which can be used to amortize the cost
+/// of preparing a path for matching.
+///
+/// This will return true if the set of globs is empty, as in that case all
+/// `0` of the globs will match.
+pub fn matches_all_candidate(&self, path: &Candidate<'_>) -> bool {
+⋮----
+/// Returns the sequence number of every glob pattern that matches the
+/// given path.
+pub fn matches<P: AsRef<Path>>(&self, path: P) -> Vec<usize> {
+⋮----
+/// Returns the sequence number of every glob pattern that matches the
+/// given path.
+///
+/// This takes a Candidate as input, which can be used to amortize the
+/// cost of preparing a path for matching.
+pub fn matches_candidate(&self, path: &Candidate<'_>) -> Vec<usize> {
+⋮----
+/// Adds the sequence number of every glob pattern that matches the given
+/// path to the vec given.
+///
+/// `into` is cleared before matching begins, and contains the set of
+/// sequence numbers (in ascending order) after matching ends. If no globs
+/// were matched, then `into` will be empty.
+pub fn matches_into<P: AsRef<Path>>(
+⋮----
+/// Adds the sequence number of every glob pattern that matches the given
+/// path to the vec given.
+///
+/// `into` is cleared before matching begins, and contains the set of
+/// sequence numbers (in ascending order) after matching ends. If no globs
+/// were matched, then `into` will be empty.
+///
+/// This takes a Candidate as input, which can be used to amortize the
+/// cost of preparing a path for matching.
+pub fn matches_candidate_into(
+⋮----
+/// Builds a new matcher from a collection of Glob patterns.
+///
+/// Once a matcher is built, no new patterns can be added to it.
+pub fn new<I, G>(globs: I) -> Result<GlobSet, Error>
+⋮----
+// Only add strategies that are populated
+⋮----
+impl Default for GlobSet {
+/// Create a default empty GlobSet.
+fn default() -> Self {
+⋮----
+/// GlobSetBuilder builds a group of patterns that can be used to
+/// simultaneously match a file path.
+⋮----
+pub struct GlobSetBuilder {
+pats: Vec<Glob>,
+⋮----
+impl GlobSetBuilder {
+/// Create a new `GlobSetBuilder`. A `GlobSetBuilder` can be used to add new
+/// patterns. Once all patterns have been added, `build` should be called
+/// to produce a [`GlobSet`], which can then be used for matching.
+pub fn new() -> GlobSetBuilder {
+⋮----
+/// Builds a new matcher from all of the glob patterns added so far.
+///
+/// Once a matcher is built, no new patterns can be added to it.
+pub fn build(&self) -> Result<GlobSet, Error> {
+⋮----
+/// Add a new pattern to this set.
+pub fn add(&mut self, pat: Glob) -> &mut GlobSetBuilder {
+⋮----
+/// A candidate path for matching.
+///
+/// All glob matching in this crate operates on `Candidate` values.
+/// Constructing candidates has a very small cost associated with it, so
+/// callers may find it beneficial to amortize that cost when matching a single
+/// path against multiple globs or sets of globs.
+⋮----
+pub struct Candidate<'a> {
+path: Cow<'a, [u8]>,
+basename: Cow<'a, [u8]>,
+ext: Cow<'a, [u8]>,
+⋮----
+fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+⋮----
+/// Create a new candidate for matching from the given path.
+pub fn new<P: AsRef<Path> + ?Sized>(path: &'a P) -> Candidate<'a> {
+⋮----
+/// Create a new candidate for matching from the given path as a sequence
+/// of bytes.
+///
+/// Generally speaking, this routine expects the bytes to be
+/// _conventionally_ UTF-8. It is legal for the byte sequence to contain
+/// invalid UTF-8. However, if the bytes are in some other encoding that
+/// isn't ASCII compatible (for example, UTF-16), then the results of
+/// matching are unspecified.
+pub fn from_bytes<P: AsRef<[u8]> + ?Sized>(path: &'a P) -> Candidate<'a> {
+⋮----
+fn from_cow(path: Cow<'a, [u8]>) -> Candidate<'a> {
+⋮----
+fn path_prefix(&self, max: usize) -> &[u8] {
+⋮----
+/// Returns the final component, including `..` for regex matching.
+fn basename_for_regex(&self) -> &[u8] {
+// Literal basename strategies skip `..`, but a regex can match it.
+⋮----
+fn path_suffix(&self, max: usize) -> &[u8] {
+⋮----
+enum GlobSetMatchStrategy {
+⋮----
+impl GlobSetMatchStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+struct LiteralStrategy {
+literals: fnv::HashMap<Vec<u8>, Vec<usize>>,
+// Literal byte lengths modulo 64, checked before hashing the path.
+lengths: u64,
+⋮----
+impl LiteralStrategy {
+fn new() -> LiteralStrategy {
+⋮----
+fn add(&mut self, global_index: usize, lit: String) {
+⋮----
+fn is_match(&self, path: &[u8]) -> bool {
+⋮----
+fn matches_all(&self, path: &[u8]) -> bool {
+⋮----
+fn matches_into(&self, path: &[u8], matches: &mut Vec<usize>) {
+⋮----
+/// Returns whether a length could match, allowing collisions modulo 64.
+fn may_match_length(&self, len: usize) -> bool {
+⋮----
+struct ExtensionStrategy(fnv::HashMap<Vec<u8>, Vec<usize>>);
+⋮----
+impl ExtensionStrategy {
+fn new() -> ExtensionStrategy {
+⋮----
+fn add(&mut self, global_index: usize, ext: String) {
+⋮----
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+struct PrefixStrategy {
+matcher: AhoCorasick,
+map: Vec<usize>,
+longest: usize,
+⋮----
+impl PrefixStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+// If all the prefixes match, we should get exactly one match for each
+// prefix at the beginning.
+⋮----
+fn matches_into(
+⋮----
+struct SuffixStrategy {
+matcher: AhoCorasick,
+map: Vec<usize>,
+longest: usize,
+⋮----
+impl SuffixStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+// If all the suffixes match, we should get exactly one match
+// for each suffix at the end.
+⋮----
+fn matches_into(
+⋮----
+struct RequiredExtensionStrategy(fnv::HashMap<Vec<u8>, Vec<(usize, Regex)>>);
+⋮----
+impl RequiredExtensionStrategy {
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+struct RegexSetStrategy {
+matcher: Regex,
+map: Vec<usize>,
+basename: bool,
+// We use a pool of PatternSets to hopefully allocating a fresh one on each
+// call.
+//
+// TODO: In the next semver breaking release, we should drop this pool and
+// expose an opaque type that wraps PatternSet. Then callers can provide
+// it to `matches_into` directly. Callers might still want to use a pool
+// or similar to amortize allocation, but that matches the status quo and
+// absolves us of needing to do it here.
+patset: Arc<Pool<PatternSet, PatternSetPoolFn>>,
+⋮----
+type PatternSetPoolFn =
+⋮----
+impl RegexSetStrategy {
+/// Returns the part of the path matched by these regexes.
+fn haystack<'a>(&self, candidate: &'a Candidate<'_>) -> &'a [u8] {
+⋮----
+fn is_match(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn find_matches(
+⋮----
+fn matches_all(&self, candidate: &Candidate<'_>) -> bool {
+⋮----
+fn matches_into(
+⋮----
+struct MultiStrategyBuilder {
+literals: Vec<String>,
+map: Vec<usize>,
+longest: usize,
+⋮----
+impl MultiStrategyBuilder {
+fn new() -> MultiStrategyBuilder {
+⋮----
+fn add(&mut self, global_index: usize, literal: String) {
+⋮----
+fn prefix(self) -> PrefixStrategy {
+⋮----
+fn suffix(self) -> SuffixStrategy {
+⋮----
+fn regex_set(self) -> Result<RegexSetStrategy, Error> {
+⋮----
+fn is_empty(&self) -> bool {
+⋮----
+struct RequiredExtensionStrategyBuilder(
+⋮----
+impl RequiredExtensionStrategyBuilder {
+fn new() -> RequiredExtensionStrategyBuilder {
+⋮----
+fn add(&mut self, global_index: usize, ext: String, regex: String) {
+⋮----
+fn build(self) -> Result<RequiredExtensionStrategy, Error> {
+⋮----
+/// Escape meta-characters within the given glob pattern.
+///
+/// The escaping works by surrounding meta-characters with brackets. For
+/// example, `*` becomes `[*]`.
+///
+/// # Example
+///
+/// ```
+/// use globset::escape;
+///
+/// assert_eq!(escape("foo*bar"), "foo[*]bar");
+/// assert_eq!(escape("foo?bar"), "foo[?]bar");
+/// assert_eq!(escape("foo[bar"), "foo[[]bar");
+/// assert_eq!(escape("foo]bar"), "foo[]]bar");
+/// assert_eq!(escape("foo{bar"), "foo[{]bar");
+/// assert_eq!(escape("foo}bar"), "foo[}]bar");
+/// ```
+pub fn escape(s: &str) -> String {
+⋮----
+// note that ! does not need escaping because it is only special
+// inside brackets
+⋮----
+mod tests {
+⋮----
+fn build_glob_set(globs: &[&str]) -> GlobSet {
+⋮----
+fn debug_impl_is_concise() {
+⋮----
+fn set_works() {
+⋮----
+fn empty_set_works() {
+⋮----
+fn matches_all_literals() {
+⋮----
+fn matches_all_basename_literals() {
+⋮----
+fn matches_all_extensions() {
+⋮----
+fn matches_all_required_extensions() {
+⋮----
+fn matches_all_prefix() {
+⋮----
+fn matches_all_suffix() {
+⋮----
+fn matches_all_regex() {
+⋮----
+fn basename_regex_with_path_rules() {
+⋮----
+fn basename_regex_parent_component() {
+⋮----
+fn default_set_is_empty_works() {
+⋮----
+fn escape() {
+use super::escape;
+⋮----
+// This tests that regex matching doesn't "remember" the results of
+// previous searches. That is, if any memory is reused from a previous
+// search, then it should be cleared first.
+⋮----
+fn set_does_not_remember() {
+⋮----
+fn debug() {
+⋮----
+fn literal_length_filter() {
+⋮----
+fn basename_literal_length_filter() {
+</file>
+
+<file path="src/pathutil.rs">
+use std::borrow::Cow;
+⋮----
+use bstr::ByteSlice;
+⋮----
+/// The final component of the path, if it is a normal file.
+///
+/// If the path terminates in `..`, or consists solely of a root of prefix,
+/// file_name will return `None`.
+pub(crate) fn file_name<'a>(path: &Cow<'a, [u8]>) -> Option<Cow<'a, [u8]>> {
+⋮----
+/// Return a file extension given a path's file name.
+///
+/// Note that this does NOT match the semantics of std::path::Path::extension.
+/// Namely, the extension includes the `.` and matching is otherwise more
+/// liberal. Specifically, the extension is:
+///
+/// * None, if the file name given is empty;
+/// * None, if there is no embedded `.`;
+/// * Otherwise, the portion of the file name starting with the final `.`.
+///
+/// e.g., A file name of `.rs` has an extension `.rs`.
+///
+/// N.B. This is done to make certain glob match optimizations easier. Namely,
+/// a pattern like `*.rs` is obviously trying to match files with a `rs`
+/// extension, but it also matches files like `.rs`, which doesn't have an
+/// extension according to std::path::Path::extension.
+pub(crate) fn file_name_ext<'a>(
+⋮----
+/// Normalizes a path to use `/` as a separator everywhere, even on platforms
+/// that recognize other characters as separators.
+⋮----
+pub(crate) fn normalize_path(path: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
+// UNIX only uses /, so we're good.
+⋮----
+/// Normalizes a path to use `/` as a separator everywhere, even on platforms
+/// that recognize other characters as separators.
+⋮----
+pub(crate) fn normalize_path(mut path: Cow<[u8]>) -> Cow<[u8]> {
+use std::path::is_separator;
+⋮----
+mod tests {
+use std::borrow::Cow;
+⋮----
+macro_rules! name {
+⋮----
+macro_rules! ext {
+⋮----
+macro_rules! normalize {
+</file>
+
+<file path="src/serde_impl.rs">
+impl Serialize for Glob {
+fn serialize<S: Serializer>(
+⋮----
+struct GlobVisitor;
+⋮----
+type Value = Glob;
+⋮----
+fn expecting(
+⋮----
+fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+struct GlobSetVisitor;
+⋮----
+type Value = GlobSet;
+⋮----
+fn expecting(
+⋮----
+fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+mod tests {
+use std::collections::HashMap;
+⋮----
+fn glob_deserialize_borrowed() {
+⋮----
+fn glob_deserialize_owned() {
+⋮----
+fn glob_deserialize_error() {
+⋮----
+fn glob_json_works() {
+⋮----
+fn glob_set_deserialize() {
+</file>
+
+<file path="README.md">
+globset
+=======
+Cross platform single glob and glob set matching. Glob set matching is the
+process of matching one or more glob patterns against a single candidate path
+simultaneously, and returning all of the globs that matched.
+
+[![Build status](https://github.com/BurntSushi/ripgrep/workflows/ci/badge.svg)](https://github.com/BurntSushi/ripgrep/actions)
+[![](https://img.shields.io/crates/v/globset.svg)](https://crates.io/crates/globset)
+
+Dual-licensed under MIT or the [UNLICENSE](https://unlicense.org/).
+
+### Documentation
+
+[https://docs.rs/globset](https://docs.rs/globset)
+
+### Usage
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+globset = "0.4"
+```
+
+### Features
+
+* `serde1`: Enables implementing Serde traits on the `Glob` type.
+
+### Example: one glob
+
+This example shows how to match a single glob against a single file path.
+
+```rust
+use globset::Glob;
+
+let glob = Glob::new("*.rs")?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(glob.is_match("foo/bar.rs"));
+assert!(!glob.is_match("Cargo.toml"));
+```
+
+### Example: configuring a glob matcher
+
+This example shows how to use a `GlobBuilder` to configure aspects of match
+semantics. In this example, we prevent wildcards from matching path separators.
+
+```rust
+use globset::GlobBuilder;
+
+let glob = GlobBuilder::new("*.rs")
+    .literal_separator(true).build()?.compile_matcher();
+
+assert!(glob.is_match("foo.rs"));
+assert!(!glob.is_match("foo/bar.rs")); // no longer matches
+assert!(!glob.is_match("Cargo.toml"));
+```
+
+### Example: match multiple globs at once
+
+This example shows how to match multiple glob patterns at once.
+
+```rust
+use globset::{Glob, GlobSetBuilder};
+
+let mut builder = GlobSetBuilder::new();
+// A GlobBuilder can be used to configure each glob's match semantics
+// independently.
+builder.add(Glob::new("*.rs")?);
+builder.add(Glob::new("src/lib.rs")?);
+builder.add(Glob::new("src/**/foo.rs")?);
+let set = builder.build()?;
+
+assert_eq!(set.matches("src/bar/baz/foo.rs"), vec![0, 2]);
+```
+
+### Performance
+
+This crate implements globs by converting them to regular expressions, and
+executing them with the
+[`regex`](https://github.com/rust-lang/regex)
+crate.
+
+For single glob matching, performance of this crate should be roughly on par
+with the performance of the
+[`glob`](https://github.com/rust-lang/glob)
+crate. (`*_regex` correspond to benchmarks for this library while `*_glob`
+correspond to benchmarks for the `glob` library.)
+Optimizations in the `regex` crate may propel this library past `glob`,
+particularly when matching longer paths.
+
+```
+test ext_glob             ... bench:         425 ns/iter (+/- 21)
+test ext_regex            ... bench:         175 ns/iter (+/- 10)
+test long_glob            ... bench:         182 ns/iter (+/- 11)
+test long_regex           ... bench:         173 ns/iter (+/- 10)
+test short_glob           ... bench:          69 ns/iter (+/- 4)
+test short_regex          ... bench:          83 ns/iter (+/- 2)
+```
+
+The primary performance advantage of this crate is when matching multiple
+globs against a single path. With the `glob` crate, one must match each glob
+synchronously, one after the other. In this crate, many can be matched
+simultaneously. For example:
+
+```
+test many_short_glob      ... bench:       1,063 ns/iter (+/- 47)
+test many_short_regex_set ... bench:         186 ns/iter (+/- 11)
+```
+
+### Comparison with the [`glob`](https://github.com/rust-lang/glob) crate
+
+* Supports alternate "or" globs, e.g., `*.{foo,bar}`.
+* Can match non-UTF-8 file paths correctly.
+* Supports matching multiple globs at once.
+* Doesn't provide a recursive directory iterator of matching file paths,
+  although I believe this crate should grow one eventually.
+* Supports case insensitive and require-literal-separator match options, but
+  **doesn't** support the require-literal-leading-dot option.
+</file>
+
+</files>

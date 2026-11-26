@@ -1,0 +1,25 @@
+[package]
+name = "assay"
+description = "Your eval harness: seeded corpus of honest and lying sessions, acceptance gate and pass ablations"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bedrock.workspace = true
+brief.workspace = true
+cell.workspace = true
+crossexam.workspace = true
+docket.workspace = true
+exhibit.workspace = true
+intake.workspace = true
+roster.workspace = true
+seal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,15 @@
+[package]
+name = "intake"
+description = "Takes testimony in: normalize and typecheck agent claims against the claim schema"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bedrock.workspace = true
+jsonschema.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

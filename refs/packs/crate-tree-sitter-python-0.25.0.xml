@@ -1,0 +1,80 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: README.md, src/**/*.rs, examples/**/*.rs, binding_rust/**/*.rs
+- Files matching these patterns are excluded: **/tests/**, **/benches/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="README.md">
+# tree-sitter-python
+
+[![CI][ci]](https://github.com/tree-sitter/tree-sitter-python/actions/workflows/ci.yml)
+[![discord][discord]](https://discord.gg/w7nTvsVJhm)
+[![matrix][matrix]](https://matrix.to/#/#tree-sitter-chat:matrix.org)
+[![crates][crates]](https://crates.io/crates/tree-sitter-python)
+[![npm][npm]](https://www.npmjs.com/package/tree-sitter-python)
+[![pypi][pypi]](https://pypi.org/project/tree-sitter-python/)
+
+Python grammar for [tree-sitter][].
+
+[tree-sitter]: https://github.com/tree-sitter/tree-sitter
+
+## References
+
+- [Python 2 Grammar](https://docs.python.org/2/reference/grammar.html)
+- [Python 3 Grammar](https://docs.python.org/3/reference/grammar.html)
+
+[ci]: https://img.shields.io/github/actions/workflow/status/tree-sitter/tree-sitter-python/ci.yml?logo=github&label=CI
+[discord]: https://img.shields.io/discord/1063097320771698699?logo=discord&label=discord
+[matrix]: https://img.shields.io/matrix/tree-sitter-chat%3Amatrix.org?logo=matrix&label=matrix
+[npm]: https://img.shields.io/npm/v/tree-sitter-python?logo=npm
+[crates]: https://img.shields.io/crates/v/tree-sitter-python?logo=rust
+[pypi]: https://img.shields.io/pypi/v/tree-sitter-python?logo=pypi&logoColor=ffd242
+</file>
+
+</files>

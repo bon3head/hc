@@ -1,0 +1,3084 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: src/**/*.rs, README.md
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  interchange/
+    cjson/
+      mod.rs
+      pretty.rs
+      shims.rs
+    mod.rs
+  models/
+    envelope/
+      envelope_file.rs
+      mod.rs
+      pae_v1.rs
+    layout/
+      inspection.rs
+      metadata.rs
+      mod.rs
+      rule.rs
+      step.rs
+      supply_chain_item.rs
+    link/
+      byproducts.rs
+      metadata.rs
+      mod.rs
+    predicate/
+      link_v02.rs
+      mod.rs
+      slsa_provenance_v01.rs
+      slsa_provenance_v02.rs
+    statement/
+      mod.rs
+      state_naive.rs
+      state_v01.rs
+    helpers.rs
+    metadata.rs
+    mod.rs
+  crypto.rs
+  error.rs
+  format_hex.rs
+  lib.rs
+  rulelib.rs
+  runlib.rs
+  verifylib.rs
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/interchange/cjson/mod.rs">
+use serde::de::DeserializeOwned;
+use serde::ser::Serialize;
+use std::collections::BTreeMap;
+⋮----
+use crate::error::Error;
+use crate::interchange::DataInterchange;
+use crate::Result;
+⋮----
+pub(crate) mod pretty;
+pub(crate) mod shims;
+⋮----
+pub use pretty::JsonPretty;
+⋮----
+/// JSON data interchange.
+///
+/// # Schema
+///
+/// This doesn't use JSON Schema because that specification language is rage inducing. Here's
+/// something else instead.
+///
+/// ## Common Entities
+///
+/// `NATURAL_NUMBER` is an integer in the range `[1, 2**32)`.
+///
+/// `EXPIRES` is an ISO-8601 date time in format `YYYY-MM-DD'T'hh:mm:ss'Z'`.
+///
+/// `KEY_ID` is the hex encoded value of `sha256(cjson(pub_key))`.
+///
+/// `PUB_KEY` is the following:
+///
+/// ```bash
+/// {
+///   "type": KEY_TYPE,
+///   "scheme": SCHEME,
+///   "value": PUBLIC
+/// }
+/// ```
+///
+/// `PUBLIC` is a base64url encoded `SubjectPublicKeyInfo` DER public key.
+///
+/// `KEY_TYPE` is a string (either `rsa` or `ed25519`).
+///
+/// `SCHEME` is a string (either `ed25519`, `rsassa-pss-sha256`, or `rsassa-pss-sha512`
+///
+/// `HASH_VALUE` is a hex encoded hash value.
+///
+/// `SIG_VALUE` is a hex encoded signature value.
+///
+/// `METADATA_DESCRIPTION` is the following:
+///
+/// ```bash
+/// {
+///   "version": NATURAL_NUMBER,
+///   "length": NATURAL_NUMBER,
+///   "hashes": {
+///     HASH_ALGORITHM: HASH_VALUE
+///     ...
+///   }
+/// }
+/// ```
+///
+/// ## `Metablock`
+///
+/// ```bash
+/// {
+///   "signatures": [SIGNATURE],
+///   "signed": SIGNED
+/// }
+/// ```
+///
+/// `SIGNATURE` is:
+///
+/// ```bash
+/// {
+///   "keyid": KEY_ID,
+///   "signature": SIG_VALUE
+/// }
+/// ```
+///
+/// `SIGNED` is one of:
+///
+/// - `RootMetadata`
+/// - `SnapshotMetadata`
+/// - `TargetsMetadata`
+/// - `TimestampMetadata`
+///
+/// The the elements of `signatures` must have unique `key_id`s.
+///
+/// ## `RootMetadata`
+///
+/// ```bash
+/// {
+///   "_type": "root",
+///   "version": NATURAL_NUMBER,
+///   "expires": EXPIRES,
+///   "keys": [PUB_KEY, ...]
+///   "roles": {
+///     "root": ROLE_DESCRIPTION,
+///     "snapshot": ROLE_DESCRIPTION,
+///     "targets": ROLE_DESCRIPTION,
+///     "timestamp": ROLE_DESCRIPTION
+///   }
+/// }
+/// ```
+///
+/// `ROLE_DESCRIPTION` is the following:
+///
+/// ```bash
+/// {
+///   "threshold": NATURAL_NUMBER,
+///   "keyids": [KEY_ID, ...]
+/// }
+/// ```
+///
+/// ## `SnapshotMetadata`
+///
+/// ```bash
+/// {
+///   "_type": "snapshot",
+///   "version": NATURAL_NUMBER,
+///   "expires": EXPIRES,
+///   "meta": {
+///     META_PATH: METADATA_DESCRIPTION
+///   }
+/// }
+/// ```
+///
+/// `META_PATH` is a string.
+///
+///
+/// ## `TargetsMetadata`
+///
+/// ```bash
+/// {
+///   "_type": "timestamp",
+///   "version": NATURAL_NUMBER,
+///   "expires": EXPIRES,
+///   "targets": {
+///     TARGET_PATH: TARGET_DESCRIPTION
+///     ...
+///   },
+/// }
+/// ```
+///
+/// `ROLE` is a string,
+///
+/// `PATH` is a string.
+///
+/// ## `TimestampMetadata`
+///
+/// ```bash
+/// {
+///   "_type": "timestamp",
+///   "version": NATURAL_NUMBER,
+///   "expires": EXPIRES,
+///   "snapshot": METADATA_DESCRIPTION
+/// }
+/// ```
+⋮----
+pub struct Json;
+⋮----
+impl DataInterchange for Json {
+type RawData = serde_json::Value;
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, Json};
+/// assert_eq!(Json::extension(), "json");
+/// ```
+fn extension() -> &'static str {
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, Json};
+/// # use std::collections::HashMap;
+/// let jsn: &[u8] = br#"{"foo": "bar", "baz": "quux"}"#;
+/// let raw = Json::from_reader(jsn).unwrap();
+/// let out = Json::canonicalize(&raw).unwrap();
+/// assert_eq!(out, br#"{"baz":"quux","foo":"bar"}"#);
+/// ```
+fn canonicalize(raw_data: &Self::RawData) -> Result<Vec<u8>> {
+⋮----
+/// ```
+/// # use serde::Deserialize;
+/// # use serde_json::json;
+/// # use std::collections::HashMap;
+/// # use in_toto::interchange::{DataInterchange, Json};
+/// #
+/// #[derive(Deserialize, Debug, PartialEq)]
+/// struct Thing {
+///    foo: String,
+///    bar: String,
+/// }
+///
+/// # fn main() {
+/// let jsn = json!({"foo": "wat", "bar": "lol"});
+/// let thing = Thing { foo: "wat".into(), bar: "lol".into() };
+/// let de: Thing = Json::deserialize(&jsn).unwrap();
+/// assert_eq!(de, thing);
+/// # }
+/// ```
+fn deserialize<T>(raw_data: &Self::RawData) -> Result<T>
+⋮----
+/// ```
+/// # use serde::Serialize;
+/// # use serde_json::json;
+/// # use std::collections::HashMap;
+/// # use in_toto::interchange::{DataInterchange, Json};
+/// #
+/// #[derive(Serialize)]
+/// struct Thing {
+///    foo: String,
+///    bar: String,
+/// }
+///
+/// # fn main() {
+/// let jsn = json!({"foo": "wat", "bar": "lol"});
+/// let thing = Thing { foo: "wat".into(), bar: "lol".into() };
+/// let se: serde_json::Value = Json::serialize(&thing).unwrap();
+/// assert_eq!(se, jsn);
+/// # }
+/// ```
+fn serialize<T>(data: &T) -> Result<Self::RawData>
+⋮----
+/// ```
+/// # use serde_json::json;
+/// # use in_toto::interchange::{DataInterchange, Json};
+/// let json = json!({
+///     "o": {
+///         "a": [1, 2, 3],
+///         "s": "string",
+///         "n": 123,
+///         "t": true,
+///         "f": false,
+///         "0": null,
+///     },
+/// });
+/// let mut buf = Vec::new();
+/// Json::to_writer(&mut buf, &json).unwrap();
+/// assert_eq!(
+///     &String::from_utf8(buf).unwrap(),
+///     r#"{"o":{"0":null,"a":[1,2,3],"f":false,"n":123,"s":"string","t":true}}"#
+/// );
+/// ```
+fn to_writer<W, T>(mut writer: W, value: &T) -> Result<()>
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, Json};
+/// # use std::collections::HashMap;
+/// let jsn: &[u8] = br#"{"foo": "bar", "baz": "quux"}"#;
+/// let _: HashMap<String, String> = Json::from_reader(jsn).unwrap();
+/// ```
+fn from_reader<R, T>(rdr: R) -> Result<T>
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, Json};
+/// # use std::collections::HashMap;
+/// let jsn: &[u8] = br#"{"foo": "bar", "baz": "quux"}"#;
+/// let _: HashMap<String, String> = Json::from_slice(&jsn).unwrap();
+/// ```
+fn from_slice<T>(slice: &[u8]) -> Result<T>
+⋮----
+fn canonicalize(
+⋮----
+let _ = converted.write(&mut buf); // Vec<u8> impl always succeeds (or panics).
+⋮----
+enum Value {
+⋮----
+impl Value {
+fn write(&self, buf: &mut Vec<u8>) -> std::result::Result<(), String> {
+⋮----
+// this mess is abusing serde_json to get json escaping
+⋮----
+// this mess is abusing serde_json to get json escaping
+⋮----
+enum Number {
+⋮----
+fn convert(jsn: &serde_json::Value) -> std::result::Result<Value, String> {
+⋮----
+mod test {
+⋮----
+fn write_str() {
+⋮----
+fn write_arr() {
+⋮----
+fn write_obj() {
+</file>
+
+<file path="src/interchange/cjson/pretty.rs">
+use serde::de::DeserializeOwned;
+use serde::ser::Serialize;
+⋮----
+use super::Json;
+use crate::interchange::DataInterchange;
+use crate::Result;
+⋮----
+/// Pretty JSON data interchange.
+///
+/// This is identical to [Json] in all manners except for the `to_writer` method. Instead of
+/// writing the metadata in the canonical format, it instead pretty prints the metadata.
+⋮----
+pub struct JsonPretty;
+⋮----
+impl DataInterchange for JsonPretty {
+type RawData = serde_json::Value;
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, JsonPretty};
+/// assert_eq!(JsonPretty::extension(), "json");
+/// ```
+fn extension() -> &'static str {
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, JsonPretty};
+/// # use std::collections::HashMap;
+/// let jsn: &[u8] = br#"{"foo": "bar", "baz": "quux"}"#;
+/// let raw = JsonPretty::from_reader(jsn).unwrap();
+/// let out = JsonPretty::canonicalize(&raw).unwrap();
+/// assert_eq!(out, br#"{"baz":"quux","foo":"bar"}"#);
+/// ```
+fn canonicalize(raw_data: &Self::RawData) -> Result<Vec<u8>> {
+⋮----
+/// ```
+/// # use serde::Deserialize;
+/// # use serde_json::json;
+/// # use std::collections::HashMap;
+/// # use in_toto::interchange::{DataInterchange, JsonPretty};
+/// #
+/// #[derive(Deserialize, Debug, PartialEq)]
+/// struct Thing {
+///    foo: String,
+///    bar: String,
+/// }
+///
+/// # fn main() {
+/// let jsn = json!({"foo": "wat", "bar": "lol"});
+/// let thing = Thing { foo: "wat".into(), bar: "lol".into() };
+/// let de: Thing = JsonPretty::deserialize(&jsn).unwrap();
+/// assert_eq!(de, thing);
+/// # }
+/// ```
+fn deserialize<T>(raw_data: &Self::RawData) -> Result<T>
+⋮----
+/// ```
+/// # use serde::Serialize;
+/// # use serde_json::json;
+/// # use std::collections::HashMap;
+/// # use in_toto::interchange::{DataInterchange, JsonPretty};
+/// #
+/// #[derive(Serialize)]
+/// struct Thing {
+///    foo: String,
+///    bar: String,
+/// }
+///
+/// # fn main() {
+/// let jsn = json!({"foo": "wat", "bar": "lol"});
+/// let thing = Thing { foo: "wat".into(), bar: "lol".into() };
+/// let se: serde_json::Value = JsonPretty::serialize(&thing).unwrap();
+/// assert_eq!(se, jsn);
+/// # }
+/// ```
+fn serialize<T>(data: &T) -> Result<Self::RawData>
+⋮----
+/// ```
+/// # use serde_json::json;
+/// # use in_toto::interchange::{DataInterchange, JsonPretty};
+/// let json = json!({
+///     "o": {
+///         "a": [1, 2, 3],
+///         "s": "string",
+///         "n": 123,
+///         "t": true,
+///         "f": false,
+///         "0": null,
+///     },
+/// });
+/// let mut buf = Vec::new();
+/// JsonPretty::to_writer(&mut buf, &json).unwrap();
+/// assert_eq!(&String::from_utf8(buf).unwrap(), r#"{
+///   "o": {
+///     "0": null,
+///     "a": [
+///       1,
+///       2,
+///       3
+///     ],
+///     "f": false,
+///     "n": 123,
+///     "s": "string",
+///     "t": true
+///   }
+/// }"#);
+/// ```
+fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, JsonPretty};
+/// # use std::collections::HashMap;
+/// let jsn: &[u8] = br#"{"foo": "bar", "baz": "quux"}"#;
+/// let _: HashMap<String, String> = JsonPretty::from_reader(jsn).unwrap();
+/// ```
+fn from_reader<R, T>(rdr: R) -> Result<T>
+⋮----
+/// ```
+/// # use in_toto::interchange::{DataInterchange, JsonPretty};
+/// # use std::collections::HashMap;
+/// let jsn: &[u8] = br#"{"foo": "bar", "baz": "quux"}"#;
+/// let _: HashMap<String, String> = JsonPretty::from_slice(&jsn).unwrap();
+/// ```
+fn from_slice<T>(slice: &[u8]) -> Result<T>
+</file>
+
+<file path="src/interchange/cjson/shims.rs">
+// FIXME: imports will be relevant for layout expiration
+//use chrono::offset::Utc;
+//use chrono::prelude::*;
+⋮----
+use crate::crypto;
+⋮----
+pub struct PublicKey {
+keytype: crypto::KeyType,
+scheme: crypto::SignatureScheme,
+⋮----
+keyid_hash_algorithms: Option<Vec<String>>,
+keyval: PublicKeyValue,
+⋮----
+keyid: Option<String>,
+⋮----
+impl PublicKey {
+pub fn new(
+⋮----
+pub fn public_key(&self) -> &str {
+⋮----
+pub fn scheme(&self) -> &crypto::SignatureScheme {
+⋮----
+pub fn keytype(&self) -> &crypto::KeyType {
+⋮----
+pub fn keyid_hash_algorithms(&self) -> &Option<Vec<String>> {
+⋮----
+pub struct PublicKeyValue {
+public: String,
+⋮----
+private: Option<String>,
+</file>
+
+<file path="src/interchange/mod.rs">
+//! Structures and functions to aid in various in-toto data interchange formats.
+⋮----
+pub(crate) mod cjson;
+⋮----
+use serde::de::DeserializeOwned;
+use serde::ser::Serialize;
+use std::fmt::Debug;
+⋮----
+use crate::Result;
+⋮----
+/// The format used for data interchange, serialization, and deserialization.
+pub trait DataInterchange: Debug + PartialEq + Clone {
+/// The type of data that is contained in the `signed` portion of metadata.
+⋮----
+/// The data interchange's extension.
+fn extension() -> &'static str;
+⋮----
+/// A function that canonicalizes data to allow for deterministic signatures.
+fn canonicalize(raw_data: &Self::RawData) -> Result<Vec<u8>>;
+⋮----
+/// Deserialize from `RawData`.
+fn deserialize<T>(raw_data: &Self::RawData) -> Result<T>
+    where
+        T: DeserializeOwned;
+⋮----
+/// Serialize into `RawData`.
+fn serialize<T>(data: &T) -> Result<Self::RawData>
+    where
+        T: Serialize;
+⋮----
+/// Write a struct to a stream.
+⋮----
+fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
+    where
+        W: Write,
+        T: Serialize + Sized;
+⋮----
+/// Read a struct from a stream.
+fn from_reader<R, T>(rdr: R) -> Result<T>
+    where
+        R: Read,
+        T: DeserializeOwned;
+⋮----
+/// Read a struct from a stream.
+fn from_slice<T>(slice: &[u8]) -> Result<T>
+    where
+        T: DeserializeOwned;
+</file>
+
+<file path="src/models/envelope/envelope_file.rs">
+use crate::interchange::DataInterchange;
+use crate::Result;
+⋮----
+pub struct EnvelopeFile {
+payload: String,
+payload_type: String,
+signatures: Vec<Signature>,
+⋮----
+impl EnvelopeFile {
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn new(
+⋮----
+/// standard serialize for EnvelopeFile
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+/// standard deserialize for EnvelopeFile
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn signatures(&self) -> &Vec<Signature> {
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn payload(&self) -> &String {
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn payload_type(&self) -> &String {
+⋮----
+mod test_envelope_file {
+use std::str;
+⋮----
+use once_cell::sync::Lazy;
+⋮----
+use super::EnvelopeFile;
+// TODO: change to mock test use mockall
+use crate::crypto::Signature;
+⋮----
+pub struct EnvelopeFileTuple<'a> {
+name: String,
+payload: String,
+payload_type: String,
+signatures: Vec<Signature>,
+packet: &'a str,
+⋮----
+fn serialize_link() {
+⋮----
+fn deserialize_link() {
+</file>
+
+<file path="src/models/envelope/mod.rs">
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+⋮----
+use self::pae_v1::PaeV1;
+⋮----
+mod envelope_file;
+mod pae_v1;
+⋮----
+pub trait DSSEParser {
+fn pae_pack(payload_ver: String, payload: &[u8]) -> Vec<u8>;
+fn pae_unpack(bytes: &[u8]) -> Result<(Vec<u8>, String)>;
+⋮----
+/// DSSE global packer and unpacker.
+⋮----
+pub enum DSSEVersion {
+⋮----
+impl DSSEVersion {
+/// Use Pre-Authentication Encoding to pack payload for any version.
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn pack(&self, payload: &[u8], payload_ver: String) -> Vec<u8> {
+⋮----
+/// Use Pre-Authentication Encoding to unpack payload for any version.
+pub fn unpack(&self, bytes: &[u8]) -> Result<(Vec<u8>, String)> {
+// Note: if two of the versions is compatible with each other
+// `try_unpack` may failed to find the right version.
+⋮----
+/// Use Pre-Authentication Encoding to auto unpack a possible version.
+⋮----
+// TODO: remove #[allow(dead_code)] after metadata deploy
+pub fn try_unpack(bytes: &[u8]) -> Result<(Vec<u8>, String)> {
+⋮----
+mod pae_test {
+use once_cell::sync::Lazy;
+⋮----
+pub struct EnvelopeFileTuple {
+pub(crate) name: String,
+pub(crate) inner_payload: &'static str,
+pub(crate) payload_ver: String,
+</file>
+
+<file path="src/models/envelope/pae_v1.rs">
+use std::str;
+⋮----
+use super::DSSEParser;
+use crate::Error;
+use crate::Result;
+⋮----
+pub struct PaeV1;
+⋮----
+/// Extract length and payload from bytes and consume them
+///
+/// length, SPLIT, next -> (length, next)
+fn consume_load_len(raw: &[u8]) -> Result<(usize, &[u8])> {
+⋮----
+impl DSSEParser for PaeV1 {
+/// Use Pre-Authentication Encoding to pack payload for DSSE v1.
+fn pae_pack(payload_ver: String, payload: &[u8]) -> Vec<u8> {
+⋮----
+/// Use Pre-Authentication Encoding to unpack payload for DSSE v1.
+fn pae_unpack(bytes: &[u8]) -> Result<(Vec<u8>, String)> {
+// Strip prefix + split "DSSEv1 "
+⋮----
+// Extract payload_ver from bytes
+⋮----
+// Extract payload from bytes
+⋮----
+mod pae_test {
+use std::collections::HashMap;
+use std::str;
+⋮----
+use once_cell::sync::Lazy;
+⋮----
+fn test_pack() {
+⋮----
+fn test_unpack() {
+</file>
+
+<file path="src/models/layout/inspection.rs">
+//! in-toto layout's Inspection
+⋮----
+use crate::supply_chain_item_derive;
+⋮----
+pub struct Inspection {
+⋮----
+pub typ: String,
+⋮----
+pub name: String,
+pub expected_materials: Vec<ArtifactRule>,
+pub expected_products: Vec<ArtifactRule>,
+pub run: Command,
+⋮----
+impl Inspection {
+pub fn new(name: &str) -> Self {
+⋮----
+/// Set expected command for this Inspection
+pub fn run(mut self, command: Command) -> Self {
+⋮----
+// Derive operations on `materials`/`products` and `name`
+⋮----
+impl SupplyChainItem for Inspection {
+fn name(&self) -> &str {
+⋮----
+fn expected_materials(&self) -> &Vec<ArtifactRule> {
+⋮----
+fn expected_products(&self) -> &Vec<ArtifactRule> {
+⋮----
+mod test {
+use assert_json_diff::assert_json_eq;
+use serde_json::json;
+⋮----
+use super::Inspection;
+⋮----
+fn serialize_inspection() {
+⋮----
+fn deserialize_inspection() {
+</file>
+
+<file path="src/models/layout/metadata.rs">
+//! in-toto layoput metadata.
+⋮----
+use std::collections::HashMap;
+⋮----
+use crate::crypto::KeyId;
+use crate::crypto::PublicKey;
+⋮----
+use crate::Result;
+⋮----
+use super::Layout;
+⋮----
+/// Helper to construct `LayoutMetadata`
+pub struct LayoutMetadataBuilder {
+expires: DateTime<Utc>,
+readme: String,
+keys: HashMap<KeyId, PublicKey>,
+steps: Vec<Step>,
+inspect: Vec<Inspection>,
+⋮----
+impl Default for LayoutMetadataBuilder {
+fn default() -> Self {
+⋮----
+impl LayoutMetadataBuilder {
+/// Create a new `LayoutMetadataBuilder`. It defaults to:
+///
+/// * expires: 365 days from the current time.
+/// * readme: ""
+pub fn new() -> Self {
+⋮----
+/// Set expire time for this layout
+pub fn expires(mut self, expires: DateTime<Utc>) -> Self {
+⋮----
+/// Set readme field fot this layout
+pub fn readme(mut self, readme: String) -> Self {
+⋮----
+/// Add new step to this layout
+pub fn add_step(mut self, step: Step) -> Self {
+⋮----
+/// Add new steps to this layout
+pub fn add_steps(mut self, mut steps: Vec<Step>) -> Self {
+⋮----
+/// Set steps to this layout
+pub fn steps(mut self, steps: Vec<Step>) -> Self {
+⋮----
+/// Add new inspect to this layout
+pub fn add_inspect(mut self, inspect: Inspection) -> Self {
+⋮----
+/// Add new inspects to this layout
+pub fn add_inspects(mut self, mut inspects: Vec<Inspection>) -> Self {
+⋮----
+/// Set inspects to this layout
+pub fn inspects(mut self, step: Vec<Inspection>) -> Self {
+⋮----
+/// Add a new pubkey to this layout
+pub fn add_key(mut self, key: PublicKey) -> Self {
+⋮----
+pub fn build(self) -> Result<LayoutMetadata> {
+⋮----
+/// layout metadata
+⋮----
+pub struct LayoutMetadata {
+pub steps: Vec<Step>,
+pub inspect: Vec<Inspection>,
+pub keys: HashMap<KeyId, PublicKey>,
+pub expires: DateTime<Utc>,
+pub readme: String,
+⋮----
+impl LayoutMetadata {
+pub fn new(
+⋮----
+impl Metadata for LayoutMetadata {
+fn typ(&self) -> MetadataType {
+⋮----
+fn into_enum(self: Box<Self>) -> MetadataWrapper {
+⋮----
+fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+impl Serialize for LayoutMetadata {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+</file>
+
+<file path="src/models/layout/mod.rs">
+//! in-toto layout: used by the project owner to generate a desired supply chain layout file.
+⋮----
+use std::collections::BTreeMap;
+⋮----
+use log::warn;
+⋮----
+pub mod inspection;
+mod metadata;
+pub mod rule;
+pub mod step;
+pub mod supply_chain_item;
+⋮----
+pub struct Layout {
+⋮----
+typ: String,
+expires: String,
+readme: String,
+keys: BTreeMap<KeyId, PublicKey>,
+steps: Vec<Step>,
+inspect: Vec<Inspection>,
+⋮----
+impl Layout {
+pub fn from(meta: &LayoutMetadata) -> Result<Self> {
+⋮----
+pub fn try_into(self) -> Result<LayoutMetadata> {
+// Ignore all keys with incorrect key IDs.
+// If a malformed key is used, there will be a warning
+⋮----
+fn parse_datetime(ts: &str) -> Result<DateTime<Utc>> {
+⋮----
+fn format_datetime(ts: &DateTime<Utc>) -> String {
+⋮----
+mod test {
+use assert_json_diff::assert_json_eq;
+use chrono::DateTime;
+use serde_json::json;
+⋮----
+fn parse_datetime_test() {
+⋮----
+fn format_datetime_test() {
+⋮----
+fn get_example_layout_metadata() -> Layout {
+⋮----
+fn serialize_layout() {
+⋮----
+fn deserialize_layout() {
+</file>
+
+<file path="src/models/layout/rule.rs">
+//! # Artifact Rules
+//!
+//! Artifact rules are used to connect steps together through their
+//! materials or products. When connecting steps together, in-toto
+//! allows the project owner to enforce the existence of certain
+//! artifacts within a step (e.g., the README can only be created
+//! in the create-documentation step) and authorize operations on
+//! artifacts (e.g., the compile step can use the materials from
+//! the checkout-vcs).
+//!
+//! # Format of Artifact Rule
+//!
+//! Format of an Artifact Rule is the following:
+//! ```plaintext
+//! {MATCH <pattern> [IN <source-path-prefix>] WITH (MATERIALS|PRODUCTS) [IN <destination-path-prefix>] FROM <step> ||
+//! CREATE <pattern> ||
+//! DELETE <pattern> ||
+//! MODIFY <pattern> ||
+//! ALLOW <pattern> ||
+//! REQUIRE <pattern> ||
+//! DISALLOW <pattern>}
+//! ```
+//!
+//! Please refer to [`in-toto v0.9 spec`] for concrete functions
+//! for different rules (e.g., `MATCH`, `CREATE`, etc.)
+//!
+//! ## Instantialize
+//!
+//! As the format given in [`in-toto v0.9 spec`], rule types include
+//! `MATCH`, `CREATE`, `DELETE`, `MODIFY`, `ALLOW`, `REQUIRE` and
+//! `DISALLOW`.
+//!
+//! ### MATCH Rule
+//!
+//! A `MATCH` rule consists of a `<pattern>`,
+//! an `IN <source-path-prefix>` (optional), a `WITH (MATERIALS|PRODUCTS)`
+//! (must), an `IN <destination-path-prefix>` (optional) and a `FROM <step>`
+//! (must).
+//!
+//! We can build a MATCH rule like this
+//! ```
+//! # use in_toto::{models::rule::{ArtifactRule, Artifact}, Result};
+//!
+//! # fn main() -> Result<()> {
+//!     let _match_rule = ArtifactRule::Match {
+//!         pattern: "pattern/".into(),
+//!         in_src: Some("src".into()),
+//!         with: Artifact::Materials,
+//!         in_dst: Some("dst".into()),
+//!         from: "test_step".into(),
+//!     };
+//!
+//!     Ok(())
+//! # }
+//!
+//! ```
+//!
+//! This rule equals to
+//! ```plaintext
+//! ["MATCH", "pattern/", "IN", "src", "WITH", "MATERIALS", "IN", "dst", "FROM", "test_step"]
+//! ```
+//!
+//! ### Other Rules
+//!
+//! The other rules (s.t. `CREATE`, `DELETE`, `MODIFY`, `ALLOW`,
+//!  `REQUIRE` and `DISALLOW`) only need one parameter `<pattern>`.
+//!
+//! For example, we can build a CREATE rule like this
+//!
+//! ```
+//! # use in_toto::{models::rule::ArtifactRule, Result};
+//!
+//! # fn main() -> Result<()> {
+//!     let _create_rule = ArtifactRule::Create("./artifact".into());
+//!
+//!     Ok(())
+//! # }
+//!
+//! ```
+//!
+//! This rule equals to
+//! ```plaintext
+//! ["CREATE", "./artifact"]
+//! ```
+//!
+//! ## Deserialize and Serialize
+//!
+//! To make it easy to parse `.layout` files, format in [`in-toto v0.9 spec`]
+//! is supported when a `.layout` file is being deserialized.
+//!
+//! For example
+//!
+//! ```
+//! # use serde_json::Error;
+//! # use in_toto::models::rule::ArtifactRule;
+//!
+//! # fn main() {
+//! let rule = ArtifactRule::Create("foo.py".into());
+//!
+//! let rule_raw = r#"["CREATE", "foo.py"]"#;
+//! let rule_parsed: ArtifactRule = serde_json::from_str(rule_raw).unwrap();
+//! assert_eq!(rule, rule_parsed);
+//! # }
+//! ```
+//!
+//! Also, when being serialized, an Artifact Rule will be converted
+//! to the format as [`in-toto v0.9 spec`] gives
+//!
+//! ```
+//! # use serde_json::{Error, json};
+//! # use in_toto::models::rule::ArtifactRule;
+//!
+//! # fn main() {
+//! let rule = ArtifactRule::Create("foo.py".into());
+//!
+//! let rule_value = json!(["CREATE", "foo.py"]);
+//! let rule_serialized = serde_json::to_value(&rule).unwrap();
+//! assert_eq!(rule_serialized, rule_value);
+//! # }
+//! ```
+//!
+//! [`in-toto v0.9 spec`]: https://github.com/in-toto/docs/blob/v0.9/in-toto-spec.md#433-artifact-rules
+⋮----
+use crate::models::VirtualTargetPath;
+⋮----
+pub enum Artifact {
+⋮----
+fn as_ref(&self) -> &str {
+⋮----
+/// Artifact rule enum
+⋮----
+pub enum ArtifactRule {
+/// indicates that products matched by the pattern must not appear
+/// as materials of this step.
+⋮----
+/// indicates that materials matched by the pattern must not appear
+/// as products of this step.
+⋮----
+/// indicates that products matched by this pattern must appear as
+/// materials of this step, and their hashes must not be the same.
+⋮----
+/// indicates that artifacts matched by the pattern are allowed as
+/// materials or products of this step.
+⋮----
+/// indicates that a pattern must appear as a material or product
+/// of this step.
+⋮----
+/// indicates that artifacts matched by the pattern are not allowed
+/// as materials or products of this step.
+⋮----
+/// indicates that the artifacts filtered in using `"in_src/pattern"`
+/// must be matched to a `"MATERIAL"` or `"PRODUCT"` from a destination
+/// step with the "in_dst/pattern" filter.
+⋮----
+pattern: VirtualTargetPath,
+in_src: Option<String>,
+with: Artifact,
+in_dst: Option<String>,
+from: String,
+⋮----
+impl ArtifactRule {
+pub fn pattern(&self) -> &VirtualTargetPath {
+⋮----
+impl Serialize for ArtifactRule {
+fn serialize<S>(&self, serializer: S) -> StdResult<S::Ok, S::Error>
+⋮----
+/// Visitor helps to deserialize `ArtifactRule`
+struct ArtifactRuleVisitor {}
+⋮----
+impl ArtifactRuleVisitor {
+pub fn new() -> Self {
+⋮----
+type Value = ArtifactRule;
+⋮----
+fn expecting(
+⋮----
+/// Deserialize a sequence to an `ArtifactRule`.
+fn visit_seq<V>(self, mut seq: V) -> StdResult<ArtifactRule, V::Error>
+⋮----
+fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+⋮----
+pub mod test {
+use rstest::rstest;
+use serde_json::json;
+⋮----
+/// generate a ARTIFACT_RULE as json:
+/// `[
+///     "MATCH",
+///     "pattern/",
+///     "IN",
+///     "src",
+///     "WITH",
+///     "MATERIALS",
+///     "IN",
+///     "dst",
+///     "FROM",
+///     "test_step"
+/// ]`
+pub fn generate_materials_rule() -> ArtifactRule {
+⋮----
+/// generate a ARTIFACT_RULE as json:
+/// `[
+///     "MATCH",
+///     "pattern/",
+///     "IN",
+///     "src",
+///     "WITH",
+///     "PRODUCTS",
+///     "IN",
+///     "dst",
+///     "FROM",
+///     "test_step"
+/// ]`
+pub fn generate_products_rule() -> ArtifactRule {
+⋮----
+fn serialize_match_full() {
+⋮----
+fn serialize_match_without_source() {
+⋮----
+fn serialize_match_without_dest() {
+⋮----
+fn serialize_tests(
+⋮----
+fn deserialize_full() {
+⋮----
+fn deserialize_match_without_source() {
+⋮----
+fn deserialize_without_dst() {
+⋮----
+fn deserialize_tests(#[case] rule: ArtifactRule, #[case] json: &str) {
+</file>
+
+<file path="src/models/layout/step.rs">
+//! in-toto layout's Step
+⋮----
+use std::str::FromStr;
+⋮----
+use serde::ser::Serializer;
+⋮----
+use crate::crypto::KeyId;
+⋮----
+use super::rule::ArtifactRule;
+use super::supply_chain_item::SupplyChainItem;
+⋮----
+/// Wrapper type for a command in step.
+⋮----
+pub struct Command(Vec<String>);
+⋮----
+impl Command {
+pub fn is_empty(&self) -> bool {
+⋮----
+fn as_ref(&self) -> &[String] {
+⋮----
+fn from(str: String) -> Self {
+⋮----
+fn from(strs: Vec<String>) -> Self {
+⋮----
+fn from(strs: &[String]) -> Self {
+⋮----
+fn from(str: &str) -> Self {
+⋮----
+impl FromStr for Command {
+type Err = Error;
+⋮----
+/// Parse a Command from a string.
+fn from_str(string: &str) -> Result<Self> {
+⋮----
+impl Serialize for Command {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+/// Step represents an in-toto step of the supply chain performed by a functionary.
+/// During final product verification in-toto looks for corresponding Link
+/// metadata, which is used as signed evidence that the step was performed
+/// according to the supply chain definition.
+/// Materials and products used/produced by the step are constrained by the
+/// artifact rules in the step's supply_chain_item's expected_materials and
+/// expected_products fields.
+⋮----
+pub struct Step {
+⋮----
+pub typ: String,
+pub threshold: u32,
+pub name: String,
+pub expected_materials: Vec<ArtifactRule>,
+pub expected_products: Vec<ArtifactRule>,
+⋮----
+pub pub_keys: Vec<KeyId>,
+pub expected_command: Command,
+⋮----
+impl Step {
+pub fn new(name: &str) -> Self {
+⋮----
+/// Add a pub key for this Step
+pub fn add_key(mut self, key: KeyId) -> Self {
+⋮----
+/// Set expected command for this Step
+pub fn expected_command(mut self, command: Command) -> Self {
+⋮----
+/// Set threshold for this Step
+pub fn threshold(mut self, threshold: u32) -> Self {
+⋮----
+// Derive operations on `materials`/`products` and `name`
+⋮----
+impl SupplyChainItem for Step {
+fn name(&self) -> &str {
+⋮----
+fn expected_materials(&self) -> &Vec<ArtifactRule> {
+⋮----
+fn expected_products(&self) -> &Vec<ArtifactRule> {
+⋮----
+mod test {
+use std::str::FromStr;
+⋮----
+use serde_json::json;
+⋮----
+use super::Step;
+⋮----
+fn serialize_step() -> Result<()> {
+⋮----
+fn deserialize_step() -> Result<()> {
+</file>
+
+<file path="src/models/layout/supply_chain_item.rs">
+//！ SupplyChainItem summarizes common fields of the two available supply chain
+//！ item types in Inspection and Step.
+⋮----
+use super::rule::ArtifactRule;
+⋮----
+pub trait SupplyChainItem {
+/// Get the name of this item
+fn name(&self) -> &str;
+⋮----
+/// Get the expected material
+fn expected_materials(&self) -> &Vec<ArtifactRule>;
+⋮----
+/// Get the expected products
+fn expected_products(&self) -> &Vec<ArtifactRule>;
+⋮----
+macro_rules! supply_chain_item_derive {
+⋮----
+/// Add an expected material artifact rule to this Step
+⋮----
+/// Set expected materials for this Step
+⋮----
+/// Add an expected product artifact rule to this Step
+⋮----
+/// Set expected products for this Step
+</file>
+
+<file path="src/models/link/byproducts.rs">
+//! in-toto link's byproducts
+//!
+use std::collections::BTreeMap;
+⋮----
+/// byproducts of a link file
+/// # Example
+/// ```
+/// use in_toto::models::byproducts::ByProducts;
+/// // let other_byproducts: BTreeMap<String, String> = BTreeMap::new();
+/// // ...
+/// // insert some other byproducts to other_byproducts
+/// let byproducts = ByProducts::new()
+///     .set_return_value(0)
+///     .set_stderr("".into())
+///     .set_stdout("".into());
+/// //  .set_other_fields(other_byproducts);
+/// ```
+///
+/// Also, can directly set a whole BTree<String, String> as other_fields
+///
+/// ```
+/// use std::collections::BTreeMap;
+/// use in_toto::models::byproducts::ByProducts;
+/// let mut other_byproducts: BTreeMap<String, String> = BTreeMap::new();
+/// other_byproducts.insert("key".into(), "value".into());
+///
+/// let byproducts = ByProducts::new()
+///     .set_return_value(0)
+///     .set_stderr("".into())
+///     .set_stdout("".into())
+///     .set_other_fields(other_byproducts);
+/// ```
+⋮----
+pub struct ByProducts {
+⋮----
+return_value: Option<i32>,
+⋮----
+stderr: Option<String>,
+⋮----
+stdout: Option<String>,
+⋮----
+other_fields: BTreeMap<String, String>,
+⋮----
+impl ByProducts {
+pub fn new() -> Self {
+⋮----
+/// Set return-value
+pub fn set_return_value(mut self, return_value: i32) -> Self {
+⋮----
+/// Set stderr
+pub fn set_stderr(mut self, stderr: String) -> Self {
+⋮----
+/// Set stdout
+pub fn set_stdout(mut self, stdout: String) -> Self {
+⋮----
+/// Set other fields.
+/// Warning: This operation will overwrite all the present other-field
+/// set by `set_other_field` or `set_other_fields` before.
+pub fn set_other_fields(
+⋮----
+/// Insert another field
+pub fn set_other_field(mut self, key: String, value: String) -> Self {
+⋮----
+/// Get return-value
+pub fn return_value(&self) -> Option<i32> {
+⋮----
+/// Get stderr
+pub fn stderr(&self) -> &Option<String> {
+⋮----
+/// Get stdout
+pub fn stdout(&self) -> &Option<String> {
+⋮----
+/// Get other fields
+pub fn other_fields(&self) -> &BTreeMap<String, String> {
+⋮----
+mod tests {
+use std::collections::BTreeMap;
+⋮----
+use serde_json::json;
+⋮----
+use super::ByProducts;
+⋮----
+fn serialize_byproducts_other_field() {
+⋮----
+fn serialize_byproducts_other_fields() {
+⋮----
+fn deserialize_byproducts_other_field() {
+⋮----
+fn deserialize_byproducts_other_fields() {
+</file>
+
+<file path="src/models/link/metadata.rs">
+//! in-toto link metadata.
+⋮----
+use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::fs::File;
+use std::io::BufReader;
+⋮----
+use crate::Result;
+⋮----
+use crate::models::step::Command;
+⋮----
+use super::byproducts::ByProducts;
+⋮----
+/// Helper to construct `LinkMetadata`.
+pub struct LinkMetadataBuilder {
+name: String,
+materials: BTreeMap<VirtualTargetPath, TargetDescription>,
+products: BTreeMap<VirtualTargetPath, TargetDescription>,
+env: Option<BTreeMap<String, String>>,
+byproducts: ByProducts,
+command: Command,
+⋮----
+impl Default for LinkMetadataBuilder {
+fn default() -> Self {
+⋮----
+impl LinkMetadataBuilder {
+pub fn new() -> Self {
+⋮----
+/// Set the name number for this link
+pub fn name(mut self, name: String) -> Self {
+⋮----
+/// Set the materials for this metadata
+pub fn materials(
+⋮----
+/// Set the products for this metadata
+pub fn products(
+⋮----
+pub fn add_material(mut self, material_path: VirtualTargetPath) -> Self {
+⋮----
+pub fn add_product(mut self, material_path: VirtualTargetPath) -> Self {
+⋮----
+/// Set the products for this metadata
+pub fn env(mut self, env: Option<BTreeMap<String, String>>) -> Self {
+⋮----
+/// Set the products for this metadata
+pub fn byproducts(mut self, byproducts: ByProducts) -> Self {
+⋮----
+/// Set the command for this metadata
+pub fn command(mut self, command: Command) -> Self {
+⋮----
+pub fn build(self) -> Result<LinkMetadata> {
+⋮----
+/// Construct a new `Metablock<D, LinkMetadata>`.
+pub fn signed<D>(self, private_key: &PrivateKey) -> Result<Metablock>
+⋮----
+/// Construct a new `Metablock<D, LinkMetadata>`.
+pub fn unsigned<D>(self) -> Result<Metablock>
+⋮----
+/// link metadata
+⋮----
+pub struct LinkMetadata {
+pub name: String,
+pub materials: BTreeMap<VirtualTargetPath, TargetDescription>,
+pub products: BTreeMap<VirtualTargetPath, TargetDescription>,
+pub env: Option<BTreeMap<String, String>>,
+pub byproducts: ByProducts,
+pub command: Command,
+⋮----
+impl LinkMetadata {
+/// Create new `LinkMetadata`.
+pub fn new(
+⋮----
+impl Metadata for LinkMetadata {
+fn typ(&self) -> MetadataType {
+⋮----
+fn into_enum(self: Box<Self>) -> MetadataWrapper {
+⋮----
+fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+impl Serialize for LinkMetadata {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+mod test {
+use serde_json::json;
+⋮----
+fn serialize_linkmetadata() {
+⋮----
+fn deserialize_linkmetadata() {
+</file>
+
+<file path="src/models/link/mod.rs">
+//! in-toto link
+⋮----
+use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::str;
+⋮----
+use crate::Result;
+⋮----
+pub mod byproducts;
+mod metadata;
+⋮----
+use self::byproducts::ByProducts;
+⋮----
+use super::step::Command;
+⋮----
+// FIXME, we need to tag a spec
+//const SPEC_VERSION: &str = "0.9-dev";
+⋮----
+pub struct Link {
+⋮----
+typ: String,
+name: String,
+materials: BTreeMap<VirtualTargetPath, TargetDescription>,
+products: BTreeMap<VirtualTargetPath, TargetDescription>,
+⋮----
+env: Option<BTreeMap<String, String>>,
+byproducts: ByProducts,
+command: Command,
+⋮----
+impl Link {
+pub fn from(meta: &LinkMetadata) -> Result<Self> {
+⋮----
+pub fn try_into(self) -> Result<LinkMetadata> {
+</file>
+
+<file path="src/models/predicate/link_v02.rs">
+use std::collections::BTreeMap;
+⋮----
+use crate::models::byproducts::ByProducts;
+use crate::models::step::Command;
+⋮----
+use crate::Result;
+⋮----
+/// Predicate `LinkV02` means the predicate of original compatible format.
+///
+/// [LinkV02](https://in-toto.io/Link/v0.2)
+/// can be used together with most states.
+pub struct LinkV02 {
+name: String,
+materials: BTreeMap<VirtualTargetPath, TargetDescription>,
+env: Option<BTreeMap<String, String>>,
+command: Command,
+byproducts: ByProducts,
+⋮----
+impl PredicateLayout for LinkV02 {
+fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+fn into_enum(self: Box<Self>) -> PredicateWrapper {
+⋮----
+fn version(&self) -> PredicateVer {
+⋮----
+pub mod test {
+use std::collections::BTreeMap;
+use std::str;
+⋮----
+use once_cell::sync::Lazy;
+⋮----
+use strum::IntoEnumIterator;
+⋮----
+use super::LinkV02;
+⋮----
+fn into_trait_equal() {
+⋮----
+fn create_predicate_from_meta() {
+// TODO: convert from metadata is no supported recentely
+⋮----
+fn serialize_predicate() {
+⋮----
+fn deserialize_predicate() {
+⋮----
+fn deserialize_auto() {
+⋮----
+fn deserialize_dismatch() {
+</file>
+
+<file path="src/models/predicate/mod.rs">
+//! in-toto link
+⋮----
+pub mod link_v02;
+pub mod slsa_provenance_v01;
+pub mod slsa_provenance_v02;
+use std::convert::TryFrom;
+⋮----
+pub use link_v02::LinkV02;
+use serde_json::Value;
+pub use slsa_provenance_v01::SLSAProvenanceV01;
+pub use slsa_provenance_v02::SLSAProvenanceV02;
+⋮----
+use serde::ser::Serializer;
+⋮----
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+⋮----
+pub enum PredicateVer {
+⋮----
+type Error = crate::Error;
+⋮----
+fn try_from(target: String) -> Result<Self> {
+⋮----
+fn from(value: PredicateVer) -> Self {
+⋮----
+impl Serialize for PredicateVer {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+pub enum PredicateWrapper {
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+impl PredicateWrapper {
+/// Convert from enum `PredicateWrapper` to trait `PredicateLayout`
+pub fn into_trait(self) -> Box<dyn PredicateLayout> {
+⋮----
+/// Deserialize method for `PredicateWrapper` from `serde:Value` by its version
+fn from_value(value: Value, version: PredicateVer) -> Result<Self> {
+⋮----
+/// Auto judge the `PredicateWrapper` version from `serde:Value`
+pub fn judge_from_value(value: &Value) -> Result<PredicateVer> {
+⋮----
+/// Auto deserialize for `PredicateWrapper` by any possible version.
+pub fn try_from_value(value: Value) -> Result<Self> {
+⋮----
+pub trait PredicateLayout {
+/// The version of predicate
+fn version(&self) -> PredicateVer;
+/// Convert from trait `PredicateLayout` to enum `PredicateWrapper`
+fn into_enum(self: Box<Self>) -> PredicateWrapper;
+/// Standard serialize for PredicateLayout
+fn to_bytes(&self) -> Result<Vec<u8>>;
+</file>
+
+<file path="src/models/predicate/slsa_provenance_v01.rs">
+use std::collections::HashMap;
+⋮----
+use serde::ser::Serializer;
+⋮----
+use crate::Result;
+⋮----
+pub struct TimeStamp(pub DateTime<FixedOffset>);
+⋮----
+impl Serialize for TimeStamp {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+pub struct TypeURI(pub String);
+⋮----
+pub struct Builder {
+pub id: TypeURI,
+⋮----
+pub struct Completeness {
+⋮----
+pub arguments: Option<bool>,
+⋮----
+pub environment: Option<bool>,
+⋮----
+pub materials: Option<bool>,
+⋮----
+pub struct Recipe {
+⋮----
+pub typ: TypeURI,
+⋮----
+pub defined_in_material: Option<usize>,
+⋮----
+pub entry_point: Option<String>,
+⋮----
+pub arguments: Option<String>,
+⋮----
+pub environment: Option<String>,
+⋮----
+pub struct ProvenanceMetadata {
+⋮----
+pub build_invocation_id: Option<String>,
+⋮----
+pub build_started_on: Option<TimeStamp>,
+⋮----
+pub build_finished_on: Option<TimeStamp>,
+⋮----
+pub completeness: Option<Completeness>,
+⋮----
+pub reproducible: Option<bool>,
+⋮----
+pub struct Material {
+⋮----
+pub(crate) uri: Option<TypeURI>,
+⋮----
+pub(crate) digest: Option<HashMap<String, String>>,
+⋮----
+/// Predicate `SLSAProvenanceV01` means the predicate of SLSA format.
+///
+/// [SLSAProvenanceV01](https://slsa.dev/provenance/v0.1)
+/// can be used together with most states.
+pub struct SLSAProvenanceV01 {
+builder: Builder,
+⋮----
+recipe: Option<Recipe>,
+⋮----
+metadata: Option<ProvenanceMetadata>,
+⋮----
+materials: Option<Vec<Material>>,
+⋮----
+impl PredicateLayout for SLSAProvenanceV01 {
+fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+fn into_enum(self: Box<Self>) -> PredicateWrapper {
+⋮----
+fn version(&self) -> PredicateVer {
+⋮----
+pub mod test {
+⋮----
+use chrono::DateTime;
+use once_cell::sync::Lazy;
+⋮----
+use strum::IntoEnumIterator;
+⋮----
+fn serialize_deserialize_datetime() {
+⋮----
+// serialize
+⋮----
+// deserialize
+⋮----
+fn into_trait_equal() {
+⋮----
+fn create_predicate_from_meta() {
+// TODO: convert from metadata is no supported recentely
+⋮----
+fn serialize_predicate() {
+⋮----
+fn deserialize_predicate() {
+⋮----
+fn deserialize_auto() {
+⋮----
+fn deserialize_dismatch() {
+</file>
+
+<file path="src/models/predicate/slsa_provenance_v02.rs">
+use std::collections::HashMap;
+⋮----
+use crate::Result;
+⋮----
+pub struct ConfigSource {
+pub uri: Option<TypeURI>,
+⋮----
+pub digest: Option<HashMap<String, String>>,
+⋮----
+pub entry_point: Option<String>,
+⋮----
+pub struct Invocation {
+⋮----
+pub config_source: Option<ConfigSource>,
+⋮----
+pub parameters: Option<String>,
+⋮----
+pub environment: Option<String>,
+⋮----
+/// Predicate `SLSAProvenanceV02` means the predicate of SLSA format.
+///
+/// [SLSAProvenanceV02](https://slsa.dev/provenance/v0.2)
+/// can be used together with most states.
+pub struct SLSAProvenanceV02 {
+pub builder: Builder,
+⋮----
+pub build_type: TypeURI,
+⋮----
+pub invocation: Option<Invocation>,
+⋮----
+pub build_config: Option<String>,
+⋮----
+pub metadata: Option<ProvenanceMetadata>,
+⋮----
+pub materials: Option<Vec<Material>>,
+⋮----
+impl PredicateLayout for SLSAProvenanceV02 {
+fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+fn into_enum(self: Box<Self>) -> PredicateWrapper {
+⋮----
+fn version(&self) -> PredicateVer {
+⋮----
+pub mod test {
+use std::collections::HashMap;
+use std::str;
+⋮----
+use once_cell::sync::Lazy;
+⋮----
+use strum::IntoEnumIterator;
+⋮----
+fn into_trait_equal() {
+⋮----
+fn create_predicate_from_meta() {
+// TODO: convert from metadata is no supported recentely
+⋮----
+fn serialize_predicate() {
+⋮----
+fn deserialize_predicate() {
+⋮----
+fn deserialize_auto() {
+⋮----
+fn deserialize_dismatch() {
+</file>
+
+<file path="src/models/statement/mod.rs">
+pub mod state_naive;
+pub mod state_v01;
+use serde_json::Value;
+pub use state_naive::StateNaive;
+pub use state_v01::StateV01;
+⋮----
+use std::convert::TryFrom;
+⋮----
+use serde::ser::Serializer;
+⋮----
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+⋮----
+use crate::Error;
+use crate::Result;
+⋮----
+pub enum StatementVer {
+⋮----
+type Error = crate::Error;
+⋮----
+fn try_from(target: String) -> Result<Self> {
+⋮----
+fn from(value: StatementVer) -> Self {
+⋮----
+impl Serialize for StatementVer {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+impl Display for StatementVer {
+fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+⋮----
+pub enum StatementWrapper {
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+pub trait FromMerge: Sized {
+fn merge(
+        meta: LinkMetadata,
+        predicate: Option<Box<dyn PredicateLayout>>,
+    ) -> Result<Self>;
+⋮----
+impl StatementWrapper {
+pub fn into_trait(self) -> Box<dyn StateLayout> {
+⋮----
+pub fn from_meta(
+⋮----
+/// Deserialize method for `StatementWrapper` from `serde:Value` by its version
+fn from_value(value: Value, version: StatementVer) -> Result<Self> {
+⋮----
+/// Auto judge the `PredicateWrapper` version from `serde:Value`
+pub fn judge_from_value(value: &Value) -> Result<StatementVer> {
+⋮----
+// Auto deserialize for `PredicateWrapper` by any possible version.
+pub fn try_from_value(value: Value) -> Result<Self> {
+⋮----
+pub trait StateLayout {
+fn version(&self) -> StatementVer;
+fn into_enum(self: Box<Self>) -> StatementWrapper;
+fn to_bytes(&self) -> Result<Vec<u8>>;
+</file>
+
+<file path="src/models/statement/state_naive.rs">
+/// Statement `Naive` means the predicate of original format.
+///
+/// Can be used together with no predicate as `None`.
+pub struct StateNaive {
+⋮----
+typ: String,
+name: String,
+materials: BTreeMap<VirtualTargetPath, TargetDescription>,
+products: BTreeMap<VirtualTargetPath, TargetDescription>,
+env: Option<BTreeMap<String, String>>,
+command: Command,
+byproducts: ByProducts,
+⋮----
+impl StateLayout for StateNaive {
+fn version(&self) -> StatementVer {
+⋮----
+fn into_enum(self: Box<Self>) -> StatementWrapper {
+⋮----
+fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+impl FromMerge for StateNaive {
+fn merge(
+⋮----
+pub mod test {
+use std::collections::BTreeMap;
+use std::str;
+⋮----
+use once_cell::sync::Lazy;
+⋮----
+use strum::IntoEnumIterator;
+⋮----
+use super::StateNaive;
+⋮----
+use crate::models::byproducts::ByProducts;
+⋮----
+use crate::models::test::BLANK_META;
+⋮----
+fn into_trait_equal() {
+⋮----
+fn create_statement_from_meta() {
+⋮----
+fn serialize_statement() {
+⋮----
+fn deserialize_statement() {
+⋮----
+fn deserialize_auto() {
+⋮----
+fn deserialize_dismatch() {
+</file>
+
+<file path="src/models/statement/state_v01.rs">
+use std::collections::BTreeMap;
+⋮----
+use crate::Result;
+⋮----
+/// Statement `V0_1` means the statement of contains a predicate for SLSA format.
+///
+/// Can be used together with most predicate.
+pub struct StateV01 {
+⋮----
+typ: String,
+subject: BTreeMap<VirtualTargetPath, TargetDescription>,
+⋮----
+predicate_type: PredicateVer,
+predicate: PredicateWrapper,
+⋮----
+impl StateLayout for StateV01 {
+fn version(&self) -> StatementVer {
+⋮----
+fn into_enum(self: Box<Self>) -> StatementWrapper {
+⋮----
+fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+impl FromMerge for StateV01 {
+fn merge(
+⋮----
+pub mod test {
+⋮----
+use std::collections::BTreeMap;
+use std::str;
+⋮----
+use once_cell::sync::Lazy;
+⋮----
+use strum::IntoEnumIterator;
+⋮----
+use super::StateV01;
+⋮----
+fn into_trait_equal() {
+⋮----
+fn create_statement_from_meta() {
+⋮----
+fn serialize_statement() {
+⋮----
+fn deserialize_statement() {
+⋮----
+fn deserialize_auto() {
+⋮----
+fn deserialize_dismatch() {
+</file>
+
+<file path="src/models/helpers.rs">
+//! Supporting Functions and Types (VirtualTargetPath)
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Debug;
+use std::str;
+⋮----
+use serde::Serialize;
+⋮----
+/// Description of a target, used in verification.
+pub type TargetDescription = HashMap<HashAlgorithm, HashValue>;
+⋮----
+/// Wrapper for the Virtual path to a target.
+⋮----
+pub struct VirtualTargetPath(String);
+⋮----
+impl VirtualTargetPath {
+/// Create a new `VirtualTargetPath` from a `String`.
+///
+pub fn new(path: String) -> Result<Self> {
+⋮----
+/// The string value of the path.
+pub fn value(&self) -> &str {
+⋮----
+/// Judge if this [`VirtualTargetPath`] matches the given pattern
+pub(crate) fn matches(&self, pattern: &str) -> Result<bool> {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+fn from(s: &str) -> Self {
+⋮----
+fn as_ref(&self) -> &str {
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+mod tests {
+use crate::models::VirtualTargetPath;
+⋮----
+fn serialize_virtual_target_path() {
+⋮----
+fn deserialize_virtual_target_path() {
+</file>
+
+<file path="src/models/metadata.rs">
+//! in-toto metadata.
+//! # Metadata & MetadataWrapper
+//! Metadata is the top level abstract for both layout metadata and link
+//! metadata. Metadata it is devided into two types
+//!
+//! * enum `MetadataWrapper` is used to do serialize, deserialize and
+//!   other object unsafe operations.
+//! * trait `Metadata` is used to work for trait object.
+//!
+//! The reason please refer to issue <https://github.com/in-toto/in-toto-rs/issues/33>
+//!
+//! # Metablock
+//! Metablock is the container for link metadata and layout metadata.
+//! Its serialized outcome can work as the content of a link file
+//! or a layout file. It provides `MetablockBuilder` for create
+//! an instance of Metablock, and methods to verify signatures,
+//! create signatures.
+⋮----
+use std::collections::HashMap;
+⋮----
+use std::str;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+⋮----
+use crate::error::Error;
+⋮----
+use crate::Result;
+⋮----
+pub enum MetadataType {
+⋮----
+impl Display for MetadataType {
+fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+⋮----
+pub enum MetadataWrapper {
+⋮----
+impl MetadataWrapper {
+/// Convert from enum `MetadataWrapper` to trait `Metadata`
+pub fn into_trait(self) -> Box<dyn Metadata> {
+⋮----
+/// Standard deserialize for MetadataWrapper by its metadata
+pub fn from_bytes(
+⋮----
+/// Auto deserialize for MetadataWrapper by any possible metadata.
+pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
+⋮----
+/// Standard serialize for MetadataWrapper by its metadata
+pub fn to_bytes(&self) -> Result<Vec<u8>> {
+⋮----
+/// trait for Metadata
+pub trait Metadata {
+/// The version of Metadata
+fn typ(&self) -> MetadataType;
+/// Convert from trait `Metadata` to enum `MetadataWrapper`
+fn into_enum(self: Box<Self>) -> MetadataWrapper;
+/// Standard serialize for Metadata
+fn to_bytes(&self) -> Result<Vec<u8>>;
+⋮----
+/// All signed files (link and layout files) have the format.
+/// * `signatures`: A pubkey => signature map. signatures are for the metadata.
+/// * `metadata`: <ROLE> dictionary. Also known as signed metadata. e.g., link
+///   or layout.
+⋮----
+pub struct Metablock {
+pub signatures: Vec<Signature>,
+⋮----
+pub metadata: MetadataWrapper,
+⋮----
+impl Metablock {
+/// Create a new Metablock, using data of metadata. And the signatures are
+/// generated by using private-keys to sign the metadata.
+pub fn new(
+⋮----
+// sign and collect signatures
+⋮----
+/// Verify this metadata.
+/// Each signature in the Metablock signed by an authorized key
+/// is a legal signature. Only legal the number signatures is
+/// not less than `threshold`, will return the wrapped Metadata.
+pub fn verify<'a, I>(
+⋮----
+// Create a key_id->signature map to deduplicate the key_ids.
+⋮----
+// check the signatures, if is signed by an authorized key,
+// signatures_needed - 1
+⋮----
+/// A helper to build Metablock
+pub struct MetablockBuilder {
+signatures: HashMap<KeyId, Signature>,
+metadata: MetadataWrapper,
+⋮----
+impl MetablockBuilder {
+/// Create a new `MetablockBuilder` from a given `Metadata`.
+pub fn from_metadata(metadata: Box<dyn Metadata>) -> Self {
+⋮----
+/// Create a new `MetablockBuilder` from manually serialized metadata to be signed.
+/// Returns an error if `metadata` cannot be parsed into Metadata.
+pub fn from_raw_metadata(raw_metadata: &[u8]) -> Result<Self> {
+⋮----
+/// Sign the metadata using the given `private_keys`, replacing any existing signatures with the
+/// same `KeyId`.
+pub fn sign(mut self, private_keys: &[&PrivateKey]) -> Result<Self> {
+⋮----
+/// Construct a new `Metablock` using the included signatures, sorting the signatures by
+/// `KeyId`.
+pub fn build(self) -> Metablock {
+⋮----
+mod tests {
+⋮----
+use assert_json_diff::assert_json_eq;
+use chrono::DateTime;
+use serde_json::json;
+⋮----
+use super::MetablockBuilder;
+⋮----
+fn deserialize_layout_metablock() {
+⋮----
+fn deserialize_link_metablock() {
+⋮----
+fn serialize_layout_metablock() {
+⋮----
+fn serialize_link_metablock() {
+⋮----
+fn verify_signatures_of_metablock() {
+</file>
+
+<file path="src/models/mod.rs">
+//! Models used in in-toto
+⋮----
+mod envelope;
+mod helpers;
+mod layout;
+mod link;
+mod metadata;
+mod predicate;
+mod statement;
+⋮----
+mod test {
+use once_cell::sync::Lazy;
+</file>
+
+<file path="src/crypto.rs">
+//! Cryptographic structures and functions.
+⋮----
+use data_encoding::HEXLOWER;
+⋮----
+use ring::rand::SystemRandom;
+⋮----
+use std::cmp::Ordering;
+use std::collections::HashMap;
+⋮----
+use std::hash;
+⋮----
+use std::str::FromStr;
+use std::sync::Arc;
+use untrusted::Input;
+⋮----
+use crate::error::Error;
+use crate::interchange::cjson::shims;
+use crate::Result;
+⋮----
+/// 1.2.840.113549.1.1.1 rsaEncryption(PKCS #1)
+⋮----
+/// 1.3.101.112 curveEd25519(EdDSA 25519 signature algorithm)
+⋮----
+/// 1.2.840.10045.2.1 ecPublicKey (Elliptic Curve public key cryptography)
+⋮----
+/// The length of an ed25519 private key in bytes
+⋮----
+/// The length of an ed25519 public key in bytes
+⋮----
+/// The length of an ed25519 keypair in bytes
+⋮----
+/// Pem header of a rsa private key
+⋮----
+fn python_sslib_compatibility_keyid_hash_algorithms() -> Option<Vec<String>> {
+⋮----
+/// Given a map of hash algorithms and their values, get the prefered algorithm and the hash
+/// calculated by it. Returns an `Err` if there is no match.
+///
+/// ```
+/// use std::collections::HashMap;
+/// use in_toto::crypto::{hash_preference, HashValue, HashAlgorithm};
+///
+/// let mut map = HashMap::new();
+/// assert!(hash_preference(&map).is_err());
+///
+/// let _ = map.insert(HashAlgorithm::Sha512, HashValue::new(vec![0x00, 0x01]));
+/// assert_eq!(hash_preference(&map).unwrap().0, &HashAlgorithm::Sha512);
+///
+/// let _ = map.insert(HashAlgorithm::Sha256, HashValue::new(vec![0x02, 0x03]));
+/// assert_eq!(hash_preference(&map).unwrap().0, &HashAlgorithm::Sha512);
+/// ```
+pub fn hash_preference(
+⋮----
+/// Calculate the size and hash digest from a given `Read`.
+pub fn calculate_hashes<R: Read>(
+⋮----
+fn shim_public_key(
+⋮----
+/// Calculate unique key_id. This function will convert the der bytes
+/// of the public key into PKIX-encoded pem bytes to keep consistent
+/// with the python and golang version.
+fn calculate_key_id(
+⋮----
+/// Wrapper type for public key's ID.
+///
+/// # Calculating
+/// A `KeyId` is calculated as the hex digest of the SHA-256 hash of the canonical form of the
+/// public key, or `hexdigest(sha256(cjson(public_key)))`.
+⋮----
+pub struct KeyId(String);
+⋮----
+impl KeyId {
+/// Return the first 8 hex digits of the key id
+pub fn prefix(&self) -> String {
+⋮----
+impl FromStr for KeyId {
+type Err = Error;
+⋮----
+/// Parse a key ID from a string.
+fn from_str(string: &str) -> Result<Self> {
+⋮----
+impl Serialize for KeyId {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+/// Cryptographic signature schemes.
+⋮----
+pub enum SignatureScheme {
+/// [Ed25519](https://ed25519.cr.yp.to/)
+⋮----
+/// [RSASSA-PSS](https://tools.ietf.org/html/rfc5756) calculated over SHA256
+⋮----
+/// [RSASSA-PSS](https://tools.ietf.org/html/rfc5756) calculated over SHA512
+⋮----
+/// [ECDSA](https://www.rfc-editor.org/rfc/rfc5480) calculated over SHA256
+/// Also known as 'prime256v1', 'P-256', and 'sepc256r1').
+⋮----
+/// Placeholder for an unknown scheme.
+⋮----
+/// Wrapper type for the value of a cryptographic signature.
+⋮----
+pub struct SignatureValue(#[serde(with = "crate::format_hex")] Vec<u8>);
+⋮----
+impl SignatureValue {
+/// Create a new `SignatureValue` from the given bytes.
+///
+/// Note: It is unlikely that you ever want to do this manually.
+pub fn new(bytes: Vec<u8>) -> Self {
+⋮----
+/// Create a new `SignatureValue` from the given hex string.
+///
+/// Note: It is unlikely that you ever want to do this manually.
+pub fn from_hex(string: &str) -> Result<Self> {
+⋮----
+/// Return the signature as bytes.
+pub fn as_bytes(&self) -> &[u8] {
+⋮----
+impl Debug for SignatureValue {
+fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+/// Types of public keys.
+⋮----
+pub enum KeyType {
+/// [Ed25519](https://ed25519.cr.yp.to/)
+⋮----
+/// [RSA](https://en.wikipedia.org/wiki/RSA_%28cryptosystem%29)
+⋮----
+/// [ECDSA](https://www.rfc-editor.org/rfc/rfc5480)
+⋮----
+/// Placeholder for an unknown key type.
+⋮----
+impl KeyType {
+pub fn from_oid(oid: &[u8]) -> Result<Self> {
+⋮----
+pub fn as_oid(&self) -> Result<&'static [u8]> {
+⋮----
+impl FromStr for KeyType {
+type Err = Error;
+⋮----
+fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+impl Serialize for KeyType {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+enum PrivateKeyType {
+⋮----
+impl Debug for PrivateKeyType {
+fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+/// A structure containing information about a private key.
+pub struct PrivateKey {
+private: PrivateKeyType,
+public: PublicKey,
+⋮----
+impl PrivateKey {
+/// Generate a new `PrivateKey` bytes in pkcs8 format.
+///
+/// Note: For RSA keys, `openssl` needs to the on the `$PATH`.
+pub fn new(key_type: KeyType) -> Result<Vec<u8>> {
+⋮----
+/// Create a new `PrivateKey` from an ed25519 keypair, a 64 byte slice, where the first 32
+/// bytes are the ed25519 seed, and the second 32 bytes are the public key.
+pub fn from_ed25519(key: &[u8]) -> Result<Self> {
+⋮----
+fn from_ed25519_with_keyid_hash_algorithms(
+⋮----
+/// Create a private key from PKCS#8v2 DER bytes.
+///
+/// # Generating Keys
+///
+/// ## Ed25519
+///
+/// ```bash
+/// $ touch ed25519-private-key.pk8
+/// $ chmod 0600 ed25519-private-key.pk8
+/// ```
+///
+/// ```no_run
+/// # use ring::rand::SystemRandom;
+/// # use ring::signature::Ed25519KeyPair;
+/// # use std::fs::File;
+/// # use std::io::Write;
+/// # fn main() {
+/// let mut file = File::open("ed25519-private-key.pk8").unwrap();
+/// let key = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
+/// file.write_all(key.as_ref()).unwrap()
+/// # }
+/// ```
+///
+/// ## RSA
+///
+/// ```bash
+/// $ umask 077
+/// $ openssl genpkey -algorithm RSA \
+///     -pkeyopt rsa_keygen_bits:4096 \
+///     -pkeyopt rsa_keygen_pubexp:65537 | \
+///     openssl pkcs8 -topk8 -nocrypt -outform der > rsa-4096-private-key.pk8
+/// ```
+///
+/// ## Ecdsa
+///
+/// ```bash
+/// $ openssl ecparam -name prime256v1 -genkey -noout -out ec.pem
+/// $ openssl pkcs8 -in ec.pem -outform der -out ec.pk8.der -topk8 -nocrypt
+/// ```
+pub fn from_pkcs8(der_key: &[u8], scheme: SignatureScheme) -> Result<Self> {
+⋮----
+fn ed25519_from_pkcs8(der_key: &[u8]) -> Result<Self> {
+⋮----
+fn ed25519_from_pkcs8_with_keyid_hash_algorithms(
+⋮----
+fn rsa_from_pkcs8(der_key: &[u8], scheme: SignatureScheme) -> Result<Self> {
+⋮----
+fn ecdsa_from_pkcs8(
+⋮----
+/// Sign a message.
+pub fn sign(&self, msg: &[u8]) -> Result<Signature> {
+⋮----
+fn rsa_gen() -> Result<Vec<u8>> {
+⋮----
+/// Return the public component of the key.
+pub fn public(&self) -> &PublicKey {
+⋮----
+/// Return the key ID of the public key.
+pub fn key_id(&self) -> &KeyId {
+⋮----
+/// A structure containing information about a public key.
+⋮----
+pub struct PublicKey {
+typ: KeyType,
+key_id: KeyId,
+scheme: SignatureScheme,
+keyid_hash_algorithms: Option<Vec<String>>,
+value: PublicKeyValue,
+⋮----
+impl PublicKey {
+fn new(
+⋮----
+/// Parse DER bytes as an SPKI key.
+///
+/// See the documentation on `KeyValue` for more information on SPKI.
+pub fn from_spki(
+⋮----
+/// Parse PEM as an Subject Public Key Info (SPKI) key.
+///
+/// See the documentation on `KeyValue` for more information on SPKI.
+pub fn from_pem_spki(pem: &str, scheme: SignatureScheme) -> Result<Self> {
+⋮----
+/// Parse DER bytes as an SPKI key and the `keyid_hash_algorithms`.
+///
+/// See the documentation on `KeyValue` for more information on SPKI.
+fn from_spki_with_keyid_hash_algorithms(
+⋮----
+// for RSA / ed25519 this is null, so don't both parsing it
+⋮----
+/// Parse ED25519 bytes as a public key.
+pub fn from_ed25519<T: Into<Vec<u8>>>(bytes: T) -> Result<Self> {
+⋮----
+/// Parse ED25519 bytes as a public key with a custom `keyid_hash_algorithms`.
+pub fn from_ed25519_with_keyid_hash_algorithms<T: Into<Vec<u8>>>(
+⋮----
+/// Parse Ecdsa bytes as a public key.
+pub fn from_ecdsa<T: Into<Vec<u8>>>(bytes: T) -> Result<Self> {
+⋮----
+/// Parse Ecdsa bytes as a public key with a custom `keyid_hash_algorithms`.
+pub fn from_ecdsa_with_keyid_hash_algorithms<T: Into<Vec<u8>>>(
+⋮----
+pub fn from_ecdsa_with_keyid_hash_algorithm<T: Into<Vec<u8>>>(
+⋮----
+/// Write the public key as SPKI DER bytes.
+///
+/// See the documentation on `KeyValue` for more information on SPKI.
+pub fn as_spki(&self) -> Result<Vec<u8>> {
+⋮----
+/// An immutable reference to the key's type.
+pub fn typ(&self) -> &KeyType {
+⋮----
+/// An immutable referece to the key's authorized signing scheme.
+pub fn scheme(&self) -> &SignatureScheme {
+⋮----
+/// An immutable reference to the key's ID.
+pub fn key_id(&self) -> &KeyId {
+⋮----
+/// Return the public key as bytes.
+pub fn as_bytes(&self) -> &[u8] {
+⋮----
+/// Use this key to verify a message with a signature.
+pub fn verify(&self, msg: &[u8], sig: &Signature) -> Result<()> {
+⋮----
+impl PartialEq for PublicKey {
+fn eq(&self, other: &Self) -> bool {
+// key_id is derived from these fields, so we ignore it.
+⋮----
+impl Eq for PublicKey {}
+⋮----
+impl Ord for PublicKey {
+fn cmp(&self, other: &Self) -> Ordering {
+⋮----
+impl PartialOrd for PublicKey {
+fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+⋮----
+fn hash<H: hash::Hasher>(&self, state: &mut H) {
+// key_id is derived from these fields, so we ignore it.
+⋮----
+impl Serialize for PublicKey {
+fn serialize<S>(&self, ser: S) -> ::std::result::Result<S::Ok, S::Error>
+⋮----
+fn deserialize<D: Deserializer<'de>>(
+⋮----
+struct PublicKeyValue(Vec<u8>);
+⋮----
+impl Debug for PublicKeyValue {
+fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+/// A structure that contains a `Signature` and associated data for verifying it.
+⋮----
+pub struct Signature {
+⋮----
+pub key_id: KeyId,
+⋮----
+pub value: SignatureValue,
+⋮----
+impl Signature {
+/// An immutable reference to the `KeyId` of the key that produced the signature.
+pub fn key_id(&self) -> &KeyId {
+⋮----
+/// An immutable reference to the `SignatureValue`.
+pub fn value(&self) -> &SignatureValue {
+⋮----
+/// The available hash algorithms.
+⋮----
+pub enum HashAlgorithm {
+/// SHA256 as describe in [RFC-6234](https://tools.ietf.org/html/rfc6234)
+⋮----
+/// SHA512 as describe in [RFC-6234](https://tools.ietf.org/html/rfc6234)
+⋮----
+/// Placeholder for an unknown hash algorithm.
+⋮----
+impl HashAlgorithm {
+/// Create a new `digest::Context` suitable for computing the hash of some data using this hash
+/// algorithm.
+pub(crate) fn digest_context(&self) -> Result<digest::Context> {
+⋮----
+pub fn return_all() -> HashMap<String, HashAlgorithm> {
+⋮----
+/// Wrapper for the value of a hash digest.
+⋮----
+pub struct HashValue(#[serde(with = "crate::format_hex")] Vec<u8>);
+⋮----
+impl HashValue {
+/// Create a new `HashValue` from the given digest bytes.
+pub fn new(bytes: Vec<u8>) -> Self {
+⋮----
+/// Create a new `HashValue` from the given hex string.
+///
+/// Note: It is unlikely that you ever want to do this manually.
+pub fn from_hex(string: &str) -> Result<Self> {
+⋮----
+/// An immutable reference to the bytes of the hash value.
+pub fn value(&self) -> &[u8] {
+⋮----
+impl Debug for HashValue {
+fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+impl Display for HashValue {
+fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+⋮----
+fn write_spki(
+⋮----
+fn extract_rsa_pub_from_pkcs8(
+⋮----
+fn write_pkcs1(
+⋮----
+mod test {
+use crate::models::Metablock;
+⋮----
+use pretty_assertions::assert_eq;
+⋮----
+use std::str;
+⋮----
+fn parse_public_rsa_2048_spki() {
+⋮----
+fn parse_public_rsa_4096_spki() {
+⋮----
+fn parse_public_ed25519_spki() {
+⋮----
+fn parse_public_ecdsa_spki() {
+⋮----
+fn parse_public_ed25519() {
+⋮----
+fn parse_public_ecdsa() {
+⋮----
+fn parse_public_ed25519_without_keyid_hash_algo() {
+⋮----
+fn parse_public_ed25519_with_keyid_hash_algo() {
+⋮----
+fn rsa_2048_read_pkcs8_and_sign() {
+⋮----
+fn rsa_4096_read_pkcs8_and_sign() {
+⋮----
+fn extract_pkcs1_from_rsa_2048_pkcs8() {
+⋮----
+fn extract_pkcs1_from_rsa_4096_pkcs8() {
+⋮----
+fn ed25519_read_pkcs8_and_sign() {
+⋮----
+// Make sure we match what ring expects.
+⋮----
+// Make sure verification fails with the wrong key.
+⋮----
+fn ecdsa_read_pkcs8_and_sign() {
+⋮----
+fn ed25519_read_keypair_and_sign() {
+⋮----
+// Make sure we match what ring expects.
+⋮----
+// Make sure verification fails with the wrong key.
+⋮----
+fn ed25519_read_keypair_and_sign_with_keyid_hash_algorithms() {
+⋮----
+// Make sure we match what ring expects.
+⋮----
+// Make sure verification fails with the wrong key.
+⋮----
+fn serde_key_id() {
+⋮----
+fn serde_signature_value() {
+⋮----
+fn serde_rsa_public_key() {
+⋮----
+fn de_ser_rsa_public_key_with_keyid_hash_algo() {
+⋮----
+fn de_ser_rsa_public_key_without_keyid_hash_algo() {
+⋮----
+fn serde_ed25519_public_key() {
+⋮----
+fn de_ser_ed25519_public_key_with_keyid_hash_algo() {
+⋮----
+fn de_ser_ed25519_public_key_without_keyid_hash_algo() {
+⋮----
+fn serde_ecdsa_public_key() {
+⋮----
+fn serde_signature() {
+⋮----
+fn serde_signature_without_keyid_hash_algo() {
+⋮----
+fn new_rsa_key() {
+⋮----
+fn new_ed25519_key() {
+⋮----
+fn new_ecdsa_key() {
+⋮----
+fn test_public_key_eq() {
+⋮----
+fn test_public_key_hash() {
+⋮----
+fn parse_public_rsa_from_pem_spki() {
+⋮----
+fn parse_public_ed25519_from_pem_spki() {
+⋮----
+fn parse_public_key_ecdsa_from_pem_spki() {
+⋮----
+fn compatibility_keyid_with_python_in_toto() {
+⋮----
+fn compatibility_rsa_verify_with_python_in_toto() {
+⋮----
+fn pubkey_as_pem(key: &PublicKey) -> String {
+⋮----
+fn hashvalue_from_hex() {
+⋮----
+fn serde_hashvalue() {
+</file>
+
+<file path="src/error.rs">
+//! Error types and converters.
+⋮----
+use data_encoding::DecodeError;
+use std::io;
+use std::path::Path;
+use std::str;
+use thiserror::Error;
+⋮----
+/// Error type for all in-toto related errors.
+⋮----
+pub enum Error {
+/// The metadata had a bad signature.
+⋮----
+/// There was a problem encoding or decoding.
+⋮----
+/// An illegal argument was passed into a function.
+⋮----
+/// There were no available hash algorithms.
+⋮----
+/// The metadata or target was not found.
+⋮----
+/// Opaque error type, to be interpreted similar to HTTP 500. Something went wrong, and you may
+/// or may not be able to do anything about it.
+⋮----
+/// There was a library internal error. These errors are *ALWAYS* bugs and should be reported.
+⋮----
+/// The target is unavailable. This may mean it is either not in the metadata or the metadata
+/// chain to the target cannot be fully verified.
+⋮----
+/// There is no known or available hash algorithm.
+⋮----
+/// There is no known or available key type.
+⋮----
+/// The metadata or target failed to verify.
+⋮----
+fn from(err: serde_json::error::Error) -> Error {
+⋮----
+impl Error {
+/// Helper to include the path that causd the error for FS I/O errors.
+pub fn from_io(err: &io::Error, path: &Path) -> Error {
+⋮----
+fn from(err: io::Error) -> Error {
+⋮----
+fn from(err: DecodeError) -> Error {
+⋮----
+fn from(err: derp::Error) -> Error {
+⋮----
+fn from(err: str::Utf8Error) -> Error {
+⋮----
+mod tests {
+⋮----
+fn verify_io_error_display_string() {
+</file>
+
+<file path="src/format_hex.rs">
+use data_encoding::HEXLOWER;
+⋮----
+use std::result::Result;
+⋮----
+pub fn serialize<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+⋮----
+pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+</file>
+
+<file path="src/lib.rs">
+//! This crate provides an API for talking to repositories that implements in-toto
+⋮----
+//#![deny(missing_docs)]
+⋮----
+pub mod crypto;
+pub mod error;
+pub mod interchange;
+pub mod models;
+mod rulelib;
+pub mod runlib;
+pub mod verifylib;
+⋮----
+mod format_hex;
+⋮----
+/// Alias for `Result<T, Error>`.
+pub type Result<T> = std::result::Result<T, Error>;
+</file>
+
+<file path="src/rulelib.rs">
+//! Helper for ArtifactRule to apply on LinkMetadata
+⋮----
+use std::path::PathBuf;
+⋮----
+use log::warn;
+⋮----
+use crate::models::rule::Artifact;
+use crate::models::supply_chain_item::SupplyChainItem;
+⋮----
+/// Canonicalize a given [`VirtualTargetPath`]. For example
+/// `/test/1/2/../3` -> `/test/1/3`. If any error
+/// occurs, just warn it and return None.
+fn canonicalize_path(path: &VirtualTargetPath) -> Option<VirtualTargetPath> {
+⋮----
+/// Apply match rule. The parameters:
+/// * `rule`: MATCH rule to be applied (if not a MATCH rule, will be paniced)
+/// * `src_artifacts`: artifacts of a given link (either Products or Materials)
+/// * `src_artifact_queue`: artifact paths (canonicalized) of the same link (either Products or Materials)
+/// * `items_metadata`: a <name> to <link> hashmap
+///
+/// This function will match the artifact paths of `src_artifact_queue`
+/// and the `dst_artifacts`. Here `dst_artifacts` can be calculated
+/// by indexing the step name from `items_metadata`. Return value is
+/// the matched artifact paths.
+fn verify_match_rule(
+⋮----
+/// Apply rules of the given [`SupplyChainItem`] onto the [`LinkMetadata`]
+pub(crate) fn apply_rules_on_link(
+⋮----
+// name of the given item
+⋮----
+// get the LinkMetadata for the given SupplyChainItem (`step` or `inspection`)
+⋮----
+// materials of this link
+⋮----
+// products of this link
+⋮----
+// prepare sets of artifacts for `create`, `delete` and `modify` rules.
+// these are calculated from the link's materials and products
+⋮----
+struct VerificationDataList<'a> {
+src_type: Artifact,
+rules: &'a Vec<ArtifactRule>,
+artifacts: &'a BTreeMap<VirtualTargetPath, TargetDescription>,
+artifact_paths: BTreeSet<VirtualTargetPath>,
+⋮----
+// rule expected materials
+⋮----
+// rule expected products
+⋮----
+// rules to apply onto the link metadata
+⋮----
+// artifacts from the link metadata of this step, whose paths are all canonicalized
+⋮----
+// artifacts from the link metadata of this step and their digests
+⋮----
+// for every rule, we choose those items whose path matches the given pattern
+// rule in the queue as a set named `filtered`. and use the set to filter
+// items in `queue` using rule CREATE, DELETE, MODIFY, ALLOW, REQUIRE and DISALLOW.
+// besides, use MATCH rule to filter other items.
+⋮----
+mod tests {
+⋮----
+use rstest::rstest;
+⋮----
+use crate::models::VirtualTargetPath;
+⋮----
+fn canonicalize_path(#[case] given: &str, #[case] expected: &str) {
+⋮----
+fn verify_match_rule(
+</file>
+
+<file path="src/runlib.rs">
+//! A tool that functionaries can use to create link metadata about a step.
+⋮----
+use path_clean::clean;
+⋮----
+use std::process::Command;
+use walkdir::WalkDir;
+⋮----
+use crate::crypto::HashAlgorithm;
+use crate::interchange::Json;
+use crate::models::byproducts::ByProducts;
+⋮----
+/// Reads and hashes an artifact given its path as a string literal,
+/// returning the `VirtualTargetPath` and `TargetDescription` of the file as a tuple, wrapped in `Result`.
+pub fn record_artifact(
+⋮----
+/// Given an artifact path in `&str` format, left strip path for given artifact based an optional array of `lstrip_paths` provided,
+/// returning the stripped file path in String format wrapped in `Result`.
+fn apply_left_strip(
+⋮----
+// If lstrip_paths is None, skip strip.
+// Else, check if path starts with any given lstrip paths and strip
+⋮----
+// if find possible prefix longer than
+⋮----
+/// Traverses through the passed array of paths, hashes the content of files
+/// encountered, and returns the path and hashed content in `BTreeMap` format, wrapped in `Result`.
+/// If a step in record_artifact fails, the error is returned.
+/// # Arguments
+///
+/// * `paths` - An array of string slices (`&str`) that holds the paths to be traversed. If a symbolic link cycle is detected in the `paths` during traversal, it is skipped.
+/// * `hash_algorithms` - An array of string slice (`&str`) wrapped in an `Option` that holds the hash algorithms to be used. If `None` is provided, Sha256 is assumed as default.
+/// * `lstrip_paths` - An array of string slice (`&str`) wrapped in an `Option` that is left stripped from the path of every artifact that contains it.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// # use in_toto::runlib::{record_artifacts};
+/// let materials = record_artifacts(&["tests/test_runlib"], None, None).unwrap();
+/// ```
+pub fn record_artifacts(
+⋮----
+// Verify hash_algorithms inputs are valid
+⋮----
+// Initialize artifacts
+⋮----
+// For each path provided, walk the directory and add all files to artifacts
+⋮----
+// Normalize path
+⋮----
+// If entry is a symlink, check it's unvisited. If so, continue.
+⋮----
+// s_path: the actual path the symbolic link is pointing to
+⋮----
+// If entry is a file, open and hash the file
+⋮----
+/// Given command arguments, executes commands on a software supply chain step
+/// and returns the `stdout`, `stderr`, and `return-value` as `byproducts` in `Result<ByProducts>` format.
+/// If a commands in run_command fails to execute, `Error` is returned.
+/// # Arguments
+///
+/// * `cmd_args` - An array of string slices (`&str`) that holds the command arguments to be executed. The first element of cmd_args is used as executable and the rest as command arguments.
+/// * `run_dir` - A string slice (`&str`) wrapped in an `Option` that holds the directory the commands are to be run in. If `None` is provided, the current directory is assumed as default.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// # use in_toto::runlib::{run_command};
+/// let byproducts = run_command(&["sh", "-c", "printf hello"], Some("tests")).unwrap();
+/// ```
+pub fn run_command(
+⋮----
+// Format output into Byproduct
+⋮----
+// TODO: Validate executable
+⋮----
+// Emit stdout, stderror
+⋮----
+// Write to byproducts
+⋮----
+// TODO: implement default trait for in_toto_run's parameters
+⋮----
+/// Executes commands on a software supply chain step, then generates and returns its corresponding `LinkMetadata`
+/// as a `Metablock` component, wrapped in `Result`.
+/// If a symbolic link cycle is detected in the material or product paths, paths causing the cycle are skipped.
+/// # Arguments
+///
+/// * `name` - The unique string used to associate link metadata with a step or inspection.
+/// * `run_dir` - A string slice (`&str`) wrapped in an `Option` that holds the directory the commands are to be run in. If `None` is provided, the current directory is assumed as default.
+/// * `material_paths` - A string slice (`&str`) of artifact paths to be recorded before command execution. Directories are traversed recursively.
+/// * `product_paths` - A string slice (`&str`) of artifact paths to be recorded after command execution. Directories are traversed recursively.
+/// * `cmd_args` - A string slice (`&str`) where the first element is a command and the remaining elements are arguments passed to that command.
+/// * `key` -  A key used to sign the resulting link metadata.
+/// * `hash_algorithms` - An array of string slice (`&str`) wrapped in an `Option` that holds the hash algorithms to be used. If `None` is provided, Sha256 is assumed as default.
+/// * `lstrip_paths` - An array of string slice (`&str`) wrapped in an `Option` that is left stripped from the path of every artifact that contains it.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// # use in_toto::runlib::{in_toto_run};
+/// # use in_toto::crypto::PrivateKey;
+/// const ED25519_1_PRIVATE_KEY: &'static [u8] = include_bytes!("../tests/ed25519/ed25519-1");
+/// let key = PrivateKey::from_ed25519(ED25519_1_PRIVATE_KEY).unwrap();
+/// let link = in_toto_run("example", Some("tests"), &["tests/test_runlib"], &["tests/test_runlib"],  &["sh", "-c", "echo 'in_toto says hi' >> hello_intoto"], Some(&key), Some(&["sha512", "sha256"]), Some(&["tests/test_runlib/"])).unwrap();
+/// let json = serde_json::to_value(&link).unwrap();
+/// println!("Generated link: {}", json);
+/// ```
+pub fn in_toto_run(
+⋮----
+// env: Option<BTreeMap<String, String>>
+⋮----
+// Record Materials: Given the material_paths, recursively traverse and record files in given path(s)
+⋮----
+// Execute commands provided in cmd_args
+⋮----
+// Record Products: Given the product_paths, recursively traverse and record files in given path(s)
+⋮----
+// Create link based on values collected above
+⋮----
+// Sign the link with key param supplied. If no key is found, return Metablock with
+// no signatures (for inspection purposes)
+⋮----
+/// A private helper function that, given a `DirEntry`, return the entry's path as a `String`
+/// wrapped in `Result`. If the entry's path is invalid, `Error` is returned.
+fn dir_entry_to_path(
+⋮----
+// If WalkDir errored, check if it's due to a symbolic link loop sighted,
+// if so, override the error and continue using the symbolic link path.
+// If this doesn't work, something hacky to consider would be reinvoking WalkDir
+// using the error_path as root.
+⋮----
+// Current behavior: when symbolic link is a directory and directly loops to parent,
+// it skips the symbolic link recording.
+// If this is not the desired behavior and we want to record the symbolic link's content
+// , we can probably do it in a hacky way by recursively calling record_artifacts and
+// extending the results to artifacts variable.
+⋮----
+// TODO: Emit a warning that a symlink cycle is detected and it will be skipped
+// Add it to the link itself
+⋮----
+mod test {
+use data_encoding::HEXLOWER;
+use std::collections::HashMap;
+⋮----
+fn create_target_description(
+⋮----
+fn test_record_artifacts() {
+⋮----
+fn test_prefix_record_artifacts() {
+⋮----
+// conflict of file "left/world" and "right/world"
+⋮----
+fn test_left_strip() {
+⋮----
+fn test_run_command() {
+</file>
+
+<file path="src/verifylib.rs">
+//! A tool to be used by the client to perform verification on the final product.
+⋮----
+use glob::glob;
+⋮----
+/// verify_layout_signatures can verify the layout wrapped in a Metablock with given
+/// set of public keys. If verification fails, an error occurs.
+fn verify_layout_signatures(
+⋮----
+/// verify_layout_expiration will verify whether the layout has expired
+fn verify_layout_expiration(layout: &LayoutMetadata) -> Result<()> {
+⋮----
+/// load content from path to a Metablock
+fn load_linkfile(path: &PathBuf) -> Result<Metablock> {
+⋮----
+/// Match signer's key id and metablock's signatures, if one of the
+/// signatures is signed with the signer's key, insert it into the
+/// given links_per_step map.
+fn match_signatures(
+⋮----
+/// load_links_for_layout will load Metablock from disk,
+/// return a map containing the Metablocks.
+/// The returned value is a nested HashMap
+/// * step-name => (key-id => Metablock)
+fn load_links_for_layout(
+⋮----
+// load link from the disk, canbe either a linkfile or a layout file
+⋮----
+// Get the key-id that signed this link file
+⋮----
+// by trim filename's start <step-name>." and end ".link"
+⋮----
+/// Verify given step's links' signature, and checkout whether
+/// at least "threshold" signatures are validated. Returns
+/// validated metadata.
+fn verify_link_signature_thresholds_step(
+⋮----
+// Get all links for the given step, verify them, and record the good
+// links in the HashMap.
+⋮----
+// For each link corresponding to a step, check that the signer key was
+// authorized by checking whether it's included in the layout.
+// Only good links are stored, to verify thresholds.
+// The sign key of the link is not authorized in the layout
+⋮----
+// in-toto v0.9's signature doesn't have a cert field,
+// thus no cert relative operations will be performed.
+⋮----
+/// verify_link_signature_thresholds will verify links' signature
+/// and check whether link file number meets each step's threshold.
+/// Returns only validated link files.
+fn verify_link_signature_thresholds(
+⋮----
+// Verify this single step, return verified links.
+⋮----
+/// verify_sublayouts will check if any step has been
+/// delegated by the functionary, recurses into the delegation and
+/// replaces the layout object in the chain_link_dict by an
+/// equivalent link object.
+fn verify_sublayouts(
+⋮----
+// If it's a layout, go ahead.
+⋮----
+/// verify_all_steps_command_alignment will iteratively check if all
+/// expected commands as defined in the Steps of a Layout align with
+/// the actual commands as recorded in the Link metadata.
+fn verify_all_steps_command_alignment(
+⋮----
+/// verify_threshold_constraints will verify that all links
+/// corresponding to a given step report the same materials
+/// and products.
+fn verify_threshold_constraints(
+⋮----
+/// reduce_chain_links will iterates through the passed
+/// chain_link_dict and builds a dict with step-name as
+/// keys and link objects as values. We already check if
+/// the links of different functionaries are identical.
+fn reduce_chain_links(
+⋮----
+/// verify_all_item_rules will iteratively verify artifact rules
+/// of passed steps.
+fn verify_all_item_rules(
+⋮----
+/// run_all_inspections will extracts all inspections from a passed
+/// Layout's inspect field and iteratively run each command defined
+/// in the Inspection's `run` field using `runlib::in_toto_run`, which
+/// returns a Metablock object containing a Link object.
+fn run_all_inspections(
+⋮----
+// dump the metadata
+⋮----
+// record in the hashmap
+⋮----
+fn get_summary_link(
+⋮----
+/// in_toto_verify can be used to verify an entire software supply chain according to
+/// the in-toto specification v0.9. It requires the metadata of the root layout, a map
+/// that contains public keys to verify the root layout signatures, a path to a
+/// directory from where it can load link metadata files, which are treated as
+/// signed evidence for the steps defined in the layout, a step name, and a
+/// parameter dictionary used for parameter substitution. The step name only
+/// matters for sublayouts, where it's important to associate the summary of that
+/// step with a unique name. The verification routine is as follows:
+///
+/// 1. Verify layout signature(s) using passed key(s)
+/// 2. Verify layout expiration date
+/// 3. Load link metadata files for steps of layout
+/// 4. Verify signatures and signature thresholds for steps of layout
+/// 5. Verify sublayouts recursively
+/// 6. Verify command alignment for steps of layout (only warns)
+/// 7. Verify artifact rules for steps of layout
+/// 8. Execute inspection commands (generates link metadata for each inspection)
+/// 9. Verify artifact rules for inspections of layout
+///
+/// in_toto_verify returns a summary link wrapped in a Metablock object or an error.
+/// If any of the verification routines fail, verification is aborted and error is
+/// returned.
+///
+/// # Parameters
+/// * `layout`: The LayoutMetadata wrapped in a Metablock.
+/// * `layout_keys`: A `key_id` to `Pubkey` map defined in layout.
+/// * `link_dir`: The directory where link files are stored.
+/// * `step_name`(Optional): A name assigned to the returned link. This is mostly
+///   useful during recursive sublayout verification.
+///
+/// # Side-Effects
+/// * I/O: Read link files from the disk.
+/// * Process: Run commands using subprocess.
+///
+/// # Return Value
+/// * A LinkMetadata which summarizes the materials
+///   and products of the whole software supply chain.
+pub fn in_toto_verify(
+⋮----
+// Verify layout signature(s) using passed key(s) and
+// judge whether the Metablock has layout inside
+⋮----
+// Verify layout expiration date
+⋮----
+// Load metadata files for steps of layout
+⋮----
+// Verify signatures and signature thresholds for steps of layout
+⋮----
+// Verify sublayouts recursively
+⋮----
+// Verify command alignment for steps of layout (only warns)
+⋮----
+// Verify threshold
+⋮----
+// Reduce link files
+⋮----
+// Verify artifact rules for steps of layout
+⋮----
+// Execute inspection commands (generates link metadata for each inspection)
+⋮----
+// Verify artifact rules for inspections of layout
+⋮----
+mod tests {
+⋮----
+use std::path::Path;
+⋮----
+use super::in_toto_verify;
+⋮----
+fn verify_demo() {
+</file>
+
+<file path="README.md">
+# in-toto-rs
+
+A Rust implementation of [in-toto](https://in-toto.io).
+
+## Warning: Beta Software
+
+This is under active development and may not suitable for production use.
+Further, the API is unstable and you should be prepared to refactor on even
+patch releases.
+
+## Contributing
+
+Please make all pull requests to the `master` branch.
+
+### Bugs
+
+This project has a **full disclosure** policy on security related errors. Please
+treat these errors like all other bugs and file a public issue. Errors communicated
+via other channels will be immediately made public.
+
+## Legal
+
+### License
+
+This work is dual licensed under the MIT license
+</file>
+
+</files>

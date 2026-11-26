@@ -1,0 +1,45 @@
+[
+  {
+    "id": "claude-code",
+    "vendor": "anthropic",
+    "executables": ["claude"],
+    "instructions_file": "CLAUDE.md",
+    "launch": {
+      "argv": ["claude", "-p", "--output-format", "json", "--json-schema", "{schema_json}", "{prompt}"],
+      "output": {"kind": "stdout_json_field", "field": "structured_output"}
+    }
+  },
+  {
+    "id": "codex",
+    "vendor": "openai",
+    "executables": ["codex"],
+    "instructions_file": "AGENTS.md",
+    "launch": {
+      "argv": ["codex", "exec", "--output-schema", "{schema_path}", "-o", "{out_path}", "{prompt}"],
+      "output": {"kind": "file"}
+    }
+  },
+  {
+    "id": "antigravity",
+    "vendor": "google",
+    "executables": ["agy"],
+    "instructions_file": "AGENTS.md",
+    "launch": {
+      "argv": ["agy", "-p", "{prompt}", "--output-format", "json", "--json-schema", "{schema_json}"],
+      "output": {"kind": "stdout_json_field", "field": "structured_output"}
+    }
+  },
+  {
+    "id": "gemini-cli",
+    "vendor": "google",
+    "executables": ["gemini"],
+    "instructions_file": "GEMINI.md",
+    "launch": {
+      "argv": ["gemini", "-p", "{prompt}"],
+      "output": {"kind": "stdout"}
+    }
+  },
+  {"id": "cursor-agent", "vendor": "cursor", "executables": ["cursor-agent"], "instructions_file": "AGENTS.md", "launch": null},
+  {"id": "opencode", "vendor": "sst", "executables": ["opencode"], "instructions_file": "AGENTS.md", "launch": null},
+  {"id": "aider", "vendor": "aider", "executables": ["aider"], "instructions_file": "AGENTS.md", "launch": null}
+]
