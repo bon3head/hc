@@ -115,3 +115,17 @@ None. One blocker limits the evidence: direct curl to all source hosts was refus
 - [x] Verdict per claim with evidence link
 - [x] Must-fix and must-cut lists written
 - [x] UNVERIFIED items carried into the final output (none)
+
+---
+
+# Recheck 2026-11-26: claims the code itself cites
+
+These are the literature claims that appear in source comments, so they are public claims of the shipped artifact. Each was checked against the opened primary page.
+
+| # | Claim as it stood | Verdict | Evidence | Correction applied |
+|---|---|---|---|---|
+| R1 | `bailiff`: "models correct an error far more often when it is presented as external input than as their own output" | CONFIRMED-WITH-CORRECTIONS | Tsui, *Self-Correction Bench*, arXiv:2507.02778v3: a 64.5% blind spot across 14 open-source non-reasoning models; appending "Wait" reduces it by 89.3% | Scoped to the measured population; the gap for frontier coding agents is stated as unmeasured |
+| R2 | `crossexam` P9: "fail-to-pass, after SWT-Bench" | CONFIRMED, made precise | Mündler et al., arXiv:2406.12952v3 §3.1: a reproducing test fails on the original code and passes after the patch; a reproducing set has at least one F→P test and no P→F test. The arXiv page names no venue | Comment now states that P9 (fails before) plus P8 (full suite passes after) together are that condition |
+| R3 | `doctor`: Git 2.34 introduced SSH signing | CONFIRMED, with an addition | Git `RelNotes/2.34.0.adoc`: ssh public crypto can sign objects and push certs; ssh-keygen from OpenSSH 8.7 is broken for it | Comment notes the OpenSSH 8.7 case, which the doctor's sign-and-verify round trip catches |
+
+The Astra corpus's closest prior work (HSC-Bench arXiv:2610.36523, Soei arXiv:2610.39468, Ledger arXiv:2608.00808) is recorded in `docs/steering.md` as unverified. Nothing in the code or README depends on those figures. They bear on positioning, not on any verdict rule.

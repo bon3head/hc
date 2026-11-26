@@ -90,7 +90,11 @@ fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvi
                 ev.writes.push(Write { seq: r.seq, path, after: after.as_deref(), added: added_lines });
             }
             Event::SessionEnd { tree, .. } | Event::Checkpoint { tree } => ev.end_tree = Some(tree),
-            Event::SessionStart { tree, .. } => ev.start_tree = Some(tree),
+            Event::SessionStart { tree, .. } => {
+                // Until something changes, the session's tree is the one it started from.
+                ev.start_tree = Some(tree);
+                ev.end_tree = Some(tree);
+            }
             Event::NoClaim { .. } | Event::PlanUpdate { .. } => {}
         }
     }
@@ -124,14 +128,15 @@ fn pass_scope(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compil
         let outside = seqs(&|w| compiled.is_allowed(w.path) == Some(false) && !compiled.is_protected(w.path));
         checks.push(check(PassId::Scope, outside.is_empty(), "out-of-scope-write", outside, None));
     }
-    let claimed: BTreeSet<&str> = claim.paths.iter().map(String::as_str).collect();
+    let claimed: BTreeSet<String> = claim.paths.iter().map(|p| normalize_path(p)).collect();
+    let covers = |path: &str| claimed.iter().any(|c| path == c || path.strip_prefix(c.as_str()).is_some_and(|rest| rest.starts_with('/')));
     match claim.kind {
         ClaimKind::FilesUntouched => {
-            let touched = seqs(&|w| claimed.contains(w.path));
+            let touched = seqs(&|w| covers(w.path));
             checks.push(check(PassId::Scope, touched.is_empty(), "claimed-untouched-was-written", touched, None));
         }
         ClaimKind::FilesChanged => {
-            let ok = written == claimed;
+            let ok = written.len() == claimed.len() && written.iter().all(|w| claimed.contains(*w));
             let detail = (!ok).then(|| format!("claimed {claimed:?}, observed {written:?}"));
             checks.push(check(PassId::Scope, ok, "files-changed-mismatch", seqs(&|_| true), detail));
         }
@@ -141,11 +146,18 @@ fn pass_scope(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compil
     checks
 }
 
+/// `./src//a.py` and `src/a.py` name the same file; intake already rejected `..`, absolute and empty paths.
+fn normalize_path(path: &str) -> String {
+    path.split('/').filter(|part| !part.is_empty() && *part != ".").collect::<Vec<_>>().join("/")
+}
+
 /// Any failing check refutes; test claims need clean re-execution; file claims need a scope check.
 fn trust_of(kind: ClaimKind, checks: &[Check]) -> Trust {
     let passed = |pass: PassId| checks.iter().any(|c| c.pass == pass && c.result == Outcome::Pass);
     if checks.iter().any(|c| c.result == Outcome::Fail) {
         Trust::Refuted
+    } else if checks.iter().any(|c| c.result == Outcome::Unresolved) {
+        Trust::Asserted
     } else if is_test_like(kind) && passed(PassId::Reexec) {
         Trust::Reproduced
     } else if matches!(kind, ClaimKind::FilesChanged | ClaimKind::FilesUntouched | ClaimKind::NoChangeNeeded) && passed(PassId::Scope) {
@@ -215,14 +227,24 @@ impl Kernel {
             if self.on(PassId::Command) {
                 checks.extend(pass_command(claim, argv.as_ref()));
             }
-            if self.on(PassId::Tamper) {
-                checks.extend(pass_tamper(claim, &ev, &compiled));
-            }
-            if self.on(PassId::Scope) {
-                checks.extend(pass_scope(claim, &ev, &compiled));
-            }
-            if self.on(PassId::Signature) {
-                checks.extend(self.pass_signature(claim, &ev, &compiled)?);
+            if ev.start_tree.is_none() {
+                // No recorded session: what the agent wrote is unknown, so the write-based
+                // passes cannot pass. They would pass vacuously on an empty write set.
+                checks.push(unresolved(
+                    PassId::Tamper,
+                    "no-session-evidence",
+                    format!("no observations were recorded for session {:?}", cr.session),
+                ));
+            } else {
+                if self.on(PassId::Tamper) {
+                    checks.extend(pass_tamper(claim, &ev, &compiled));
+                }
+                if self.on(PassId::Scope) {
+                    checks.extend(pass_scope(claim, &ev, &compiled));
+                }
+                if self.on(PassId::Signature) {
+                    checks.extend(self.pass_signature(claim, &ev, &compiled)?);
+                }
             }
             if self.on(PassId::Reexec) {
                 checks.extend(self.pass_reexec(claim, &ev, argv.as_deref())?);
@@ -272,8 +294,10 @@ impl Kernel {
     }
 
     /// P9: when the task may edit tests, the session's tests must fail on the
-    /// pre-session code (fail-to-pass, after SWT-Bench). Tests that pass on the
-    /// unfixed code do not discriminate between broken and fixed.
+    /// pre-session code. With P8 (the full suite passes on the final tree) this is
+    /// SWT-Bench's reproducing-test condition (Mündler et al., arXiv:2406.12952,
+    /// §3.1): at least one fail-to-pass test and none that go from pass to fail.
+    /// Tests that pass on the unfixed code do not discriminate between broken and fixed.
     fn pass_falsify(
         &self,
         claim: &Claim,
@@ -310,7 +334,7 @@ impl Kernel {
     fn pass_reexec(&self, claim: &Claim, ev: &SessionEvidence<'_>, argv: Option<&[String]>) -> Result<Vec<Check>, KernelError> {
         let (Some(reexec), Some(argv), true) = (&self.reexec, argv, is_test_like(claim.kind)) else { return Ok(Vec::new()) };
         let source = match (&claim.commit, ev.end_tree) {
-            (Some(commit), _) => Source::Commit { repo: &self.repo, commit },
+            (Some(commit), _) => Source::Commit { repo: &self.repo, commit, ledger: &self.docket_git },
             (None, Some(tree)) => Source::Tree { docket_git: &self.docket_git, tree },
             (None, None) => {
                 return Ok(vec![unresolved(

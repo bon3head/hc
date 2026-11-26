@@ -95,18 +95,43 @@ fn trust_name(trust: Trust) -> String {
     serde_json::to_value(trust).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default()
 }
 
+fn paths(list: &[String]) -> String {
+    list.iter().map(|p| inline(p)).collect::<Vec<_>>().join(", ")
+}
+
 fn short(id: &str) -> &str {
     &id[..id.len().min(12)]
 }
 
-/// A tree-bound test result whose session has moved to a different tree since.
+/// A result tied to the session's tree (anything not pinned to a commit) whose
+/// session has moved to a different tree since: true then, unknown now.
 fn stale(f: &Finding) -> Option<String> {
-    let c = &f.claim.claim;
-    let test_like = matches!(c.kind, ClaimKind::TestsPass | ClaimKind::CommandRan);
-    match (test_like, c.commit.as_deref(), f.subject_tree.as_deref(), f.current_tree.as_deref()) {
-        (true, None, Some(then), Some(now)) if then != now => Some(now.to_owned()),
+    match (f.claim.claim.commit.as_deref(), f.subject_tree.as_deref(), f.current_tree.as_deref()) {
+        (None, Some(then), Some(now)) if then != now => Some(now.to_owned()),
         _ => None,
     }
+}
+
+/// Agent-supplied text rendered inline: one line, no backticks, so it can
+/// never open a code span, a heading or an instruction in the brief.
+fn inline(text: &str) -> String {
+    text.chars()
+        .map(|c| {
+            if c.is_control() {
+                ' '
+            } else if c == '`' {
+                '\''
+            } else {
+                c
+            }
+        })
+        .collect()
+}
+
+/// The command as the shell would run it, re-quoted from its parsed words.
+fn command_text(command: Option<&str>) -> String {
+    let words = command.and_then(shlex::split).unwrap_or_default();
+    inline(&shlex::try_join(words.iter().map(String::as_str)).unwrap_or_default())
 }
 
 fn summary(f: &Finding) -> String {
@@ -114,14 +139,19 @@ fn summary(f: &Finding) -> String {
     match c.kind {
         ClaimKind::TestsPass | ClaimKind::CommandRan => {
             let at = match (c.commit.as_deref(), f.subject_tree.as_deref()) {
-                (Some(commit), _) => format!("commit {commit}"),
+                (Some(commit), _) => format!("commit {}", inline(commit)),
                 (None, Some(tree)) => format!("tree {}", short(tree)),
                 (None, None) => "no recorded tree".to_owned(),
             };
-            format!("`{}` passes on {at}", c.command.as_deref().unwrap_or_default())
+            let cmd = command_text(c.command.as_deref());
+            if c.kind == ClaimKind::TestsPass {
+                format!("`{cmd}` passes on {at}")
+            } else {
+                format!("`{cmd}` exits {} on {at}", c.exit_code.unwrap_or(0))
+            }
         }
-        ClaimKind::FilesChanged => format!("changed exactly: {}", c.paths.join(", ")),
-        ClaimKind::FilesUntouched => format!("did not modify: {}", c.paths.join(", ")),
+        ClaimKind::FilesChanged => format!("changed exactly: {}", paths(&c.paths)),
+        ClaimKind::FilesUntouched => format!("did not modify: {}", paths(&c.paths)),
         ClaimKind::NoChangeNeeded => "no change was needed; the session wrote nothing".to_owned(),
         _ => String::new(),
     }
@@ -200,7 +230,7 @@ impl Brief {
                 out,
                 "- [{}] {} {}: {} (evidence: {})",
                 trust_name(f.trust),
-                f.claim_id,
+                inline(&f.claim_id),
                 kind_name(f.kind),
                 f.summary,
                 seqs(&f.evidence)
@@ -212,13 +242,20 @@ impl Brief {
                 "\n## Stale results (held on an earlier tree; the code has changed since, so re-run before relying on them)\n"
             );
             for s in &self.stale {
-                let _ = writeln!(out, "- {}: {}; the session's tree is now {}", s.claim_id, s.summary, short(&s.current_tree));
+                let _ = writeln!(out, "- {}: {}; the session's tree is now {}", inline(&s.claim_id), s.summary, short(&s.current_tree));
             }
         }
         if !self.refuted.is_empty() {
             let _ = writeln!(out, "\n## Refuted claims (do not repeat or rely on these)\n");
             for n in &self.refuted {
-                let _ = writeln!(out, "- {} {}: {} (evidence: {})", n.claim_id, kind_name(n.kind), n.reasons.join("; "), seqs(&n.evidence));
+                let _ = writeln!(
+                    out,
+                    "- {} {}: {} (evidence: {})",
+                    inline(&n.claim_id),
+                    kind_name(n.kind),
+                    inline(&n.reasons.join("; ")),
+                    seqs(&n.evidence)
+                );
             }
         }
         if !self.unverified.is_empty() {
@@ -227,10 +264,10 @@ impl Brief {
                 let _ = writeln!(
                     out,
                     "- {} {}: basis quoted as data: {}{}",
-                    e.claim_id,
+                    inline(&e.claim_id),
                     kind_name(e.kind),
                     serde_json::to_string(&e.basis).unwrap_or_default(),
-                    if e.unresolved.is_empty() { String::new() } else { format!(" (not settled: {})", e.unresolved.join("; ")) }
+                    if e.unresolved.is_empty() { String::new() } else { format!(" (not settled: {})", inline(&e.unresolved.join("; "))) }
                 );
             }
         }

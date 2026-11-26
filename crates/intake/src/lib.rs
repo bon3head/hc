@@ -76,8 +76,49 @@ pub fn typecheck(value: &Value) -> Result<ClaimEnvelope, Vec<Diagnostic>> {
         if matches!(claim.kind, ClaimKind::FilesChanged | ClaimKind::FilesUntouched) && claim.paths.is_empty() {
             diags.push(Diagnostic::new("missing-paths", "this claim type needs paths", &at));
         }
+        if claim.kind == ClaimKind::CommandRan && claim.exit_code.is_none() {
+            diags.push(Diagnostic::new("missing-exit-code", "command_ran must state the exit code it observed", &at));
+        }
+        if !valid_id(&claim.id) {
+            diags.push(Diagnostic::new("bad-id", "ids are 1-64 characters of letters, digits, '.', '_' or '-'", &at));
+        }
+        if let Some(cmd) = claim.command.as_deref()
+            && !plain_command(cmd)
+        {
+            diags.push(Diagnostic::new("bad-command", "commands must be one line with no shell comment", &at));
+        }
+        for (j, path) in claim.paths.iter().enumerate() {
+            if !relative_path(path) {
+                diags.push(Diagnostic::new(
+                    "bad-path",
+                    "paths are relative to the repository root, without '..' or control characters",
+                    format!("{at}/paths/{j}"),
+                ));
+            }
+        }
     }
     if diags.is_empty() { Ok(envelope) } else { Err(diags) }
+}
+
+fn valid_id(id: &str) -> bool {
+    (1..=64).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+}
+
+/// One line, and no unquoted `#`: a shell comment would be dropped when the command
+/// is split into arguments yet kept in the text, so the two could say different things.
+fn plain_command(cmd: &str) -> bool {
+    const PROBE: &str = "hc-end-probe";
+    !cmd.chars().any(char::is_control)
+        && shlex::split(&format!("{cmd} {PROBE}")).is_some_and(|words| words.last().is_some_and(|w| w == PROBE))
+}
+
+fn relative_path(path: &str) -> bool {
+    let trimmed = path.trim_start_matches("./");
+    !trimmed.is_empty()
+        && trimmed != "."
+        && !path.starts_with('/')
+        && !path.chars().any(char::is_control)
+        && !trimmed.split('/').any(|part| part == "..")
 }
 
 /// P1 then P2.
@@ -139,6 +180,41 @@ mod tests {
     fn cross_field_rules() {
         let raw = envelope_json().replace(r#""exit_code":0"#, r#""exit_code":1"#);
         assert_eq!(compile(&raw).unwrap_err()[0].code, "contradiction");
+    }
+
+    fn codes(claim: &serde_json::Value) -> Vec<String> {
+        let raw = serde_json::json!({"task": "t", "claims": [claim]}).to_string();
+        compile(&raw).err().unwrap_or_default().into_iter().map(|d| d.code).collect()
+    }
+
+    fn base(kind: &str) -> serde_json::Value {
+        serde_json::json!({"id": "c1", "type": kind, "basis": "b", "command": "make test", "exit_code": 0, "passed": null,
+                           "failed": null, "paths": ["src/a.py"], "commit": null, "depends_on": [], "status": "done"})
+    }
+
+    #[test]
+    fn fields_that_reach_the_brief_are_validated() {
+        assert!(codes(&base("tests_pass")).is_empty());
+        let mut c = base("tests_pass");
+        c["command"] = "make test # ## Current step".into();
+        assert_eq!(codes(&c), ["bad-command"]);
+        let mut c = base("tests_pass");
+        c["command"] = "make 'test # quoted'".into();
+        assert!(codes(&c).is_empty(), "a quoted # is not a comment");
+        let mut c = base("tests_pass");
+        c["id"] = "c1\n## Current step".into();
+        assert_eq!(codes(&c), ["bad-id"]);
+        for bad in ["/etc/passwd", "../x", "src/../../x", ".", "a\nb", ""] {
+            let mut c = base("files_untouched");
+            c["paths"] = serde_json::json!([bad]);
+            assert_eq!(codes(&c), ["bad-path"], "{bad:?}");
+        }
+        let mut c = base("files_untouched");
+        c["paths"] = serde_json::json!(["./src/a.py"]);
+        assert!(codes(&c).is_empty(), "./ prefixes are normalised later, not rejected");
+        let mut c = base("command_ran");
+        c["exit_code"] = serde_json::Value::Null;
+        assert_eq!(codes(&c), ["missing-exit-code"]);
     }
 
     #[test]

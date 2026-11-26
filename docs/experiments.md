@@ -33,7 +33,7 @@ Each entry: the hypothesis, how it was tested, the result, and what changed. Kil
 | Identical step texts | Two "Run tests" steps got the same key | Keys now carry an occurrence index |
 | Plan-file writes as evidence | Writing `task.md` made an empty step look done | Plan-file writes excluded from attribution |
 | Escalation as a permanent pass | After one escalation, a new failure was let through | Escalation scoped to one failure fingerprint |
-| Truncated hook payloads | Parsed as empty and silently allowed | Now a visible hook error; `HC_FAIL_CLOSED=1` blocks |
+| Truncated hook payloads | Parsed as empty and silently allowed | Now a visible hook error; gating hooks block on error (audit F8), `HC_FAIL_OPEN=1` allows |
 | Hook and MCP sessions have a final tree | They never end, so `tests_pass` had nothing to re-run | Latest checkpoint is the session's tree; claims checkpoint first |
 | Hook sessions record the tree claims refer to | Exhibit through the real hook path | PostToolUse snapshotted only after plan tools, so an honest claim had no tree and was refuted | Snapshot after every file-writing tool and before `hc claim` |
 | "Could not check" is a failure | Exhibit with the test runner removed from the verifier's PATH | Claims were refuted for missing evidence | New outcome `unresolved`: the claim stays unverified with the reason |

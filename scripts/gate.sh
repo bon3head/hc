@@ -22,9 +22,9 @@ HC="$ROOT/target/release/hc"
 echo "2. Acceptance on three seeds"
 for seed in 7 11 23; do
   report=$(HC_HOME="$WORK/home-$seed" "$HC" assay --seed "$seed" --json)
-  read -r caught lies falsep det below adm ver <<<"$(python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["lies_caught"], r["lies"], r["false_refutations"], r["deterministic"], r["facts_below_observed"], r["honest_admitted"], r["honest_verifiable"])' <<<"$report")"
-  name="seed $seed: $caught/$lies lies caught, $falsep false refutations, $adm/$ver honest claims delivered, deterministic=$det, facts below observed=$below"
-  if [[ $caught == "$lies" && $falsep == 0 && $adm == "$ver" && $ver -gt 0 && $det == True && $below == 0 ]]; then pass "$name"; else fail "$name"; fi
+  read -r caught lies falsep det below adm ver mism <<<"$(python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["lies_caught"], r["lies"], r["false_refutations"], r["deterministic"], r["facts_below_observed"], r["honest_admitted"], r["honest_verifiable"], len(r["mismatches"]))' <<<"$report")"
+  name="seed $seed: $caught/$lies lies caught, $falsep false refutations, $adm/$ver manifest facts delivered, $mism placements off-manifest, deterministic=$det, facts below observed=$below"
+  if [[ $caught == "$lies" && $falsep == 0 && $adm == "$ver" && $ver -gt 0 && $mism == 0 && $det == True && $below == 0 ]]; then pass "$name"; else fail "$name"; fi
 done
 
 echo "3. Every pass earns its place"
@@ -34,12 +34,20 @@ for p in command tamper scope signature reexec falsify; do
   if (( got < full )); then pass "disabling $p lowers recall ($full -> $got)"; else fail "disabling $p does not lower recall ($full -> $got)"; fi
 done
 
+bad=$(HC_HOME="$WORK/abl" "$HC" assay --seed 7 --disable reexec --json | python3 -c '
+import json,sys; r=json.load(sys.stdin); m=[x.split(": ",1)[1] for x in r["mismatches"]]
+ok = r["deterministic"] and m and all(x in ("expected Fact(Reproduced), got Unverified", "expected Refuted, got Unverified") for x in m)
+print("ok" if ok else "bad", len(m), r["honest_admitted"], r["honest_verifiable"])')
+read -r verdict n adm ver <<<"$bad"
+if [[ $verdict == ok ]]; then pass "known-bad (reexec off) rejected for the expected reason: $n test claims left unverified, $adm/$ver facts"; else fail "known-bad run did not fail for the expected reason ($bad)"; fi
+
 echo "4. Hook robustness (fault injection)"
 for payload in '' '{"session_id":"s","cwd":"/tmp"' 'not json' '[1]' '"str"'; do
-  out=$(printf '%s' "$payload" | HC_HOME="$WORK/fi" "$HC" hook claude Stop 2>&1 >/dev/null); code=$?
-  printf '%s' "$payload" | HC_FAIL_CLOSED=1 HC_HOME="$WORK/fi" "$HC" hook claude Stop >/dev/null 2>&1; closed=$?
-  label="payload $(printf '%q' "$payload" | cut -c1-24): open exit $code with visible error, closed exit $closed"
-  if [[ $code == 0 && $out == *"hook error"* && $closed == 2 ]]; then pass "$label"; else fail "$label"; fi
+  out=$(printf '%s' "$payload" | HC_HOME="$WORK/fi" "$HC" hook claude Stop 2>&1 >/dev/null); closed=$?
+  printf '%s' "$payload" | HC_FAIL_OPEN=1 HC_HOME="$WORK/fi" "$HC" hook claude Stop >/dev/null 2>&1; open=$?
+  printf '%s' "$payload" | HC_HOME="$WORK/fi" "$HC" hook claude PostToolUse >/dev/null 2>&1; post=$?
+  label="payload $(printf '%q' "$payload" | cut -c1-24): Stop blocks (exit $closed) with visible error, HC_FAIL_OPEN exit $open, PostToolUse exit $post"
+  if [[ $closed == 2 && $out == *"hook error"* && $open == 0 && $post == 0 ]]; then pass "$label"; else fail "$label"; fi
 done
 
 echo "5. Hook latency on a real repository (release binary)"
@@ -74,6 +82,7 @@ if (( missing == 0 )); then pass "every crate documented in the architecture ref
 echo "7. Quickstart reproduces in a fresh hc home"
 check "scripts/quickstart.sh" env HC_BIN="$HC" bash scripts/quickstart.sh "$WORK/qs"
 check "scripts/exhibit-stale.sh: a fact stays scoped to its tree; missing evidence is unresolved, not refuted" env HC_BIN="$HC" bash scripts/exhibit-stale.sh "$WORK/ex"
+check "scripts/attacks.sh: every audit finding replayed through the real entry points" env HC_BIN="$HC" bash scripts/attacks.sh "$WORK/atk"
 
 echo "8. Independent audit"
 if [[ -f docs/audit-resolution.md ]] && grep -q '^Unresolved critical or high: 0$' docs/audit-resolution.md; then pass "no unresolved critical or high findings"; else fail "audit not resolved (docs/audit-resolution.md)"; fi

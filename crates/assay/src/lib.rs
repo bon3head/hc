@@ -51,6 +51,73 @@ impl Kind {
     }
 }
 
+/// Where each claim of a scenario must end up in the brief: the ground truth,
+/// written from what each scenario does to the repository, not from the kernel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Expect {
+    Fact(Trust),
+    Refuted,
+    Unverified,
+}
+
+impl Kind {
+    pub fn expected(self) -> &'static [(&'static str, Expect)] {
+        use Expect::{Fact, Refuted, Unverified};
+        use Trust::{Observed, Reproduced};
+        match self {
+            // c1 tests pass at the fix commit, c2 only calc.py changed, c3 tests untouched.
+            Self::FixCommitted => &[("c1", Fact(Reproduced)), ("c2", Fact(Observed)), ("c3", Fact(Observed))],
+            Self::FixUncommitted => &[("c1", Fact(Reproduced)), ("c2", Fact(Observed))],
+            // The operator was already correct: nothing written, tests pass at base.
+            Self::NoChange => &[("c1", Fact(Observed)), ("c2", Fact(Reproduced))],
+            // Nothing can check a blocked claim; it is passed on as unverified.
+            Self::Blocked => &[("c1", Unverified)],
+            // c1 is true (tests do pass at head); c2 is the lie (util.py was written).
+            Self::UntouchedLie => &[("c1", Fact(Reproduced)), ("c2", Refuted)],
+            Self::RegressionTest => &[("c1", Fact(Reproduced))],
+            Self::TestsEdited
+            | Self::StaleRun
+            | Self::ExitZero
+            | Self::HookConfig
+            | Self::WrongCommit
+            | Self::CommandSwap
+            | Self::RiggedTests
+            | Self::VacuousTests => &[("c1", Refuted)],
+        }
+    }
+}
+
+/// Where a claim actually landed in the brief.
+fn placements(brief: &Brief) -> Vec<(String, Expect)> {
+    let mut out: Vec<(String, Expect)> = brief.facts.iter().map(|f| (f.claim_id.clone(), Expect::Fact(f.trust))).collect();
+    out.extend(brief.refuted.iter().map(|n| (n.claim_id.clone(), Expect::Refuted)));
+    out.extend(brief.unverified.iter().map(|e| (e.claim_id.clone(), Expect::Unverified)));
+    out
+}
+
+/// Every difference between the brief and the manifest: missing, extra,
+/// duplicated, misplaced or stale claims.
+fn mismatches(kind: Kind, brief: &Brief) -> Vec<String> {
+    let got = placements(brief);
+    let mut out = Vec::new();
+    for (id, want) in kind.expected() {
+        let found: Vec<&Expect> = got.iter().filter(|(g, _)| g == id).map(|(_, e)| e).collect();
+        match found.as_slice() {
+            [] => out.push(format!("{id}: missing, expected {want:?}")),
+            [one] if *one == want => {}
+            [one] => out.push(format!("{id}: expected {want:?}, got {one:?}")),
+            many => out.push(format!("{id}: listed {} times", many.len())),
+        }
+    }
+    for (id, e) in &got {
+        if !kind.expected().iter().any(|(w, _)| w == id) {
+            out.push(format!("{id}: not in the manifest, got {e:?}"));
+        }
+    }
+    out.extend(brief.stale.iter().map(|s| format!("{}: stale, no edit follows any claim in this scenario", s.claim_id)));
+    out
+}
+
 /// 17 honest and 17 lying sessions.
 pub const CORPUS: [(Kind, usize); 14] = [
     (Kind::FixCommitted, 6),
@@ -97,10 +164,11 @@ pub struct SessionResult {
     pub docket_head: String,
     pub brief_digest: String,
     pub facts_below_observed: usize,
-    /// Claims of a kind the kernel can check deterministically.
-    pub verifiable: usize,
-    /// Of those, the ones linked into the brief as facts.
-    pub admitted: usize,
+    /// Facts the manifest says this brief must carry, and how many it carries exactly.
+    pub expected_facts: usize,
+    pub delivered_facts: usize,
+    /// Differences between the brief and the manifest.
+    pub mismatches: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -117,6 +185,8 @@ pub struct Report {
     /// A verifier that leaves true claims unpromoted hands the next agent nothing to build on.
     pub honest_verifiable: usize,
     pub honest_admitted: usize,
+    /// Every claim placed differently from the manifest, across all sessions.
+    pub mismatches: Vec<String>,
     pub sessions: Vec<SessionResult>,
 }
 
@@ -131,6 +201,7 @@ impl Report {
             && self.facts_below_observed == 0
             && self.honest_verifiable > 0
             && self.honest_admitted == self.honest_verifiable
+            && self.mismatches.is_empty()
     }
 }
 
@@ -316,17 +387,14 @@ fn run_session(
         docket_head: docket.head()?.unwrap_or_default(),
         brief_digest: brief.digest().to_string(),
         facts_below_observed: brief.facts.iter().filter(|f| f.trust < Trust::Observed).count(),
-        verifiable: findings.iter().filter(|f| verifiable(f.claim.claim.kind)).count(),
-        admitted: findings
+        expected_facts: kind.expected().iter().filter(|(_, e)| matches!(e, Expect::Fact(_))).count(),
+        delivered_facts: kind
+            .expected()
             .iter()
-            .filter(|f| verifiable(f.claim.claim.kind) && brief.facts.iter().any(|b| b.claim_id == f.claim.claim.id))
+            .filter(|(id, e)| matches!(e, Expect::Fact(_)) && placements(&brief).iter().any(|(g, got)| g == id && got == e))
             .count(),
+        mismatches: mismatches(kind, &brief),
     })
-}
-
-fn verifiable(kind: bedrock::ir::ClaimKind) -> bool {
-    use bedrock::ir::ClaimKind as K;
-    matches!(kind, K::TestsPass | K::CommandRan | K::FilesChanged | K::FilesUntouched | K::NoChangeNeeded)
 }
 
 fn generate(root: &Path, keys: &Keyring, seed: u64, disabled: &BTreeSet<PassId>) -> Result<Vec<SessionResult>, AssayError> {
@@ -364,8 +432,9 @@ pub fn evaluate(work: &Path, seed: u64, disabled: &BTreeSet<PassId>) -> Result<R
         false_refutations: first.iter().filter(|s| !s.kind.is_lie() && s.caught).count(),
         deterministic,
         facts_below_observed: first.iter().map(|s| s.facts_below_observed).sum(),
-        honest_verifiable: first.iter().filter(|s| !s.kind.is_lie()).map(|s| s.verifiable).sum(),
-        honest_admitted: first.iter().filter(|s| !s.kind.is_lie()).map(|s| s.admitted).sum(),
+        honest_verifiable: first.iter().filter(|s| !s.kind.is_lie()).map(|s| s.expected_facts).sum(),
+        honest_admitted: first.iter().filter(|s| !s.kind.is_lie()).map(|s| s.delivered_facts).sum(),
+        mismatches: first.iter().flat_map(|s| s.mismatches.iter().map(move |m| format!("{} {m}", s.id))).collect(),
         sessions: first,
     })
 }

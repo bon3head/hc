@@ -97,7 +97,8 @@ fn system(r: &mut Report) {
         _ => r.error(S, "platform", format!("{os} {arch} is not supported"), "run hc inside WSL 2 or a Linux container"),
     }
 
-    // SSH signing (gpg.format=ssh) and its verification arrived in Git 2.34 (Documentation/RelNotes/2.34.0.txt).
+    // SSH signing arrived in Git 2.34 (Documentation/RelNotes/2.34.0.adoc), which also notes that
+    // ssh-keygen from OpenSSH 8.7 is broken for it; the sign-and-verify round trip below catches that case.
     match which("git").and_then(|_| output(Command::new("git").arg("--version"))) {
         None => r.error(S, "git", "not found on PATH", install_hint("git")),
         Some(v) => match parse_git_version(&v) {

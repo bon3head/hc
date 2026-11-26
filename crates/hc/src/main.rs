@@ -269,7 +269,6 @@ fn cmd_claim(home: &Home, file: Option<&Path>, repo: &Path, session: Option<Stri
     let registry = home.registry()?;
     let attestation = registry.detect().unwrap_or_else(|| roster::declared(declared_as.unwrap_or("unregistered")));
     let agent = home.identity(Role::Agent, &attestation.agent_id)?;
-    let session = session.unwrap_or_else(|| format!("adhoc-{}", jiff::Timestamp::now().as_second()));
     let docket = home.docket(repo)?;
     let harness = home.identity(Role::Harness, "local")?;
     let env = bailiff::Env {
@@ -279,6 +278,11 @@ fn cmd_claim(home: &Home, file: Option<&Path>, repo: &Path, session: Option<Stri
         sandbox: Sandbox::none(home.root()),
         clock: &now,
     };
+    // Bind to the hook session recorded for this repository; an unbound claim has no
+    // write evidence and can never be promoted past `asserted`.
+    let session = session
+        .or_else(|| bailiff::open_session_for(&env, repo))
+        .unwrap_or_else(|| format!("adhoc-{}", jiff::Timestamp::now().as_second()));
     bailiff::checkpoint_recorded(&env, &session, &repo.canonicalize()?)?;
     exhibit::record_claims(&docket, &agent, &now(), &session, &attestation, &envelope)?;
     eprintln!("[hc] recorded {} claims from {} ({:?})", envelope.claims.len(), attestation.agent_id, attestation.level);
@@ -369,8 +373,14 @@ fn cmd_run(home: &Home, task_path: &Path, agent_id: &str, repo: &Path, max_attem
     Ok(ExitCode::FAILURE)
 }
 
+/// Hook entry point. When hc itself fails, a gating event (`PreToolUse`,
+/// `TaskCompleted`, `Stop`) is blocked rather than waved through: "could not
+/// evaluate" must not read as "allowed". A `Stop` that is already continuing is
+/// let through with the error shown, so a broken hc cannot trap the agent, and
+/// `HC_FAIL_OPEN=1` restores allow-on-error everywhere.
 fn cmd_hook(home: &Home, dialect: &str, event: &str) -> ExitCode {
-    let fail_closed = std::env::var_os("HC_FAIL_CLOSED").is_some();
+    let fail_open = std::env::var_os("HC_FAIL_OPEN").is_some();
+    let mut continuing = false;
     let outcome = (|| -> Result<(String, String, i32)> {
         let d = bailiff::dialect::Dialect::parse(dialect).with_context(|| format!("unknown dialect {dialect:?}"))?;
         let kind = bailiff::dialect::EventKind::parse(event).with_context(|| format!("unsupported event {event:?}"))?;
@@ -380,6 +390,7 @@ fn cmd_hook(home: &Home, dialect: &str, event: &str) -> ExitCode {
             serde_json::from_str(&raw).with_context(|| format!("hook payload is not valid JSON ({} bytes)", raw.len()))?;
         anyhow::ensure!(payload.is_object(), "hook payload must be a JSON object");
         let input = bailiff::dialect::read(d, kind, &payload);
+        continuing = input.continuing;
         let docket = home.docket(&input.cwd)?;
         let harness = home.identity(Role::Harness, "local")?;
         let env = bailiff::Env {
@@ -399,8 +410,13 @@ fn cmd_hook(home: &Home, dialect: &str, event: &str) -> ExitCode {
             ExitCode::from(u8::try_from(code).unwrap_or(1))
         }
         Err(e) => {
-            eprintln!("[hc] hook error: {e:#}");
-            if fail_closed { ExitCode::from(2) } else { ExitCode::SUCCESS }
+            let gate = matches!(event, "PreToolUse" | "TaskCompleted" | "Stop");
+            let block = gate && !fail_open && !(event == "Stop" && continuing);
+            eprintln!(
+                "[hc] hook error: {e:#}{}",
+                if block { " (blocked because hc could not evaluate this step; run `hc doctor`)" } else { "" }
+            );
+            if block { ExitCode::from(2) } else { ExitCode::SUCCESS }
         }
     }
 }

@@ -12,6 +12,6 @@ license: MIT
 4. Make the plan visible. On Claude Code models where the task tools are off by default, start sessions with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`; on Codex, enable `update_plan` if your configuration disabled it. Without a native plan, hooks still deny protected writes and gate Stop; only step checks are skipped.
 5. Check: `hc doctor` must report every installed harness's hooks as resolving to an hc binary. Then start a session, ask the agent to edit a test file, and confirm the write is denied with an "hc verifier" message.
 
-`hc hook` fails open on its own errors (reported on stderr) so an hc bug never blocks work. Set `HC_FAIL_CLOSED=1` in the harness environment to block instead.
+When hc itself fails, the gating hooks (`PreToolUse`, `TaskCompleted`, `Stop`) block with the error on stderr: "could not evaluate" never reads as "allowed". A `Stop` that is already continuing is let through so a broken hc cannot trap the agent; other events only report the error. Set `HC_FAIL_OPEN=1` in the harness environment to allow on error everywhere. `hc doctor` diagnoses the cause.
 
 What each harness supports and why: [references/harness-matrix.md](references/harness-matrix.md).

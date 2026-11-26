@@ -12,9 +12,11 @@
 //! Hard failures block and explain. Soft findings (a completion with no
 //! recorded activity, unplanned work, steps out of order) are delivered once
 //! as observations. Every message is framed as an independent check of the
-//! working tree, not a critique of the conversation: models correct an error
-//! far more often when it is presented as external input than as their own
-//! output. Fail-fast: the same failure fingerprint twice in a row escalates to
+//! working tree, not a critique of the conversation. In Self-Correction Bench
+//! (Tsui, arXiv:2507.02778), 14 open-source non-reasoning models failed to
+//! correct 64.5% of errors attributed to themselves that they corrected when the
+//! same errors came as external input; the size of that gap for frontier coding
+//! agents is unmeasured. Fail-fast: the same failure fingerprint twice in a row escalates to
 //! a request for a root-cause report, and the next stop is allowed.
 
 pub mod dialect;
@@ -290,6 +292,24 @@ pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict,
     std::fs::create_dir_all(&env.state_dir)?;
     std::fs::write(&path, serde_json::to_string(&state)?)?;
     Ok(verdict)
+}
+
+/// The hook session currently open on `repo`, most recently active first, so a
+/// bare `hc claim` binds to the session whose writes were recorded.
+pub fn open_session_for(env: &Env<'_>, repo: &Path) -> Option<String> {
+    let repo = repo.canonicalize().ok()?;
+    let mut found: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(&env.state_dir)
+        .ok()?
+        .flatten()
+        .filter_map(|e| {
+            let modified = e.metadata().ok()?.modified().ok()?;
+            let state: State = serde_json::from_str(&std::fs::read_to_string(e.path()).ok()?).ok()?;
+            let open = state.open?;
+            (open.worktree.canonicalize().ok()? == repo).then_some((modified, open.session))
+        })
+        .collect();
+    found.sort();
+    found.pop().map(|(_, s)| s)
 }
 
 /// For `hc claim`: if `session` (as recorded, e.g. `claude-abc`) is a hook

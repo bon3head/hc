@@ -34,6 +34,16 @@ impl Git {
         Self { cwd: Some(dir.into()), ..Self::default() }
     }
 
+    /// Operate on a repository the agent controls. Its own `.git/config` is
+    /// still read by git, so every setting that can run a program on the
+    /// commands hc uses there is overridden: hooks and the filesystem monitor.
+    /// Only read-only plumbing (`rev-parse`) should go through this; content is
+    /// read through hc's own repository with the agent's object directory as an
+    /// alternate (see `exhibit::snapshot::materialize`).
+    pub fn untrusted(dir: impl Into<PathBuf>) -> Self {
+        Self::at(dir).config("core.hooksPath=/dev/null").config("core.fsmonitor=false")
+    }
+
     /// Operate on a bare repository (or an explicit git dir).
     pub fn bare(git_dir: impl Into<PathBuf>) -> Self {
         Self { repo_dir: Some(git_dir.into()), ..Self::default() }
@@ -68,7 +78,9 @@ impl Git {
             .env("GIT_TERMINAL_PROMPT", "0")
             .env_remove("GIT_DIR")
             .env_remove("GIT_WORK_TREE")
-            .env_remove("GIT_INDEX_FILE");
+            .env_remove("GIT_INDEX_FILE")
+            .env_remove("GIT_OBJECT_DIRECTORY")
+            .env_remove("GIT_ALTERNATE_OBJECT_DIRECTORIES");
         if let Some(cwd) = &self.cwd {
             cmd.current_dir(cwd);
         }

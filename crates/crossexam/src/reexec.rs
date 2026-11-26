@@ -21,7 +21,7 @@ pub struct Run {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Source<'a> {
-    Commit { repo: &'a Path, commit: &'a str },
+    Commit { repo: &'a Path, commit: &'a str, ledger: &'a Path },
     Tree { docket_git: &'a Path, tree: &'a str },
 }
 
@@ -36,8 +36,23 @@ impl Reexec {
         let tmp = tempfile::tempdir()?;
         let dir = tmp.path().join("wt");
         match source {
-            Source::Commit { repo, commit } => {
-                Git::at(repo).run(&["worktree", "add", "--detach", "--quiet", dir.to_str().expect("utf-8"), commit])?;
+            Source::Commit { repo, commit, ledger } => {
+                // Never check out inside the agent's repository: a checkout runs its hooks and
+                // filters. Resolve the commit read-only, then materialize through hc's ledger
+                // with the agent's object directory as an alternate.
+                let agent = Git::untrusted(repo);
+                let Some(tree) = agent.try_run(&["rev-parse", "--verify", "--quiet", "--end-of-options", &format!("{commit}^{{tree}}")])?
+                else {
+                    return Ok(Run {
+                        exit_codes: vec![],
+                        passed: None,
+                        failed: None,
+                        unavailable: Some(format!("commit {commit:?} is not in the repository")),
+                    });
+                };
+                let objects = agent.run(&["rev-parse", "--path-format=absolute", "--git-path", "objects"])?;
+                std::fs::create_dir_all(&dir)?;
+                exhibit::snapshot::materialize_from(ledger, &tree, &dir, Some(Path::new(&objects)))?;
             }
             Source::Tree { docket_git, tree } => {
                 std::fs::create_dir_all(&dir)?;
@@ -65,9 +80,6 @@ impl Reexec {
             exit_codes.push(out.status.code().unwrap_or(-1));
             let text = format!("{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
             counts = parse_counts(&text);
-        }
-        if let Source::Commit { repo, .. } = source {
-            let _ = Git::at(repo).run(&["worktree", "remove", "--force", dir.to_str().expect("utf-8")]);
         }
         Ok(Run { exit_codes, passed: counts.0, failed: counts.1, unavailable })
     }

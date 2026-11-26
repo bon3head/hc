@@ -263,6 +263,7 @@ dependencies = [
  "crossexam",
  "serde",
  "serde_json",
+ "shlex",
  "thiserror",
 ]
 
@@ -1127,6 +1128,7 @@ dependencies = [
  "bedrock",
  "jsonschema",
  "serde_json",
+ "shlex",
 ]
 
 [[package]]

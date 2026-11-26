@@ -8,8 +8,19 @@ use serde::{Deserialize, Serialize};
 /// Paths that hold tests, by the conventions of unittest, pytest and cargo.
 pub const TEST_PATTERNS: [&str; 5] = ["tests/**", "test/**", "**/test_*.py", "**/*_test.py", "**/conftest.py"];
 
-pub const DEFAULT_PROTECTED: [&str; 8] =
-    ["tests/**", "**/conftest.py", ".claude/**", ".codex/**", ".cursor/**", ".gemini/**", ".github/**", ".git/hooks/**"];
+pub const DEFAULT_PROTECTED: [&str; 11] = [
+    "tests/**",
+    "**/conftest.py",
+    ".claude/**",
+    ".codex/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".agents/**",
+    ".github/**",
+    ".git/hooks/**",
+    ".git/config",
+    ".handoff/task.json",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Policy {
