@@ -63,7 +63,8 @@ impl Reexec {
         let mut counts = (None, None);
         let mut unavailable = None;
         for _ in 0..self.runs.max(1) {
-            let out = match self.sandbox.command(argv, &dir).env("PYTHONDONTWRITEBYTECODE", "1").output() {
+            // Python must not import the user's site-packages (a `.pth` file there runs at startup).
+            let out = match self.sandbox.command(argv, &dir).env("PYTHONDONTWRITEBYTECODE", "1").env("PYTHONNOUSERSITE", "1").output() {
                 Ok(out) => out,
                 Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied) => {
                     unavailable = Some(format!("`{}` could not start: {e}", argv[0]));
@@ -83,6 +84,25 @@ impl Reexec {
         }
         Ok(Run { exit_codes, passed: counts.0, failed: counts.1, unavailable })
     }
+}
+
+/// Paths that `commit` changes relative to `base` (a commit or tree id). Nothing runs
+/// in the agent's repository except read-only `rev-parse`; the diff is computed in
+/// hc's ledger with the agent's object directory as an alternate. `None` when either
+/// side cannot be resolved. `filter` is a `--diff-filter` letter set.
+pub fn commit_changes(ledger: &Path, repo: &Path, base: &str, commit: &str, filter: &str) -> Result<Option<Vec<String>>, GitError> {
+    let agent = Git::untrusted(repo);
+    let Some(tree) = agent.try_run(&["rev-parse", "--verify", "--quiet", "--end-of-options", &format!("{commit}^{{tree}}")])? else {
+        return Ok(None);
+    };
+    let objects = agent.run(&["rev-parse", "--path-format=absolute", "--git-path", "objects"])?;
+    let git = Git::bare(ledger).env("GIT_ALTERNATE_OBJECT_DIRECTORIES", &objects);
+    let out =
+        git.output(&["diff-tree", "-r", "--no-renames", "--name-only", "-z", &format!("--diff-filter={filter}"), base, &tree], None)?;
+    if !out.status.success() {
+        return Ok(None);
+    }
+    Ok(Some(String::from_utf8_lossy(&out.stdout).split('\0').filter(|s| !s.is_empty()).map(str::to_owned).collect()))
 }
 
 static UNITTEST_RAN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"Ran (\d+) tests? in").unwrap());

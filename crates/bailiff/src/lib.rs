@@ -52,6 +52,10 @@ pub enum BailiffError {
     Io(#[from] std::io::Error),
     #[error("unreadable hook state")]
     Json(#[from] serde_json::Error),
+    #[error("could not compile the brief")]
+    Kernel(#[from] crossexam::KernelError),
+    #[error("could not compile the brief")]
+    Brief(#[from] brief::BriefError),
 }
 
 pub struct Env<'a> {
@@ -93,6 +97,25 @@ const WRITE_TOOLS: [&str; 10] = [
 const PATH_KEYS: [&str; 7] = ["file_path", "notebook_path", "path", "TargetFile", "target_file", "AbsolutePath", "file"];
 
 /// Paths a write tool call names, relative to `cwd`. Patch bodies (`*** Update File: p`) are scanned too.
+/// `p` (absolute, or relative to `base`) as a path relative to `root`, with `.` and `..`
+/// resolved lexically, so `src/../tests/x.py` is matched as `tests/x.py`. A path that
+/// leaves the root is returned absolute and never matches a repository pattern.
+fn repo_relative(root: &Path, base: &Path, p: &str) -> String {
+    let joined = if Path::new(p).is_absolute() { PathBuf::from(p) } else { base.join(p) };
+    let mut parts: Vec<std::path::Component<'_>> = Vec::new();
+    for c in joined.components() {
+        match c {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    let normal: PathBuf = parts.iter().collect();
+    normal.strip_prefix(root).map_or_else(|_| normal.to_string_lossy().into_owned(), |r| r.to_string_lossy().into_owned())
+}
+
 pub fn written_paths(tool: &str, input: &Value, cwd: &Path) -> Vec<String> {
     if !WRITE_TOOLS.contains(&tool) {
         return Vec::new();
@@ -115,14 +138,8 @@ pub fn written_paths(tool: &str, input: &Value, cwd: &Path) -> Vec<String> {
         }
     }
     let base = cwd.canonicalize().unwrap_or_else(|_| cwd.to_path_buf());
-    let mut out: Vec<String> = paths
-        .into_iter()
-        .map(|p| {
-            let path = PathBuf::from(&p);
-            path.strip_prefix(&base).or_else(|_| path.strip_prefix(cwd)).map_or(p.clone(), |r| r.to_string_lossy().into_owned())
-        })
-        .map(|p| p.trim_start_matches("./").to_owned())
-        .collect();
+    let root = repo_root(&base);
+    let mut out: Vec<String> = paths.into_iter().map(|p| repo_relative(&root, &base, &p)).collect();
     out.sort();
     out.dedup();
     out
@@ -146,6 +163,9 @@ fn compiled_policy(task: Option<&Task>) -> Result<(Policy, Compiled), globset::E
     let mut policy = Policy::new(task.map(|t| vec![t.test_command.clone()]).unwrap_or_default());
     if let Some(t) = task {
         policy.allowed.clone_from(&t.allowed_paths);
+        if t.tests_writable {
+            policy = policy.with_writable_tests();
+        }
     }
     let compiled = policy.compile()?;
     Ok((policy, compiled))
@@ -233,6 +253,40 @@ fn message(items: &[String]) -> String {
     text
 }
 
+/// The brief for `task`, compiled from the ledger exactly as `hc brief` does (read-only:
+/// verdicts are not recorded from a hook). Nothing from the working tree is injected, so
+/// an agent cannot plant text for the next session. `None` before any claim exists.
+fn compiled_brief(env: &Env<'_>, task: &Task, cwd: &Path) -> Result<Option<String>, BailiffError> {
+    let records = env.docket.records()?;
+    if !records.iter().any(|r| matches!(&r.body, Body::Claim(c) if c.task == task.id)) {
+        return Ok(None);
+    }
+    let kernel = crossexam::Kernel::for_task(
+        &task.test_command,
+        task.allowed_paths.clone(),
+        task.tests_writable,
+        env.docket.git_dir(),
+        cwd.to_path_buf(),
+        env.sandbox.clone(),
+    );
+    let mut findings: Vec<_> = kernel.examine(&records)?.into_iter().filter(|f| f.claim.task == task.id).collect();
+    kernel.observe_now(&mut findings)?;
+    Ok(Some(brief::Brief::link(task.clone(), &findings)?.render()))
+}
+
+/// The repository root: the nearest ancestor holding `.git`, so a hook fired from a
+/// subdirectory still finds the task, the ledger and the right protected paths.
+pub fn repo_root(dir: &Path) -> PathBuf {
+    let dir = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+    dir.ancestors().find(|d| d.join(".git").exists()).unwrap_or(&dir).to_path_buf()
+}
+
+/// The recorded session name: dialect prefix in lower case, the harness's id as given,
+/// so claims filed under the same id (MCP's `mcp-<id>`, `hc claim --session`) match.
+pub fn session_name(dialect: Dialect, id: &str) -> String {
+    format!("{}-{id}", format!("{dialect:?}").to_lowercase())
+}
+
 fn state_path(env: &Env<'_>, dialect: Dialect, session: &str) -> PathBuf {
     let slug: String = session.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' }).collect();
     env.state_dir.join(format!("{dialect:?}-{slug}.json").to_lowercase())
@@ -257,7 +311,7 @@ pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict,
         });
     }
 
-    let session = format!("{dialect:?}-{}", input.session).to_lowercase();
+    let session = session_name(dialect, &input.session);
     let path = state_path(env, dialect, &input.session);
     let mut state: State = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
     let force = Policy::new(vec![]).protected;
@@ -272,10 +326,10 @@ pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict,
 
     let verdict = match input.kind {
         EventKind::PreToolUse => unreachable!("handled above"),
-        EventKind::SessionStart => {
-            let brief = std::fs::read_to_string(input.cwd.join(".handoff/brief.md")).ok();
-            brief.map_or(Verdict::Allow, Verdict::Observe)
-        }
+        EventKind::SessionStart => match task.as_ref() {
+            Some(t) => compiled_brief(env, t, &input.cwd)?.map_or(Verdict::Allow, Verdict::Observe),
+            None => Verdict::Allow,
+        },
         EventKind::PostInvocation => {
             if state.queued.is_empty() {
                 Verdict::Allow
@@ -348,7 +402,7 @@ pub fn checkpoint_now(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<
     let recorder = Recorder { docket: env.docket, harness: env.harness, force_paths: &force };
     let ts = (env.clock)();
     if state.open.is_none() {
-        let session = format!("{dialect:?}-{}", input.session).to_lowercase();
+        let session = session_name(dialect, &input.session);
         let attestation = roster::Registry::builtin().detect().unwrap_or_else(|| roster::declared("unregistered"));
         let task_id = task.as_ref().map_or_else(|| "adhoc".to_owned(), |t| t.id.clone());
         state.open = Some(recorder.open(&ts, &session, &task_id, &input.cwd, attestation, env.sandbox.isolation)?);
@@ -475,9 +529,9 @@ fn acceptance(gate: &Gate<'_, '_>, state: &State, task: Option<&Task>) -> Result
         .unwrap_or_default())
 }
 
+/// Split as the kernel does (P4 and P8 use `shlex`), so the Stop gate runs the same argv.
 fn shlex_split(command: &str) -> Option<Vec<String>> {
-    let argv: Vec<String> = command.split_whitespace().map(str::to_owned).collect();
-    (!argv.is_empty()).then_some(argv)
+    shlex::split(command).filter(|argv| !argv.is_empty())
 }
 
 fn stop(

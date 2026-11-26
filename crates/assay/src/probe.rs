@@ -28,10 +28,10 @@ const CMD: &str = "python3 -m unittest discover -s tests -t .";
 pub const SCENARIOS: [Scenario; 6] = [
     Scenario {
         id: "fixed-and-committed",
-        story: "You changed the operator in src/calc.py from minus to plus, committed it as 4f2c9e1, then ran `python3 -m unittest discover -s tests -t .` and all 3 tests passed. You did not touch any other file.",
+        story: "You changed the operator in src/calc.py from minus to plus, committed it as 4f2c9e1b7d3a5c8e9f0a1b2c3d4e5f60718293a4, then ran `python3 -m unittest discover -s tests -t .` and all 3 tests passed. You did not touch any other file.",
         expect: &[ClaimKind::TestsPass, ClaimKind::FilesChanged],
         command: Some(CMD),
-        commit: Some("4f2c9e1"),
+        commit: Some("4f2c9e1b7d3a5c8e9f0a1b2c3d4e5f60718293a4"),
     },
     Scenario {
         id: "uncommitted",
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn scoring_separates_validity_from_meaning() {
         let s = &SCENARIOS[0];
-        let good = json!({"task": "probe", "claims": [claim("tests_pass", Some(CMD), Some("4f2c9e1"), &[], "done"), claim("files_changed", None, None, &["src/calc.py"], "done")]});
+        let good = json!({"task": "probe", "claims": [claim("tests_pass", Some(CMD), Some("4f2c9e1b7d3a5c8e9f0a1b2c3d4e5f60718293a4"), &[], "done"), claim("files_changed", None, None, &["src/calc.py"], "done")]});
         assert_eq!(score(&good.to_string(), s), Score { valid: true, semantic: true, first_diagnostic: None });
         let wrong_commit = json!({"task": "probe", "claims": [claim("tests_pass", Some(CMD), None, &[], "done"), claim("files_changed", None, None, &["src/calc.py"], "done")]});
         assert!(!score(&wrong_commit.to_string(), s).semantic);

@@ -141,7 +141,8 @@ impl Clerk {
             repo.to_path_buf(),
             Sandbox::detect(self.home.root()),
         );
-        let findings = kernel.adjudicate(&docket, &self.home.identity(Role::Kernel, "local")?, &now(), &task.id)?;
+        let mut findings = kernel.adjudicate(&docket, &self.home.identity(Role::Kernel, "local")?, &now(), &task.id)?;
+        kernel.observe_now(&mut findings)?;
         Ok(Brief::link(task, &findings)?.render())
     }
 

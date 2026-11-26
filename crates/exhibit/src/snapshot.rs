@@ -52,6 +52,8 @@ pub fn snapshot(ledger_git_dir: &Path, worktree: &Path, force_patterns: &[String
 }
 
 /// `base` with `paths` taken from `from` (paths absent in `from` are removed).
+const EMPTY_BLOB_ID: &str = "0000000000000000000000000000000000000000";
+
 pub fn overlay(ledger_git_dir: &Path, base: &str, from: &str, paths: &[String]) -> Result<Oid, GitError> {
     let index = tempfile::NamedTempFile::new()?;
     let index_path = index.path().to_path_buf();
@@ -66,7 +68,8 @@ pub fn overlay(ledger_git_dir: &Path, base: &str, from: &str, paths: &[String]) 
                     git.run(&["update-index", "--add", "--cacheinfo", &format!("{},{},{path}", meta[0], meta[2])])?;
                 }
                 _ => {
-                    git.run(&["update-index", "--force-remove", "--", path])?;
+                    // Mode 0 removes the entry; unlike --force-remove it needs no work tree.
+                    git.run_with_input(&["update-index", "--index-info"], Some(format!("0 {EMPTY_BLOB_ID}\t{path}\n").as_bytes()))?;
                 }
             }
         }

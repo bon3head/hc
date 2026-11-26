@@ -234,8 +234,7 @@ fn key_signs(key: &Path, principal: &str, allowed: &Path) -> Result<(), String> 
 
 fn repository(r: &mut Report, repo: &Path, home: Option<&chambers::Home>) {
     const S: &str = "Repository";
-    let inside =
-        Command::new("git").args(["rev-parse", "--is-inside-work-tree"]).current_dir(repo).output().is_ok_and(|o| o.status.success());
+    let inside = bedrock::git::Git::untrusted(repo).try_run(&["rev-parse", "--is-inside-work-tree"]).is_ok_and(|o| o.is_some());
     if !inside {
         r.error(S, "git work tree", format!("{} is not inside a git repository", repo.display()), "git init");
         return;

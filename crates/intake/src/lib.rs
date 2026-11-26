@@ -87,6 +87,15 @@ pub fn typecheck(value: &Value) -> Result<ClaimEnvelope, Vec<Diagnostic>> {
         {
             diags.push(Diagnostic::new("bad-command", "commands must be one line with no shell comment", &at));
         }
+        if let Some(commit) = claim.commit.as_deref()
+            && !object_id(commit)
+        {
+            diags.push(Diagnostic::new(
+                "bad-commit",
+                "commit must be a full object id (40 or 64 hex digits), so its meaning cannot change later",
+                &at,
+            ));
+        }
         for (j, path) in claim.paths.iter().enumerate() {
             if !relative_path(path) {
                 diags.push(Diagnostic::new(
@@ -110,6 +119,10 @@ fn plain_command(cmd: &str) -> bool {
     const PROBE: &str = "hc-end-probe";
     !cmd.chars().any(char::is_control)
         && shlex::split(&format!("{cmd} {PROBE}")).is_some_and(|words| words.last().is_some_and(|w| w == PROBE))
+}
+
+fn object_id(id: &str) -> bool {
+    matches!(id.len(), 40 | 64) && id.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 fn relative_path(path: &str) -> bool {

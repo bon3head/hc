@@ -43,6 +43,11 @@ pub fn git_meta(worktree: &Path) -> BTreeMap<String, bedrock::Digest> {
         Ok(pointer) => pointer.strip_prefix("gitdir:").map_or(dot.clone(), |p| worktree.join(p.trim())),
         Err(_) => dot,
     };
+    // A linked worktree's gitdir names the shared repository in `commondir`; config and hooks live there.
+    let dir = match std::fs::read_to_string(dir.join("commondir")) {
+        Ok(common) => dir.join(common.trim()),
+        Err(_) => dir,
+    };
     let mut files = vec![(".git/config".to_owned(), dir.join("config"))];
     if let Ok(entries) = std::fs::read_dir(dir.join("hooks")) {
         for e in entries.flatten().filter(|e| e.path().is_file()) {

@@ -13,19 +13,19 @@ One agent fixes `add()` and claims the suite passes. It then keeps editing, and 
 <!-- exhibit:begin -->
 **1. After the fix (tree c39331d126c4).** The claim was re-run outside the agent's session and holds:
 ```
-- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4 (claim docket#3; checks passed: command, reexec, tamper)
+- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4 (snapshot docket#2) (claim docket#3; checks passed: command, reexec, tamper)
 ```
 **2. After another edit (tree 3b01a194da46).** The result is still true of the old tree, so it is kept, but it no longer describes the code:
 ```
-- c1: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4; the session's tree is now 3b01a194da46
+- c1: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4 (snapshot docket#2); the session's tree is now 3b01a194da46
 ```
 **3. The agent claims the suite passes on the new tree, and the verifier cannot start `python3`.** Missing evidence is not a failure, and it is not a pass either:
 ```
-- c2 tests_pass: basis quoted as data: "ran the suite" (not settled: 'python3' could not start: No such file or directory (os error 2))
+- c2 tests_pass: basis quoted as data: "ran the suite" (not settled on tree 3b01a194da46 (snapshot docket#6): 'python3' could not start: No such file or directory (os error 2))
 ```
 **4. The verifier can run it.** The claim is false:
 ```
-- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) (claim docket#7)
+- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 3b01a194da46 (snapshot docket#6) (claim docket#7)
 ```
 <!-- exhibit:end -->
 

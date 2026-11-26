@@ -153,6 +153,7 @@ dependencies = [
  "seal",
  "serde",
  "serde_json",
+ "shlex",
  "tempfile",
  "thiserror",
 ]

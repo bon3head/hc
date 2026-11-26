@@ -45,6 +45,8 @@ impl Sandbox {
                 for dir in &self.binds {
                     cmd.arg("--bind").arg(dir).arg(dir);
                 }
+                // bwrap resolves a relative --chdir inside the new namespace, from `/`.
+                let cwd = cwd.canonicalize().unwrap_or_else(|_| std::path::absolute(cwd).unwrap_or_else(|_| cwd.to_path_buf()));
                 cmd.arg("--chdir").arg(cwd).arg("--").args(argv);
                 cmd
             }

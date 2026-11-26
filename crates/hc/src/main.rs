@@ -231,7 +231,9 @@ fn kernel_for(home: &Home, repo: &Path, task: &Task, isolate: bool) -> Result<Ke
 }
 
 fn adjudicate(home: &Home, repo: &Path, task: &Task, kernel: &Kernel) -> Result<Vec<Finding>> {
-    Ok(kernel.adjudicate(&home.docket(repo)?, &home.identity(Role::Kernel, "local")?, &now(), &task.id)?)
+    let mut findings = kernel.adjudicate(&home.docket(repo)?, &home.identity(Role::Kernel, "local")?, &now(), &task.id)?;
+    kernel.observe_now(&mut findings)?;
+    Ok(findings)
 }
 
 fn print_findings(findings: &[Finding]) {
@@ -309,7 +311,7 @@ fn cmd_run(home: &Home, task_path: &Path, agent_id: &str, repo: &Path, max_attem
     let harness = home.identity(Role::Harness, "local")?;
     let agent = home.identity(Role::Agent, &def.id)?;
     let kernel = kernel_for(home, repo, &task, isolate)?;
-    let force = kernel.policy.protected.clone();
+    let force = crossexam::policy::Policy::new(vec![]).protected;
     let recorder = Recorder { docket: &docket, harness: &harness, force_paths: &force };
     let schema_enforced = launch.argv.iter().any(|a| a.contains("{schema_json}") || a.contains("{schema_path}"));
 
@@ -389,7 +391,8 @@ fn cmd_hook(home: &Home, dialect: &str, event: &str) -> ExitCode {
         let payload: serde_json::Value =
             serde_json::from_str(&raw).with_context(|| format!("hook payload is not valid JSON ({} bytes)", raw.len()))?;
         anyhow::ensure!(payload.is_object(), "hook payload must be a JSON object");
-        let input = bailiff::dialect::read(d, kind, &payload);
+        let mut input = bailiff::dialect::read(d, kind, &payload);
+        input.cwd = bailiff::repo_root(&input.cwd);
         continuing = input.continuing;
         let docket = home.docket(&input.cwd)?;
         let harness = home.identity(Role::Harness, "local")?;

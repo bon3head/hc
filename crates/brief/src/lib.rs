@@ -210,7 +210,8 @@ impl Brief {
                     .clone()
                     .map(|c| c.rule.clone().unwrap_or_default() + &c.detail.as_ref().map(|d| format!(" ({d})")).unwrap_or_default())
                     .collect();
-                let evidence = failing.flat_map(|c| c.evidence.iter().copied()).collect();
+                let evidence =
+                    failing.flat_map(|c| c.evidence.iter().copied()).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
                 refuted.push(Negative {
                     claim_id: claim.id.clone(),
                     kind: claim.kind,
@@ -244,7 +245,9 @@ impl Brief {
         let mut out = String::new();
         let _ = writeln!(out, "# Handoff brief: {}\n", t.id);
         let _ = writeln!(out, "## Contract\n");
-        let _ = writeln!(out, "- Objective: {}", t.objective);
+        // The task file is user-written; it is still rendered inline so no line of it can
+        // open a section. A session that edits it has its claims refuted (it is protected).
+        let _ = writeln!(out, "- Objective: {}", inline(&t.objective));
         let _ = writeln!(out, "- Acceptance: `{}` must pass. It is re-run by the verifier outside your session.", t.test_command);
         if let Some(paths) = &t.allowed_paths {
             let _ = writeln!(out, "- Write only under: {}", paths.join(", "));
@@ -255,7 +258,7 @@ impl Brief {
             "- Valid outcomes: {VALID_OUTCOMES}. Reporting a spec conflict or that no change is needed is a success, not a failure."
         );
         for c in &t.constraints {
-            let _ = writeln!(out, "- {c}");
+            let _ = writeln!(out, "- {}", inline(c));
         }
         let _ = writeln!(out, "\n## Verified facts\n");
         if self.facts.is_empty() {
@@ -315,7 +318,7 @@ impl Brief {
                 );
             }
         }
-        let _ = writeln!(out, "\n## Current step\n\n{}", t.next_step);
+        let _ = writeln!(out, "\n## Current step\n\n{}", inline(&t.next_step));
         out
     }
 

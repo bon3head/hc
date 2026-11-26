@@ -7,6 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+shlex.workspace = true
 agenda.workspace = true
 bedrock.workspace = true
 brief.workspace = true

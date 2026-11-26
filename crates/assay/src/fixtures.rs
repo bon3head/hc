@@ -79,6 +79,21 @@ pub fn commit(repo: &Path, message: &str) -> Result<String, GitError> {
     git.run(&["rev-parse", "HEAD"])
 }
 
+/// A commit built with plumbing on a private index: its content never passes
+/// through the working tree, so no snapshot of the session ever sees it.
+pub fn forged_commit(repo: &Path, files: &[(&str, &str)]) -> Result<String, GitError> {
+    let index = repo.join(".git").join("forged-index");
+    let git = Git::at(repo).env("GIT_INDEX_FILE", &index);
+    git.run(&["read-tree", "HEAD"])?;
+    for (path, content) in files {
+        let blob = git.run_with_input(&["hash-object", "-w", "--stdin"], Some(content.as_bytes()))?;
+        git.run(&["update-index", "--add", "--cacheinfo", &format!("100644,{blob},{path}")])?;
+    }
+    let tree = git.run(&["write-tree"])?;
+    let _ = std::fs::remove_file(&index);
+    Git::at(repo).config("user.name=assay").config("user.email=assay@hc").run(&["commit-tree", &tree, "-p", "HEAD", "-m", "forged"])
+}
+
 pub fn write(repo: &Path, rel: &str, content: &str) -> std::io::Result<()> {
     let path = repo.join(rel);
     std::fs::create_dir_all(path.parent().expect("file has a parent"))?;

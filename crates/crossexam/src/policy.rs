@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Paths that hold tests, by the conventions of unittest, pytest and cargo.
 pub const TEST_PATTERNS: [&str; 5] = ["tests/**", "test/**", "**/test_*.py", "**/*_test.py", "**/conftest.py"];
 
-pub const DEFAULT_PROTECTED: [&str; 11] = [
+pub const DEFAULT_PROTECTED: [&str; 14] = [
     "tests/**",
     "**/conftest.py",
     ".claude/**",
@@ -19,7 +19,10 @@ pub const DEFAULT_PROTECTED: [&str; 11] = [
     ".github/**",
     ".git/hooks/**",
     ".git/config",
-    ".handoff/task.json",
+    ".handoff/**",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,9 +48,14 @@ impl Policy {
 
     /// Let the task edit tests: test paths leave the protected set and P9 applies instead.
     #[must_use]
+    /// Tests may be added or changed: they leave the protected set and, when the task
+    /// limits writes to some paths, join the allowed set. Call after setting `allowed`.
     pub fn with_writable_tests(mut self) -> Self {
         self.tests_writable = true;
         self.protected.retain(|p| !TEST_PATTERNS.contains(&p.as_str()));
+        if let Some(allowed) = self.allowed.as_mut() {
+            allowed.extend(TEST_PATTERNS.iter().map(|p| (*p).to_owned()));
+        }
         self
     }
 

@@ -22,7 +22,7 @@ use std::path::PathBuf;
 
 use bedrock::git::Git;
 use bedrock::ir::{
-    Body, Check, Claim, ClaimKind, ClaimRecord, Event, Outcome, PREDICATE_VERDICT, PassId, ResourceDescriptor, Status, Trust, VerdictRecord,
+    Body, Check, Claim, ClaimKind, ClaimRecord, Event, Outcome, PREDICATE_VERDICT, PassId, ResourceDescriptor, Trust, VerdictRecord,
 };
 use docket::{Docket, DocketError, Record};
 use seal::Identity;
@@ -77,13 +77,15 @@ struct Write<'a> {
 struct SessionEvidence<'a> {
     writes: Vec<Write<'a>>,
     start_tree: Option<&'a str>,
+    /// The commit checked out when the session started, if any.
+    start_head: Option<&'a str>,
     end_tree: Option<&'a str>,
     /// Ledger position of the observation that recorded `end_tree`.
     end_seq: Option<u64>,
 }
 
 fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvidence<'a> {
-    let mut ev = SessionEvidence { writes: Vec::new(), start_tree: None, end_tree: None, end_seq: None };
+    let mut ev = SessionEvidence { writes: Vec::new(), start_tree: None, start_head: None, end_tree: None, end_seq: None };
     for r in records.iter().filter(|r| r.seq < before) {
         let Body::Obs(obs) = &r.body else { continue };
         if obs.session != session {
@@ -97,9 +99,10 @@ fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvi
                 ev.end_tree = Some(tree);
                 ev.end_seq = Some(r.seq);
             }
-            Event::SessionStart { tree, .. } => {
+            Event::SessionStart { tree, head, .. } => {
                 // Until something changes, the session's tree is the one it started from.
                 ev.start_tree = Some(tree);
+                ev.start_head = head.as_deref();
                 ev.end_tree = Some(tree);
                 ev.end_seq = Some(r.seq);
             }
@@ -107,6 +110,21 @@ fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvi
         }
     }
     ev
+}
+
+/// Git's empty tree: an overlay from it removes the listed paths.
+const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+/// The repository's most recent snapshot, from any session: what "the code now" means
+/// to the ledger. Callers that can snapshot the working tree directly override it.
+fn latest_tree(records: &[Record]) -> Option<String> {
+    records.iter().rev().find_map(|r| match &r.body {
+        Body::Obs(o) => match &o.event {
+            Event::SessionStart { tree, .. } | Event::Checkpoint { tree } | Event::SessionEnd { tree, .. } => Some(tree.clone()),
+            _ => None,
+        },
+        _ => None,
+    })
 }
 
 fn is_test_like(kind: ClaimKind) -> bool {
@@ -119,12 +137,12 @@ fn pass_command(claim: &Claim, argv: Option<&Vec<String>>) -> Option<Check> {
 }
 
 /// P6: a `done` claim is refuted when the session wrote a protected path.
-fn pass_tamper(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compiled) -> Option<Check> {
-    (claim.status == Status::Done).then(|| {
-        let hits: Vec<&Write> = ev.writes.iter().filter(|w| compiled.is_protected(w.path)).collect();
-        let detail = hits.first().map(|w| w.path.to_owned());
-        check(PassId::Tamper, hits.is_empty(), "protected-path-written", hits.iter().map(|w| w.seq).collect(), detail)
-    })
+fn pass_tamper(ev: &SessionEvidence<'_>, compiled: &policy::Compiled) -> Check {
+    // Whatever status the claim reports: a session that wrote protected paths cannot
+    // have any of its claims promoted (a `blocked` label does not excuse gutted tests).
+    let hits: Vec<&Write> = ev.writes.iter().filter(|w| compiled.is_protected(w.path)).collect();
+    let detail = hits.first().map(|w| w.path.to_owned());
+    check(PassId::Tamper, hits.is_empty(), "protected-path-written", hits.iter().map(|w| w.seq).collect(), detail)
 }
 
 /// P6S: writes stay in scope and file claims match the observed writes.
@@ -132,7 +150,7 @@ fn pass_scope(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compil
     let mut checks = Vec::new();
     let written: BTreeSet<&str> = ev.writes.iter().map(|w| w.path).collect();
     let seqs = |pred: &dyn Fn(&Write) -> bool| ev.writes.iter().filter(|w| pred(w)).map(|w| w.seq).collect::<Vec<_>>();
-    if claim.status == Status::Done && compiled.is_allowed("").is_some() {
+    if compiled.is_allowed("").is_some() {
         let outside = seqs(&|w| compiled.is_allowed(w.path) == Some(false) && !compiled.is_protected(w.path));
         checks.push(check(PassId::Scope, outside.is_empty(), "out-of-scope-write", outside, None));
     }
@@ -211,6 +229,7 @@ impl Kernel {
         let compiled = self.policy.compile()?;
         let policy_digest = self.digest()?;
         let settled = Self::settled(records, policy_digest);
+        let latest = latest_tree(records);
         let mut findings = Vec::new();
         for record in records {
             let Body::Claim(cr) = &record.body else { continue };
@@ -227,7 +246,7 @@ impl Kernel {
                     verified,
                     subject_tree: ev.end_tree.map(str::to_owned),
                     subject_seq: ev.end_seq,
-                    current_tree: self::evidence(records, &cr.session, u64::MAX).end_tree.map(str::to_owned),
+                    current_tree: latest.clone(),
                 });
                 continue;
             }
@@ -246,17 +265,20 @@ impl Kernel {
                 ));
             } else {
                 if self.on(PassId::Tamper) {
-                    checks.extend(pass_tamper(claim, &ev, &compiled));
+                    checks.push(pass_tamper(&ev, &compiled));
                 }
                 if self.on(PassId::Scope) {
                     checks.extend(pass_scope(claim, &ev, &compiled));
                 }
                 if self.on(PassId::Signature) {
-                    checks.extend(self.pass_signature(claim, &ev, &compiled)?);
+                    checks.extend(self.pass_signature(&ev, &compiled)?);
                 }
             }
+            if let (Some(commit), Some(_)) = (claim.commit.as_deref(), ev.start_tree) {
+                checks.extend(self.pass_commit(commit, &ev, &compiled)?);
+            }
             if self.on(PassId::Reexec) {
-                checks.extend(self.pass_reexec(claim, &ev, argv.as_deref())?);
+                checks.extend(self.pass_reexec(claim, &ev, argv.as_deref()));
             }
             if self.on(PassId::Falsify) {
                 checks.extend(self.pass_falsify(claim, &ev, &compiled, argv.as_deref())?);
@@ -272,7 +294,7 @@ impl Kernel {
                 policy: policy_digest,
             };
             let verified = Verified::mint(record.seq, claim.id.clone(), claim.kind, trust, evidence);
-            let current_tree = self::evidence(records, &cr.session, u64::MAX).end_tree.map(str::to_owned);
+            let current_tree = latest.clone();
             findings.push(Finding {
                 claim_seq: record.seq,
                 claim: cr.clone(),
@@ -286,12 +308,41 @@ impl Kernel {
         Ok(findings)
     }
 
-    /// P7: cheat signatures on the Python lines a `done` session added.
-    fn pass_signature(&self, claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compiled) -> Result<Vec<Check>, KernelError> {
+    /// P6 and P6S for a commit-bound claim: the commit is re-run, so its own content is
+    /// what the claim is about. Its changes since the session started (against the
+    /// commit checked out then, or the starting snapshot) must not touch protected
+    /// paths or leave the allowed scope. This catches a commit built with plumbing
+    /// that never passed through the working tree the hooks observe.
+    fn pass_commit(&self, commit: &str, ev: &SessionEvidence<'_>, compiled: &policy::Compiled) -> Result<Vec<Check>, KernelError> {
+        let (base, filter) = match (ev.start_head, ev.start_tree) {
+            (Some(head), _) => (head, "AMDT"),
+            // No commit at the start: compare with the snapshot, which also holds untracked
+            // files a commit would not include, so only additions and modifications count.
+            (None, Some(tree)) => (tree, "AMT"),
+            (None, None) => return Ok(Vec::new()),
+        };
+        let Some(changed) = reexec::commit_changes(&self.docket_git, &self.repo, base, commit, filter)? else {
+            return Ok(vec![unresolved(
+                PassId::Tamper,
+                "commit-unreadable",
+                format!("cannot compare commit {commit:?} with the session's start"),
+            )]);
+        };
         let mut checks = Vec::new();
-        if claim.status != Status::Done {
-            return Ok(checks);
+        if self.on(PassId::Tamper) {
+            let hit = changed.iter().find(|p| compiled.is_protected(p));
+            checks.push(check(PassId::Tamper, hit.is_none(), "protected-path-in-commit", vec![], hit.cloned()));
         }
+        if self.on(PassId::Scope) && compiled.is_allowed("").is_some() {
+            let out = changed.iter().find(|p| compiled.is_allowed(p) == Some(false) && !compiled.is_protected(p));
+            checks.push(check(PassId::Scope, out.is_none(), "out-of-scope-in-commit", vec![], out.cloned()));
+        }
+        Ok(checks)
+    }
+
+    /// P7: cheat signatures on the Python lines a `done` session added.
+    fn pass_signature(&self, ev: &SessionEvidence<'_>, compiled: &policy::Compiled) -> Result<Vec<Check>, KernelError> {
+        let mut checks = Vec::new();
         let git = Git::bare(&self.docket_git);
         for w in ev.writes.iter().filter(|w| signatures::is_python(w.path)) {
             let Some(blob) = w.after else { continue };
@@ -324,8 +375,19 @@ impl Kernel {
         if tests.is_empty() {
             return Ok(Vec::new());
         }
-        let probe = exhibit::snapshot::overlay(&self.docket_git, start, end, &tests)?;
-        let run = reexec.run(Source::Tree { docket_git: &self.docket_git, tree: &probe }, argv)?;
+        // Run only the new tests against the unfixed code: every other test file is removed
+        // from the probe (helpers such as `__init__.py` or `conftest.py` stay), so a test that
+        // already failed before the session cannot make the new ones look discriminating.
+        let listing = Git::bare(&self.docket_git).run(&["ls-tree", "-r", "--name-only", start])?;
+        let module = |p: &str| p.rsplit('/').next().is_some_and(|f| f.starts_with("test_") || f.ends_with("_test.py"));
+        let others: Vec<String> =
+            listing.lines().filter(|p| compiled.is_test(p) && module(p) && !tests.iter().any(|t| t == p)).map(str::to_owned).collect();
+        let only_new = exhibit::snapshot::overlay(&self.docket_git, start, EMPTY_TREE, &others)?;
+        let probe = exhibit::snapshot::overlay(&self.docket_git, &only_new, end, &tests)?;
+        let run = match reexec.run(Source::Tree { docket_git: &self.docket_git, tree: &probe }, argv) {
+            Ok(run) => run,
+            Err(e) => return Ok(vec![unresolved(PassId::Falsify, "falsify-unavailable", format!("could not prepare the probe: {e}"))]),
+        };
         if let Some(why) = run.unavailable {
             return Ok(vec![unresolved(PassId::Falsify, "falsify-unavailable", why)]);
         }
@@ -341,22 +403,26 @@ impl Kernel {
     }
 
     /// P8: re-run the policy test command on the claimed commit or the final observed tree.
-    fn pass_reexec(&self, claim: &Claim, ev: &SessionEvidence<'_>, argv: Option<&[String]>) -> Result<Vec<Check>, KernelError> {
-        let (Some(reexec), Some(argv), true) = (&self.reexec, argv, is_test_like(claim.kind)) else { return Ok(Vec::new()) };
+    fn pass_reexec(&self, claim: &Claim, ev: &SessionEvidence<'_>, argv: Option<&[String]>) -> Vec<Check> {
+        let (Some(reexec), Some(argv), true) = (&self.reexec, argv, is_test_like(claim.kind)) else { return Vec::new() };
         let source = match (&claim.commit, ev.end_tree) {
             (Some(commit), _) => Source::Commit { repo: &self.repo, commit, ledger: &self.docket_git },
             (None, Some(tree)) => Source::Tree { docket_git: &self.docket_git, tree },
             (None, None) => {
-                return Ok(vec![unresolved(
+                return vec![unresolved(
                     PassId::Reexec,
                     "nothing-to-reexecute",
                     "no commit named and no snapshot recorded before the claim".into(),
-                )]);
+                )];
             }
         };
-        let run = reexec.run(source, argv)?;
+        // A tree or commit that cannot be materialized affects this claim only, never the brief.
+        let run = match reexec.run(source, argv) {
+            Ok(run) => run,
+            Err(e) => return vec![unresolved(PassId::Reexec, "reexec-unavailable", format!("could not prepare a clean copy: {e}"))],
+        };
         if let Some(why) = run.unavailable {
-            return Ok(vec![unresolved(PassId::Reexec, "reexec-unavailable", why)]);
+            return vec![unresolved(PassId::Reexec, "reexec-unavailable", why)];
         }
         let expected = if claim.kind == ClaimKind::TestsPass { Some(0) } else { claim.exit_code };
         let agree = |code: i32| expected.is_none_or(|e| i64::from(code) == e);
@@ -368,7 +434,32 @@ impl Kernel {
             (false, false) => "reexec-disagrees",
             (true, _) => "claimed-counts-differ",
         };
-        Ok(vec![check(PassId::Reexec, all && counts_ok, rule, vec![], Some(format!("exit codes {:?}", run.exit_codes)))])
+        let detail = Some(format!("exit codes {:?}", run.exit_codes));
+        if all && counts_ok && claim.kind == ClaimKind::TestsPass && run.passed.is_none_or(|n| n == 0) {
+            // Exit 0 with no test report proves only that the process exited 0 (an
+            // `os._exit(0)` in the code under test does that before any test runs).
+            return vec![unresolved(
+                PassId::Reexec,
+                "no-test-report",
+                format!(
+                    "exit codes {:?} but no passing tests were reported (unittest, pytest and cargo test reports are recognized)",
+                    run.exit_codes
+                ),
+            )];
+        }
+        vec![check(PassId::Reexec, all && counts_ok, rule, vec![], detail)]
+    }
+
+    /// Snapshot the working tree now and make it the "current" tree every finding is
+    /// compared with, so a fact goes stale after any edit, including one no hook saw.
+    /// Snapshots force the default protected patterns, as every recorder does, so equal
+    /// code gives equal trees.
+    pub fn observe_now(&self, findings: &mut [Finding]) -> Result<(), KernelError> {
+        let tree = exhibit::snapshot::snapshot(&self.docket_git, &self.repo, &Policy::new(vec![]).protected)?;
+        for f in findings {
+            f.current_tree = Some(tree.clone());
+        }
+        Ok(())
     }
 
     /// A kernel for one task: its test command is the only accepted test command.
@@ -381,10 +472,10 @@ impl Kernel {
         sandbox: cell::Sandbox,
     ) -> Self {
         let mut policy = Policy::new(vec![test_command.to_owned()]);
+        policy.allowed = allowed;
         if tests_writable {
             policy = policy.with_writable_tests();
         }
-        policy.allowed = allowed;
         Self { policy, disabled: BTreeSet::new(), reexec: Some(Reexec { sandbox, runs: 2 }), docket_git, repo }
     }
 

@@ -87,7 +87,7 @@ MUTANTS = [
      "if block { ExitCode::from(2) } else { ExitCode::SUCCESS }", "if false { ExitCode::from(2) } else { ExitCode::SUCCESS }",
      "attacks.sh", "Stop allows when hc cannot evaluate (F8)"),
     ("task-file-unprotected", "crates/crossexam/src/policy.rs",
-     "    \".handoff/task.json\",\n", "    \"no-such-path/**\",\n",
+     "    \".handoff/**\",\n", "    \"no-such-path/**\",\n",
      "attacks.sh", "the agent can rewrite its own task contract unnoticed (G5)"),
     ("agent-git-checkout", "crates/crossexam/src/reexec.rs",
      "exhibit::snapshot::materialize_from(ledger, &tree, &dir, Some(Path::new(&objects)))?;",
