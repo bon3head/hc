@@ -51,8 +51,9 @@ pub struct Fact {
     pub trust: Trust,
     pub summary: String,
     pub evidence: Vec<u64>,
-    /// Ledger position of the claim, so a reader can find it and its verdict in the docket.
+    /// Ledger positions of the claim and of the kernel's verdict on it (`hc show`).
     pub claim_seq: u64,
+    pub verdict_seq: Option<u64>,
     /// The names of the checks that passed for this claim, sorted.
     pub checks: Vec<String>,
 }
@@ -64,6 +65,7 @@ pub struct Negative {
     pub reasons: Vec<String>,
     pub evidence: Vec<u64>,
     pub claim_seq: u64,
+    pub verdict_seq: Option<u64>,
     pub subject: String,
 }
 
@@ -104,6 +106,10 @@ fn kind_name(kind: ClaimKind) -> String {
 
 fn trust_name(trust: Trust) -> String {
     serde_json::to_value(trust).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default()
+}
+
+fn cite_verdict(seq: Option<u64>) -> String {
+    seq.map(|s| format!("; verdict docket#{s}")).unwrap_or_default()
 }
 
 fn paths(list: &[String]) -> String {
@@ -208,6 +214,7 @@ impl Brief {
                     summary: summary(f),
                     evidence: v.evidence().to_vec(),
                     claim_seq: f.claim_seq,
+                    verdict_seq: f.verdict_seq,
                     checks: f
                         .verdict
                         .checks
@@ -227,6 +234,7 @@ impl Brief {
                 let evidence =
                     failing.flat_map(|c| c.evidence.iter().copied()).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
                 refuted.push(Negative {
+                    verdict_seq: f.verdict_seq,
                     claim_id: label(f),
                     kind: claim.kind,
                     reasons,
@@ -284,12 +292,13 @@ impl Brief {
         for f in &self.facts {
             let _ = writeln!(
                 out,
-                "- [{}] {} {}: {} (claim docket#{}; checks passed: {}{})",
+                "- [{}] {} {}: {} (claim docket#{}{}; checks passed: {}{})",
                 trust_name(f.trust),
                 inline(&f.claim_id),
                 kind_name(f.kind),
                 f.summary,
                 f.claim_seq,
+                cite_verdict(f.verdict_seq),
                 f.checks.join(", "),
                 if f.evidence.is_empty() { String::new() } else { format!("; observed in {}", seqs(&f.evidence)) }
             );
@@ -308,12 +317,13 @@ impl Brief {
             for n in &self.refuted {
                 let _ = writeln!(
                     out,
-                    "- {} {}: {} on {} (claim docket#{}{})",
+                    "- {} {}: {} on {} (claim docket#{}{}{})",
                     inline(&n.claim_id),
                     kind_name(n.kind),
                     inline(&n.reasons.join("; ")),
                     n.subject,
                     n.claim_seq,
+                    cite_verdict(n.verdict_seq),
                     if n.evidence.is_empty() { String::new() } else { format!("; observed in {}", seqs(&n.evidence)) }
                 );
             }

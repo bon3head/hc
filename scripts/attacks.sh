@@ -48,7 +48,7 @@ fresh f2
 printf 'import unittest\nclass T(unittest.TestCase):\n    def test_add(self):\n        self.assertTrue(True)\n' >tests/test_calc.py
 claim n1 no_change_needed no_change_needed >/dev/null
 f=$(facts); grep -q 'n1' <<<"$f" && bad "F2: false no_change_needed admitted as a fact" || ok "false no_change_needed is not a fact"
-brief | grep -q '^- n1 no_change_needed: protected-path-written (tests/test_calc.py).* (claim docket#[0-9]*; observed in docket#[0-9]*)$' && ok "refuted, citing the write the hooks recorded" || bad "F2: not refuted on recorded evidence"
+brief | grep -q '^- n1 no_change_needed: protected-path-written (tests/test_calc.py).* (claim docket#[0-9]*; verdict docket#[0-9]*; observed in docket#[0-9]*)$' && ok "refuted, citing the write the hooks recorded" || bad "F2: not refuted on recorded evidence"
 
 echo "F3  agent text cannot become instructions in the brief"
 fresh f3

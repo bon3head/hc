@@ -294,8 +294,10 @@ impl Diagnostic {
     }
 }
 
-/// A decoded predicate together with the role that signed it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A decoded predicate together with the role that signed it. Serialized only for
+/// display (`hc show`); the ledger stores each predicate as its own statement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Body {
     Obs(Obs),
     Claim(ClaimRecord),

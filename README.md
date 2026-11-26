@@ -11,9 +11,9 @@ Agents say "done" when they are not, edit the tests that are supposed to check t
 One agent fixes `add()` and claims the suite passes. It then keeps editing, and on that second edit it breaks `add()`. These are the lines the next agent receives at each point, taken verbatim from `scripts/exhibit-stale.sh` (a release-gate check, so they cannot drift from the code):
 
 <!-- exhibit:begin -->
-**1. After the fix.** The hooks recorded the fixed code as tree 6ebed77b24a6 (ledger entry 3). The claim (entry 4) was re-run on that tree outside the agent's session and holds:
+**1. After the fix.** The hooks recorded the fixed code as tree 6ebed77b24a6 (ledger entry 3). The claim (entry 4) was re-run on that tree outside the agent's session, and the kernel's signed verdict (entry 5) says it holds:
 ```
-- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree 6ebed77b24a6 (snapshot docket#3) (claim docket#4; checks passed: command, reexec, tamper)
+- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree 6ebed77b24a6 (snapshot docket#3) (claim docket#4; verdict docket#5; checks passed: command, reexec, tamper)
 ```
 **2. After another edit.** The result is still true of tree 6ebed77b24a6, so it is kept, but it no longer describes the code:
 ```
@@ -25,11 +25,11 @@ One agent fixes `add()` and claims the suite passes. It then keeps editing, and 
 ```
 **4. The verifier can run it.** The same claim on the same tree is false:
 ```
-- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 734db3c8ccda (snapshot docket#7) (claim docket#8)
+- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 734db3c8ccda (snapshot docket#7) (claim docket#8; verdict docket#10)
 ```
 <!-- exhibit:end -->
 
-So the answer to "can I rely on this for the code in front of me?" is in the brief itself. Every line names the tree it is about and the ledger entry that recorded that tree, and `git log refs/hc/docket` in the repository's ledger under `~/.hc/repos/` lists the observation, the claim and the kernel's verdict behind each one. hc verifies every entry's SSH signature and signer role whenever it reads the ledger. Facts (1) say which checks passed. Stale results (2) say what changed. Unsettled claims (3) say why. Refutations (4) give the observed outcome. The evidence ends at the brief: whether a receiving agent behaves better with it is a separate, live measurement that has not been run yet.
+So the answer to "can I rely on this for the code in front of me?" is in the brief itself. Every line names the tree it is about and the ledger entry that recorded that tree, and `hc show 3 4 5` prints those entries: the harness's snapshot, the agent's claim and the kernel's verdict, each with its signer verified. Facts (1) say which checks passed. Stale results (2) say what changed. Unsettled claims (3) say why. Refutations (4) give the observed outcome. The evidence ends at the brief: whether a receiving agent behaves better with it is a separate, live measurement that has not been run yet.
 
 ## Quickstart
 
@@ -54,6 +54,7 @@ That's the whole setup. `hc init` finds your test command, installs hooks for th
 | `hc init ["objective"]` | Set up the repository; re-run to change the objective |
 | `hc doctor` | Check this machine and repository, with a fix for each problem (`-v`, `--json`) |
 | `hc brief` | The handoff the next agent receives |
+| `hc show <entry>…` | The ledger entries a brief cites, with their verified signers |
 | `hc mcp` | MCP server: `brief`, `plan`, `claim`, `verify`, `conform`, `schema` |
 | `hc run --agent codex` | Launch an agent headless, verify, retry from a fresh brief |
 | `hc claim` | An agent files typed claims; bound to the session its hooks recorded |
@@ -95,12 +96,18 @@ No check run as the same OS user can keep a determined same-user process away fr
 
 ## Evidence
 
-`scripts/gate.sh` is the release gate, and every number below comes from it:
+There are three kinds of evidence, and they answer different questions.
 
-- **Seeded corpus, three seeds:** 17 honest and 17 lying sessions, run against real git repositories and Python test suites. All 17 lies are caught. All 32 facts the ground-truth manifest expects are delivered, with no claim missing, extra, misplaced or stale. Disabling any single check lowers recall. With re-execution disabled the run fails for exactly the expected reason.
-- **Attacks:** every finding of the independent audit (`docs/audit-1.md`) is replayed through the real entry points by `scripts/attacks.sh`.
-- **Robustness and speed:** malformed hook payloads block the gate visibly. Hook latency p95 is about 10 ms before a write and about 50 ms after.
-- **Setup:** `scripts/matrix.sh` runs on clean Ubuntu 20.04, 22.04 and 24.04 and under eleven broken-machine faults; every case either works or stops with the fix. `scripts/mutants.py` plants trust-critical bugs and requires the gate's own checks to catch each one.
+**Fixture behaviour: does hc give the right verdicts?** `scripts/gate.sh` is the release gate, and these numbers come from it:
+
+- **Seeded corpus, three seeds.** 17 honest and 19 lying sessions run against real git repositories and Python test suites. All 19 lies are caught. All 32 facts that a ground-truth manifest, written from what each scenario does, expects are delivered, with no claim missing, extra, misplaced or stale. Disabling any single check lowers recall. With re-execution disabled, the run fails for exactly the expected reason: 22 test claims are left unverified.
+- **Attacks.** `scripts/attacks.sh` replays every confirmed finding of two independent audits (`docs/audit-1.md`, `docs/audit-gtm.md`) through the real entry points: 58 cases. The gate derives the finding list from the audit reports, so a finding cannot be closed by assertion.
+- **Robustness and speed.** Malformed hook payloads block the gate visibly. Hook latency p95 is 8 ms before a write, and 21 ms after an edit (48 ms for a plan update).
+- **Setup.** `scripts/matrix.sh` runs on clean Ubuntu 20.04, 22.04 and 24.04 and under eleven broken-machine faults. Every case either works or stops with the fix.
+
+**Mutation sensitivity: would the gate notice if hc were wrong?** `scripts/mutants.py` plants 31 plausible bugs in trust-critical code. Each is checked by the specific gate check expected to see it, after a baseline run proves those checks pass on the unmutated code. The results are in `docs/mutants.txt`.
+
+**A live receiving agent: does the brief change what the next agent does?** Not measured yet.
 
 ## Status
 

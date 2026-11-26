@@ -28,8 +28,10 @@ Every directive given during the build, its status, and the evidence. Each one i
 
 | 23 | Presentation: a scalable mark that cannot be mistaken for anything unfortunate, a clean README that traces foundation to current edge, context kept connected | Done | `assets/mark.svg` (checked at 16 to 512 px, light and dark) and `assets/mark.txt`. The README leads with the exhibit and keeps claim, observation, verdict and receiver consequence together; the gate checks that its packet lines are byte-identical to the release candidate's output |
 | 24 | Fear that the tests are tautological; recheck foundational and current literature | Done | Ground-truth manifest for the assay; known-bad run must fail with the expected signature; `scripts/mutants.py` (22 trust-critical mutants, baseline-gated); claims cited in code rechecked against primary sources (`docs/claim-battery.md`, recheck section) |
-| 25 | A final go-to-market audit: adversarial, expert, assumes the implementation misses its plan; engineering only, no rewrite | In progress | Independent auditor run on `56d6818`; report `docs/audit-gtm.md` |
+| 25 | A final go-to-market audit: adversarial, expert, assumes the implementation misses its plan; engineering only, no rewrite | Done | `docs/audit-gtm.md` (13 release-blocking on `56d6818`); every confirmed blocking finding replayed or documented in `docs/audit-gtm-resolution.md`, enforced by gate criterion 8. T12 remains a documented boundary of hook mode |
 | 26 | Systems-engineer steering: distinct states, the release question, a falsifiable acceptance result, one exhibit a developer understands in a minute | Applied | Every audit finding replayed through the real entry points (`scripts/attacks.sh`); manifest acceptance; facts name their claim's ledger entry, checks and tree |
+
+| 27 | Systems-engineer steering 2: establish what actually ran in the F2 discrepancy, make the battery earn its result, trace recent changes through the shipped path, follow a fact to its observation | Applied | F2: stale binary from timestamp-preserving sync, shown by identical sources with differing rendering; battery baseline-gated with per-mutant expected detector; F9 verified on the headless `hc run` path (replay T11); briefs name the snapshot entry, claim entry and checks for every line |
 
 ## Open items, in order
 

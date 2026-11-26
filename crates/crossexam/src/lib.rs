@@ -53,6 +53,8 @@ pub struct Finding {
     pub subject_tree: Option<String>,
     /// Ledger position of the observation that recorded `subject_tree`.
     pub subject_seq: Option<u64>,
+    /// Ledger position of the kernel's signed verdict, once `adjudicate` has recorded it.
+    pub verdict_seq: Option<u64>,
     /// The session's latest snapshot in the whole docket. When it differs from
     /// `subject_tree`, a test result describes code that has since changed.
     pub current_tree: Option<String>,
@@ -279,6 +281,7 @@ impl Kernel {
                     verified,
                     subject_tree: ev.end_tree.map(str::to_owned),
                     subject_seq: ev.end_seq,
+                    verdict_seq: None,
                     current_tree: latest.clone(),
                 });
                 continue;
@@ -335,6 +338,7 @@ impl Kernel {
                 verified,
                 subject_tree: ev.end_tree.map(str::to_owned),
                 subject_seq: ev.end_seq,
+                verdict_seq: None,
                 current_tree,
             });
         }
@@ -521,6 +525,21 @@ impl Kernel {
         let fresh: Vec<Finding> = findings.iter().filter(|f| !ruled.contains(&f.claim_seq)).cloned().collect();
         if !fresh.is_empty() {
             self.rule(docket, kernel, ts, &fresh)?;
+        }
+        // Cite each verdict where it now sits in the ledger, so a reader can follow a
+        // line of the brief to the kernel's signed record.
+        let digest = self.digest()?;
+        let recorded: BTreeMap<u64, u64> = docket
+            .records()?
+            .iter()
+            .filter_map(|r| match &r.body {
+                Body::Verdict(v) if v.policy == digest => Some((v.claim_seq, r.seq)),
+                _ => None,
+            })
+            .collect();
+        let mut findings = findings;
+        for f in &mut findings {
+            f.verdict_seq = recorded.get(&f.claim_seq).copied();
         }
         Ok(findings)
     }

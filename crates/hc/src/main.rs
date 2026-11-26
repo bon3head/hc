@@ -3,6 +3,7 @@
 //! ```text
 //! hc init ["objective"]                      set up this repository: task, hooks for installed harnesses, agent notes
 //! hc doctor                                  check that hc can work on this machine and in this repository
+//! hc show 3 4                                print ledger entries a brief cites, with their verified signers
 //! hc run --task task.json --agent codex     launch, observe, cross-examine, retry with a fresh brief
 //! hc claim < claims.json                     an agent reports; identity is detected from the process tree
 //! hc brief --task task.json                  print the compiled brief for the next agent
@@ -111,6 +112,14 @@ enum Command {
     },
     /// Serve the MCP attestation tier on stdio (for surfaces without hooks).
     Mcp {
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+    },
+    /// Show ledger entries (the `docket#N` a brief cites): who signed each and what it records.
+    Show {
+        /// Entry numbers, as cited in a brief.
+        #[arg(required = true)]
+        entries: Vec<u64>,
         #[arg(long, default_value = ".")]
         repo: PathBuf,
     },
@@ -554,6 +563,16 @@ fn run(cli: Cli) -> Result<ExitCode> {
         Command::Hook { dialect, event } => Ok(cmd_hook(&home, &dialect, &event)),
         Command::Mcp { repo } => {
             clerk::serve_stdio(clerk::Clerk::new(home, repo.canonicalize()?))?;
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Show { entries, repo } => {
+            // `records()` has already checked each entry's signature and its signer's role.
+            let records = home.docket(&repo)?.records()?;
+            for n in entries {
+                let r = records.iter().find(|r| r.seq == n).with_context(|| format!("no ledger entry docket#{n}"))?;
+                println!("docket#{}  commit {}  signed by {} (signature verified)", r.seq, &r.commit[..12], r.signer);
+                println!("{}\n", serde_json::to_string_pretty(&r.body)?);
+            }
             Ok(ExitCode::SUCCESS)
         }
         Command::Conform { session, repo } => {
