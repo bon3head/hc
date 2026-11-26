@@ -15,6 +15,10 @@ Each entry: the hypothesis, how it was tested, the result, and what changed. Kil
 | Agent identity can come from the process tree | `hc claim` inside this build environment | Detected `claude-code` by ancestry | `roster` |
 | Fail-to-pass separates real tests from rigged ones | Writable-tests tasks: honest regression test vs. rewritten expectations | Honest passes; rigged and vacuous suites refuted (`tests-do-not-discriminate`) | P9 |
 
+| One Linux binary runs on old and new distributions | `cargo zigbuild --target x86_64-unknown-linux-gnu.2.17`; Ubuntu 20.04/22.04/24.04 images built locally with debootstrap | Native build needed glibc 2.39 (would not start on 20.04 or 22.04); portable build needs 2.17 and runs on all three | Release builds use zigbuild |
+| Setup either works or stops with the fix | `scripts/matrix.sh`: clean installs as an ordinary user, then 11 single faults | 14/14 after fixes | Matrix kept as a script |
+| A useful fact reaches the next agent and does not outlive its tree | `scripts/exhibit-stale.sh` through the real hooks, `hc claim`, `hc brief` | Packet 1: fact on tree A. Packet 2: moved to stale after an edit. Packet 3: runner missing, new claim unresolved and A's fact kept. Packet 4: runner present, refuted | Gate criterion |
+
 ## Killed or corrected
 
 | Idea or assumption | What happened | Decision |
@@ -31,6 +35,13 @@ Each entry: the hypothesis, how it was tested, the result, and what changed. Kil
 | Escalation as a permanent pass | After one escalation, a new failure was let through | Escalation scoped to one failure fingerprint |
 | Truncated hook payloads | Parsed as empty and silently allowed | Now a visible hook error; `HC_FAIL_CLOSED=1` blocks |
 | Hook and MCP sessions have a final tree | They never end, so `tests_pass` had nothing to re-run | Latest checkpoint is the session's tree; claims checkpoint first |
+| Hook sessions record the tree claims refer to | Exhibit through the real hook path | PostToolUse snapshotted only after plan tools, so an honest claim had no tree and was refuted | Snapshot after every file-writing tool and before `hc claim` |
+| "Could not check" is a failure | Exhibit with the test runner removed from the verifier's PATH | Claims were refuted for missing evidence | New outcome `unresolved`: the claim stays unverified with the reason |
+| Re-judging every claim on every brief is harmless | Exhibit, packet 3 | A fact verified on tree A was lost when today's machine lacked the runner | Settled verdicts are reused under the same policy; only unresolved ones are re-examined |
+| Facts can say "the session's final tree" | Exhibit, packet 2 | After a later edit that sentence was false | Facts name their tree; tree-bound results move to a stale section |
+| Acceptance invariants catch a starved verifier | Corpus argument: all four held with an empty facts section | True: nothing required honest claims to be delivered | `honest_admitted == honest_verifiable` added; disabling reexec now delivers 18/32 and is rejected |
+| `init` can succeed on any machine | Matrix on Ubuntu 20.04 (git 2.25) | Setup succeeded, then every hook would have failed | `init` runs the doctor's system checks first |
+| Errors that wrap a source can repeat it | Matrix: "No such file or directory (os error 2): No such file or directory" | Eleven error variants printed their source twice | Messages no longer embed the source; the chain prints once |
 | rust-analyzer in the build sandbox | Distribution host blocked; alternate download declined | Run locally; clippy pedantic as the enforced gate here |
 
 ## Not yet run

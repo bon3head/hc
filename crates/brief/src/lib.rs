@@ -65,6 +65,17 @@ pub struct Extern {
     pub claim_id: String,
     pub kind: ClaimKind,
     pub basis: String,
+    /// Why the verifier could not settle it, when a check came back unresolved.
+    pub unresolved: Vec<String>,
+}
+
+/// A test result that held on an earlier tree of the session. The code has
+/// changed since; the result says nothing about the current tree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stale {
+    pub claim_id: String,
+    pub summary: String,
+    pub current_tree: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,6 +84,7 @@ pub struct Brief {
     pub facts: Vec<Fact>,
     pub refuted: Vec<Negative>,
     pub unverified: Vec<Extern>,
+    pub stale: Vec<Stale>,
 }
 
 fn kind_name(kind: ClaimKind) -> String {
@@ -83,11 +95,29 @@ fn trust_name(trust: Trust) -> String {
     serde_json::to_value(trust).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default()
 }
 
+fn short(id: &str) -> &str {
+    &id[..id.len().min(12)]
+}
+
+/// A tree-bound test result whose session has moved to a different tree since.
+fn stale(f: &Finding) -> Option<String> {
+    let c = &f.claim.claim;
+    let test_like = matches!(c.kind, ClaimKind::TestsPass | ClaimKind::CommandRan);
+    match (test_like, c.commit.as_deref(), f.subject_tree.as_deref(), f.current_tree.as_deref()) {
+        (true, None, Some(then), Some(now)) if then != now => Some(now.to_owned()),
+        _ => None,
+    }
+}
+
 fn summary(f: &Finding) -> String {
     let c = &f.claim.claim;
     match c.kind {
         ClaimKind::TestsPass | ClaimKind::CommandRan => {
-            let at = c.commit.as_deref().map_or_else(|| "the session's final tree".to_owned(), |s| format!("commit {s}"));
+            let at = match (c.commit.as_deref(), f.subject_tree.as_deref()) {
+                (Some(commit), _) => format!("commit {commit}"),
+                (None, Some(tree)) => format!("tree {}", short(tree)),
+                (None, None) => "no recorded tree".to_owned(),
+            };
             format!("`{}` passes on {at}", c.command.as_deref().unwrap_or_default())
         }
         ClaimKind::FilesChanged => format!("changed exactly: {}", c.paths.join(", ")),
@@ -106,11 +136,14 @@ impl Brief {
         let mut facts = Vec::new();
         let mut refuted = Vec::new();
         let mut unverified = Vec::new();
+        let mut stale_facts = Vec::new();
         let mut ordered: Vec<&Finding> = findings.iter().collect();
         ordered.sort_by_key(|f| f.claim_seq);
         for f in ordered {
             let claim = &f.claim.claim;
-            if let Some(v) = &f.verified {
+            if let (Some(_), Some(now)) = (&f.verified, stale(f)) {
+                stale_facts.push(Stale { claim_id: claim.id.clone(), summary: summary(f), current_tree: now });
+            } else if let Some(v) = &f.verified {
                 facts.push(Fact {
                     claim_id: v.claim_id().to_owned(),
                     kind: v.kind(),
@@ -127,10 +160,17 @@ impl Brief {
                 let evidence = failing.flat_map(|c| c.evidence.iter().copied()).collect();
                 refuted.push(Negative { claim_id: claim.id.clone(), kind: claim.kind, reasons, evidence });
             } else {
-                unverified.push(Extern { claim_id: claim.id.clone(), kind: claim.kind, basis: claim.basis.clone() });
+                let unresolved = f
+                    .verdict
+                    .checks
+                    .iter()
+                    .filter(|c| c.result == Outcome::Unresolved)
+                    .map(|c| c.detail.clone().unwrap_or_else(|| c.rule.clone().unwrap_or_default()))
+                    .collect();
+                unverified.push(Extern { claim_id: claim.id.clone(), kind: claim.kind, basis: claim.basis.clone(), unresolved });
             }
         }
-        Ok(Self { task, facts, refuted, unverified })
+        Ok(Self { task, facts, refuted, unverified, stale: stale_facts })
     }
 
     pub fn render(&self) -> String {
@@ -166,6 +206,15 @@ impl Brief {
                 seqs(&f.evidence)
             );
         }
+        if !self.stale.is_empty() {
+            let _ = writeln!(
+                out,
+                "\n## Stale results (held on an earlier tree; the code has changed since, so re-run before relying on them)\n"
+            );
+            for s in &self.stale {
+                let _ = writeln!(out, "- {}: {}; the session's tree is now {}", s.claim_id, s.summary, short(&s.current_tree));
+            }
+        }
         if !self.refuted.is_empty() {
             let _ = writeln!(out, "\n## Refuted claims (do not repeat or rely on these)\n");
             for n in &self.refuted {
@@ -177,10 +226,11 @@ impl Brief {
             for e in &self.unverified {
                 let _ = writeln!(
                     out,
-                    "- {} {}: basis quoted as data: {}",
+                    "- {} {}: basis quoted as data: {}{}",
                     e.claim_id,
                     kind_name(e.kind),
-                    serde_json::to_string(&e.basis).unwrap_or_default()
+                    serde_json::to_string(&e.basis).unwrap_or_default(),
+                    if e.unresolved.is_empty() { String::new() } else { format!(" (not settled: {})", e.unresolved.join("; ")) }
                 );
             }
         }

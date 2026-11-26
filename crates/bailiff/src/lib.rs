@@ -44,11 +44,11 @@ pub enum BailiffError {
     Docket(#[from] docket::DocketError),
     #[error(transparent)]
     Git(#[from] bedrock::git::GitError),
-    #[error("policy: {0}")]
+    #[error("invalid policy")]
     Policy(#[from] globset::Error),
-    #[error("io: {0}")]
+    #[error("i/o error")]
     Io(#[from] std::io::Error),
-    #[error("state: {0}")]
+    #[error("unreadable hook state")]
     Json(#[from] serde_json::Error),
 }
 
@@ -292,6 +292,32 @@ pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict,
     Ok(verdict)
 }
 
+/// For `hc claim`: if `session` (as recorded, e.g. `claude-abc`) is a hook
+/// session on this machine, snapshot it first. Returns whether it was one.
+pub fn checkpoint_recorded(env: &Env<'_>, session: &str, cwd: &Path) -> Result<bool, BailiffError> {
+    for dialect in [Dialect::Claude, Dialect::Antigravity, Dialect::Mcp] {
+        let prefix = format!("{dialect:?}-").to_lowercase();
+        let Some(id) = session.strip_prefix(&prefix) else { continue };
+        if !state_path(env, dialect, id).exists() {
+            continue;
+        }
+        let input = Input {
+            kind: EventKind::PostToolUse,
+            session: id.to_owned(),
+            cwd: cwd.to_path_buf(),
+            tool: None,
+            tool_input: serde_json::Value::Null,
+            tool_response: None,
+            task_id: None,
+            continuing: false,
+            artifact_dir: None,
+        };
+        checkpoint_now(env, dialect, &input)?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 /// Snapshot the session now (opening it if needed), so claims filed next are
 /// judged against the tree as it is, not as it was at the last step boundary.
 pub fn checkpoint_now(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<(), BailiffError> {
@@ -329,7 +355,13 @@ fn post_tool_use(
     ts: &str,
     dialect: Dialect,
 ) -> Result<Verdict, BailiffError> {
-    let Some((source, update)) = plan_update(input) else { return Ok(Verdict::Allow) };
+    let Some((source, update)) = plan_update(input) else {
+        // Any file-writing tool moves the tree; snapshot it so claims filed later bind to the code as it is.
+        if WRITE_TOOLS.contains(&input.tool.as_deref().unwrap_or_default()) {
+            checkpoint(recorder, state, ts)?;
+        }
+        return Ok(Verdict::Allow);
+    };
     let before_seq = gate.env.docket.count()?;
     checkpoint(recorder, state, ts)?;
     let mut tracker = agenda::Tracker::restore(std::mem::take(&mut state.plan));

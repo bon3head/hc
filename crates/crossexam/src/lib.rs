@@ -37,9 +37,9 @@ pub enum KernelError {
     Docket(#[from] DocketError),
     #[error(transparent)]
     Git(#[from] bedrock::git::GitError),
-    #[error("policy: {0}")]
+    #[error("invalid policy")]
     Policy(#[from] globset::Error),
-    #[error("encoding: {0}")]
+    #[error("encoding failed")]
     Json(#[from] serde_json::Error),
 }
 
@@ -49,6 +49,11 @@ pub struct Finding {
     pub claim: ClaimRecord,
     pub verdict: VerdictRecord,
     pub verified: Option<Verified>,
+    /// The tree the claim was judged against: the last snapshot before it was filed.
+    pub subject_tree: Option<String>,
+    /// The session's latest snapshot in the whole docket. When it differs from
+    /// `subject_tree`, a test result describes code that has since changed.
+    pub current_tree: Option<String>,
 }
 
 #[derive(Debug)]
@@ -150,6 +155,10 @@ fn trust_of(kind: ClaimKind, checks: &[Check]) -> Trust {
     }
 }
 
+fn unresolved(pass: PassId, rule: &str, detail: String) -> Check {
+    Check { pass, result: Outcome::Unresolved, rule: Some(rule.to_owned()), evidence: vec![], detail: Some(detail) }
+}
+
 fn check(pass: PassId, ok: bool, rule: &str, evidence: Vec<u64>, detail: Option<String>) -> Check {
     Check { pass, result: if ok { Outcome::Pass } else { Outcome::Fail }, rule: (!ok).then(|| rule.to_owned()), evidence, detail }
 }
@@ -159,14 +168,48 @@ impl Kernel {
         !self.disabled.contains(&pass)
     }
 
+    /// Digest of everything that decides a verdict: the policy and the disabled passes.
+    fn digest(&self) -> Result<bedrock::Digest, KernelError> {
+        Ok(bedrock::canon::digest(&(&self.policy, &self.disabled))?)
+    }
+
+    /// The kernel's own recorded verdicts that settled their claim under this exact policy.
+    /// A verdict with an unresolved check is not settled: the claim is examined again.
+    fn settled(records: &[Record], digest: bedrock::Digest) -> BTreeMap<u64, VerdictRecord> {
+        records
+            .iter()
+            .filter_map(|r| if let Body::Verdict(v) = &r.body { Some(v) } else { None })
+            .filter(|v| v.policy == digest && v.checks.iter().all(|c| c.result != Outcome::Unresolved))
+            .map(|v| (v.claim_seq, v.clone()))
+            .collect()
+    }
+
+    /// Judge every claim in the docket. A claim the kernel already settled under
+    /// this policy keeps its recorded verdict: an observation made then stays
+    /// true of the tree it was made on, whatever this machine can run now.
     pub fn examine(&self, records: &[Record]) -> Result<Vec<Finding>, KernelError> {
         let compiled = self.policy.compile()?;
-        let policy_digest = bedrock::canon::digest(&self.policy)?;
+        let policy_digest = self.digest()?;
+        let settled = Self::settled(records, policy_digest);
         let mut findings = Vec::new();
         for record in records {
             let Body::Claim(cr) = &record.body else { continue };
             let ev = evidence(records, &cr.session, record.seq);
             let claim = &cr.claim;
+            if let Some(verdict) = settled.get(&record.seq) {
+                let evidence: Vec<u64> =
+                    verdict.checks.iter().flat_map(|c| c.evidence.iter().copied()).collect::<BTreeSet<_>>().into_iter().collect();
+                let verified = Verified::mint(record.seq, claim.id.clone(), claim.kind, verdict.trust, evidence);
+                findings.push(Finding {
+                    claim_seq: record.seq,
+                    claim: cr.clone(),
+                    verdict: verdict.clone(),
+                    verified,
+                    subject_tree: ev.end_tree.map(str::to_owned),
+                    current_tree: self::evidence(records, &cr.session, u64::MAX).end_tree.map(str::to_owned),
+                });
+                continue;
+            }
             let argv = claim.command.as_deref().and_then(|c| compiled.test_argv(c));
             let mut checks = Vec::new();
             if self.on(PassId::Command) {
@@ -198,7 +241,15 @@ impl Kernel {
                 policy: policy_digest,
             };
             let verified = Verified::mint(record.seq, claim.id.clone(), claim.kind, trust, evidence);
-            findings.push(Finding { claim_seq: record.seq, claim: cr.clone(), verdict, verified });
+            let current_tree = self::evidence(records, &cr.session, u64::MAX).end_tree.map(str::to_owned);
+            findings.push(Finding {
+                claim_seq: record.seq,
+                claim: cr.clone(),
+                verdict,
+                verified,
+                subject_tree: ev.end_tree.map(str::to_owned),
+                current_tree,
+            });
         }
         Ok(findings)
     }
@@ -241,6 +292,9 @@ impl Kernel {
         }
         let probe = exhibit::snapshot::overlay(&self.docket_git, start, end, &tests)?;
         let run = reexec.run(Source::Tree { docket_git: &self.docket_git, tree: &probe }, argv)?;
+        if let Some(why) = run.unavailable {
+            return Ok(vec![unresolved(PassId::Falsify, "falsify-unavailable", why)]);
+        }
         let discriminates = run.exit_codes.iter().all(|c| *c != 0);
         let seqs = ev.writes.iter().filter(|w| compiled.is_test(w.path)).map(|w| w.seq).collect();
         Ok(vec![check(
@@ -258,9 +312,18 @@ impl Kernel {
         let source = match (&claim.commit, ev.end_tree) {
             (Some(commit), _) => Source::Commit { repo: &self.repo, commit },
             (None, Some(tree)) => Source::Tree { docket_git: &self.docket_git, tree },
-            (None, None) => return Ok(vec![check(PassId::Reexec, false, "nothing-to-reexecute", vec![], None)]),
+            (None, None) => {
+                return Ok(vec![unresolved(
+                    PassId::Reexec,
+                    "nothing-to-reexecute",
+                    "no commit named and no snapshot recorded before the claim".into(),
+                )]);
+            }
         };
         let run = reexec.run(source, argv)?;
+        if let Some(why) = run.unavailable {
+            return Ok(vec![unresolved(PassId::Reexec, "reexec-unavailable", why)]);
+        }
         let expected = if claim.kind == ClaimKind::TestsPass { Some(0) } else { claim.exit_code };
         let agree = |code: i32| expected.is_none_or(|e| i64::from(code) == e);
         let all = run.exit_codes.iter().all(|c| agree(*c));
@@ -295,8 +358,7 @@ impl Kernel {
     /// return the findings for `task`.
     pub fn adjudicate(&self, docket: &Docket, kernel: &Identity, ts: &str, task: &str) -> Result<Vec<Finding>, KernelError> {
         let records = docket.records()?;
-        let ruled: BTreeSet<u64> =
-            records.iter().filter_map(|r| if let Body::Verdict(v) = &r.body { Some(v.claim_seq) } else { None }).collect();
+        let ruled: BTreeSet<u64> = Self::settled(&records, self.digest()?).into_keys().collect();
         let findings: Vec<Finding> = self.examine(&records)?.into_iter().filter(|f| f.claim.task == task).collect();
         let fresh: Vec<Finding> = findings.iter().filter(|f| !ruled.contains(&f.claim_seq)).cloned().collect();
         if !fresh.is_empty() {

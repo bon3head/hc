@@ -81,7 +81,7 @@ pub enum AssayError {
     Identity(#[from] seal::IdentityError),
     #[error(transparent)]
     Brief(#[from] brief::BriefError),
-    #[error("io: {0}")]
+    #[error("i/o error")]
     Io(#[from] std::io::Error),
     #[error("claims rejected by intake: {0}")]
     Intake(String),
@@ -97,6 +97,10 @@ pub struct SessionResult {
     pub docket_head: String,
     pub brief_digest: String,
     pub facts_below_observed: usize,
+    /// Claims of a kind the kernel can check deterministically.
+    pub verifiable: usize,
+    /// Of those, the ones linked into the brief as facts.
+    pub admitted: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,17 +113,24 @@ pub struct Report {
     pub false_refutations: usize,
     pub deterministic: bool,
     pub facts_below_observed: usize,
+    /// Verifiable claims in honest sessions, and how many reached the brief as facts.
+    /// A verifier that leaves true claims unpromoted hands the next agent nothing to build on.
+    pub honest_verifiable: usize,
+    pub honest_admitted: usize,
     pub sessions: Vec<SessionResult>,
 }
 
 impl Report {
     /// The acceptance invariants: at least 14/15 of lies caught, at most 1/15 of honest sessions refuted,
-    /// byte-identical results across runs, and no fact below `observed`.
+    /// byte-identical results across runs, no fact below `observed`, and every verifiable honest
+    /// claim delivered as a fact (an empty brief must not pass).
     pub fn passes(&self) -> bool {
         self.lies_caught * 15 >= 14 * self.lies
             && self.false_refutations * 15 <= self.honest
             && self.deterministic
             && self.facts_below_observed == 0
+            && self.honest_verifiable > 0
+            && self.honest_admitted == self.honest_verifiable
     }
 }
 
@@ -305,7 +316,17 @@ fn run_session(
         docket_head: docket.head()?.unwrap_or_default(),
         brief_digest: brief.digest().to_string(),
         facts_below_observed: brief.facts.iter().filter(|f| f.trust < Trust::Observed).count(),
+        verifiable: findings.iter().filter(|f| verifiable(f.claim.claim.kind)).count(),
+        admitted: findings
+            .iter()
+            .filter(|f| verifiable(f.claim.claim.kind) && brief.facts.iter().any(|b| b.claim_id == f.claim.claim.id))
+            .count(),
     })
+}
+
+fn verifiable(kind: bedrock::ir::ClaimKind) -> bool {
+    use bedrock::ir::ClaimKind as K;
+    matches!(kind, K::TestsPass | K::CommandRan | K::FilesChanged | K::FilesUntouched | K::NoChangeNeeded)
 }
 
 fn generate(root: &Path, keys: &Keyring, seed: u64, disabled: &BTreeSet<PassId>) -> Result<Vec<SessionResult>, AssayError> {
@@ -343,6 +364,8 @@ pub fn evaluate(work: &Path, seed: u64, disabled: &BTreeSet<PassId>) -> Result<R
         false_refutations: first.iter().filter(|s| !s.kind.is_lie() && s.caught).count(),
         deterministic,
         facts_below_observed: first.iter().map(|s| s.facts_below_observed).sum(),
+        honest_verifiable: first.iter().filter(|s| !s.kind.is_lie()).map(|s| s.verifiable).sum(),
+        honest_admitted: first.iter().filter(|s| !s.kind.is_lie()).map(|s| s.admitted).sum(),
         sessions: first,
     })
 }

@@ -1,10 +1,11 @@
 //! hc: the handoff compiler.
 //!
 //! ```text
+//! hc init ["objective"]                      set up this repository: task, hooks for installed harnesses, agent notes
+//! hc doctor                                  check that hc can work on this machine and in this repository
 //! hc run --task task.json --agent codex     launch, observe, cross-examine, retry with a fresh brief
 //! hc claim < claims.json                     an agent reports; identity is detected from the process tree
 //! hc brief --task task.json                  print the compiled brief for the next agent
-//! hc onboard --test-command "..." --hooks    protocol block + native hook configs for Claude Code, Codex, Antigravity
 //! hc hook <dialect> <event>                  the hook entry point the harness calls (reads its stdin JSON)
 //! hc conform --session <id>                  plan conformance recomputed from the docket
 //! hc assay --seed 7                          acceptance run over the seeded corpus
@@ -25,6 +26,9 @@ use crossexam::{Finding, Kernel};
 use exhibit::Recorder;
 use roster::OutputSpec;
 
+mod doctor;
+mod setup;
+
 #[derive(Parser)]
 #[command(name = "hc", version, about = "Deterministic, vendor-neutral handoff compiler for coding agents")]
 struct Cli {
@@ -34,8 +38,33 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Create the hc home and the harness and kernel identities.
-    Init,
+    /// Set up this repository: identities, `.handoff/task.json`, native hooks for every
+    /// installed harness, and the hc protocol in their instruction files. Safe to re-run.
+    Init {
+        /// What the agent should do. Sets the objective in `.handoff/task.json`.
+        objective: Option<String>,
+        /// Test command (default: the one the repository declares).
+        #[arg(long)]
+        test: Option<String>,
+        /// Only these harnesses (default: every one found on PATH or configured in the repository).
+        #[arg(long = "for", value_delimiter = ',')]
+        only: Vec<String>,
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Command hook configs use to invoke hc (default: `hc` when it is on PATH, else this binary's path).
+        #[arg(long, hide = true)]
+        hc_bin: Option<String>,
+    },
+    /// Check that hc can work on this machine and in this repository.
+    Doctor {
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Show informational checks and paths.
+        #[arg(short, long)]
+        verbose: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Print the claim schema agents report against.
     Schema,
     /// List registered agents and the one detected in this process tree.
@@ -54,14 +83,14 @@ enum Command {
     },
     /// Cross-examine pending claims for a task and print its brief.
     Brief {
-        #[arg(long)]
+        #[arg(long, default_value = ".handoff/task.json")]
         task: PathBuf,
         #[arg(long, default_value = ".")]
         repo: PathBuf,
     },
     /// Launch an agent on a task, verify its claims, and retry with a fresh brief on refutation.
     Run {
-        #[arg(long)]
+        #[arg(long, default_value = ".handoff/task.json")]
         task: PathBuf,
         #[arg(long)]
         agent: String,
@@ -72,22 +101,6 @@ enum Command {
         /// Run without bubblewrap even when it is available.
         #[arg(long)]
         no_isolation: bool,
-    },
-    /// Write the hc protocol block into each registered agent's instructions file.
-    Onboard {
-        #[arg(long)]
-        test_command: String,
-        #[arg(long, default_value = ".")]
-        repo: PathBuf,
-        /// Limit to these agent ids (default: every registered agent).
-        #[arg(long, value_delimiter = ',')]
-        agents: Vec<String>,
-        /// Also install native hooks for these harnesses: claude, codex, antigravity.
-        #[arg(long, value_delimiter = ',', num_args = 0.., default_missing_value = "claude,codex,antigravity")]
-        hooks: Option<Vec<String>>,
-        /// Command used in hook configs to invoke hc.
-        #[arg(long, default_value = "hc")]
-        hc_bin: String,
     },
     /// Native hook entry point. Reads the harness's hook JSON on stdin.
     Hook {
@@ -131,7 +144,7 @@ enum Command {
     },
     /// Publish the task's brief as a Notion page (`NOTION_TOKEN` must be set).
     ExportNotion {
-        #[arg(long)]
+        #[arg(long, default_value = ".handoff/task.json")]
         task: PathBuf,
         #[arg(long)]
         data_source: String,
@@ -156,6 +169,48 @@ fn parse_pass(name: &str) -> Result<PassId> {
         "falsify" | "p9" => PassId::Falsify,
         other => bail!("unknown pass {other:?}; expected command, tamper, scope, signature, reexec or falsify"),
     })
+}
+
+/// `hc` when that name resolves to this binary (portable in committed configs), otherwise this binary's absolute path.
+fn default_hc_bin() -> Result<String> {
+    let me = std::env::current_exe()?.canonicalize()?;
+    let on_path = doctor::which("hc").and_then(|p| p.canonicalize().ok());
+    Ok(if on_path.as_deref() == Some(me.as_path()) { "hc".into() } else { me.to_string_lossy().into_owned() })
+}
+
+fn cmd_init(home: &Home, repo: &Path, objective: Option<&str>, test: Option<String>, only: &[String], hc_bin: &str) -> Result<ExitCode> {
+    doctor::preflight()?;
+    for role in [Role::Harness, Role::Kernel] {
+        home.identity(role, "local")?;
+    }
+    let task_path = repo.join(".handoff/task.json");
+    let existing = task_path.exists().then(|| load_task(&task_path)).transpose()?;
+    let plan = setup::resolve(repo, test, only, existing.as_ref())?;
+    let (_, created) = setup::write_task(repo, objective, &plan.test_command)?;
+
+    let row = |k: &str, v: &str| println!("  {k:<7}{v}");
+    println!("hc ready in {}\n", repo.canonicalize()?.display());
+    row("task", &format!(".handoff/task.json{}", if created { "" } else { " (kept)" }));
+    row("tests", &format!("{}  ({})", plan.test_command, plan.test_source));
+    for dialect in &plan.harnesses {
+        let path = setup::install_hooks(repo, dialect, hc_bin)?;
+        row("hooks", &format!("{dialect:<12}{}", path.strip_prefix(repo).unwrap_or(&path).display()));
+    }
+    let registry = home.registry()?;
+    let mut notes: BTreeSet<String> =
+        registry.iter().filter(|d| plan.roster_ids.contains(&d.id.as_str())).map(|d| d.instructions_file.clone()).collect();
+    notes.insert("AGENTS.md".into());
+    for file in &notes {
+        courier::write_protocol_block(&repo.join(file), &plan.test_command)?;
+    }
+    row("notes", &notes.iter().map(String::as_str).collect::<Vec<_>>().join(", "));
+    if plan.harnesses.is_empty() {
+        println!("\n  No hook-capable harness found. Any MCP client can use:  hc mcp");
+    }
+    if objective.is_none() && existing.as_ref().is_none_or(|t| t.objective.is_empty()) {
+        println!("\n  Next: hc init \"<what the agent should do>\"");
+    }
+    Ok(ExitCode::SUCCESS)
 }
 
 fn load_task(path: &Path) -> Result<Task> {
@@ -216,6 +271,15 @@ fn cmd_claim(home: &Home, file: Option<&Path>, repo: &Path, session: Option<Stri
     let agent = home.identity(Role::Agent, &attestation.agent_id)?;
     let session = session.unwrap_or_else(|| format!("adhoc-{}", jiff::Timestamp::now().as_second()));
     let docket = home.docket(repo)?;
+    let harness = home.identity(Role::Harness, "local")?;
+    let env = bailiff::Env {
+        docket: &docket,
+        harness: &harness,
+        state_dir: home.root().join("hooks"),
+        sandbox: Sandbox::none(home.root()),
+        clock: &now,
+    };
+    bailiff::checkpoint_recorded(&env, &session, &repo.canonicalize()?)?;
     exhibit::record_claims(&docket, &agent, &now(), &session, &attestation, &envelope)?;
     eprintln!("[hc] recorded {} claims from {} ({:?})", envelope.claims.len(), attestation.agent_id, attestation.level);
     Ok(ExitCode::SUCCESS)
@@ -358,13 +422,15 @@ fn cmd_assay(seed: u64, disable: &[String], work: Option<PathBuf>, json: bool) -
             println!("{mark} {:<24} {}", s.id, s.refuting_rules.join(", "));
         }
         println!(
-            "\nseed {}  disabled {:?}\nlies caught {}/{}  false refutations {}/{}  deterministic {}  facts below observed {}",
+            "\nseed {}  disabled {:?}\nlies caught {}/{}  false refutations {}/{}  honest claims delivered {}/{}  deterministic {}  facts below observed {}",
             report.seed,
             report.disabled,
             report.lies_caught,
             report.lies,
             report.false_refutations,
             report.honest,
+            report.honest_admitted,
+            report.honest_verifiable,
             report.deterministic,
             report.facts_below_observed
         );
@@ -373,18 +439,24 @@ fn cmd_assay(seed: u64, disable: &[String], work: Option<PathBuf>, json: bool) -
     Ok(if report.passes() { ExitCode::SUCCESS } else { ExitCode::FAILURE })
 }
 
-fn main() -> Result<ExitCode> {
-    let cli = Cli::parse();
+fn main() -> ExitCode {
+    run(Cli::parse()).unwrap_or_else(|err| {
+        eprintln!("hc: {err:#}");
+        ExitCode::FAILURE
+    })
+}
+
+fn run(cli: Cli) -> Result<ExitCode> {
+    if let Command::Doctor { repo, verbose, json } = &cli.command {
+        return Ok(doctor::run(repo, *verbose, *json));
+    }
     let home = Home::locate()?;
     match cli.command {
-        Command::Init => {
-            for (role, name) in [(Role::Harness, "local"), (Role::Kernel, "local")] {
-                let id = home.identity(role, name)?;
-                println!("{} -> {}", id.principal(), id.key_path.display());
-            }
-            println!("hc home: {}", home.root().display());
-            Ok(ExitCode::SUCCESS)
+        Command::Init { objective, test, only, repo, hc_bin } => {
+            let bin = hc_bin.map_or_else(default_hc_bin, Ok)?;
+            cmd_init(&home, &repo, objective.as_deref(), test, &only, &bin)
         }
+        Command::Doctor { .. } => unreachable!("handled before the home is opened"),
         Command::Schema => {
             print!("{}", intake::CLAIM_SCHEMA);
             Ok(ExitCode::SUCCESS)
@@ -419,28 +491,6 @@ fn main() -> Result<ExitCode> {
         Command::Conform { session, repo } => {
             let report = conform::align(&home.docket(&repo)?.records()?, &session);
             println!("{}", serde_json::to_string_pretty(&report)?);
-            Ok(ExitCode::SUCCESS)
-        }
-        Command::Onboard { test_command, repo, agents, hooks, hc_bin } => {
-            for dialect in hooks.unwrap_or_default() {
-                let rel = courier::hooks::path(&dialect).with_context(|| format!("unknown harness {dialect:?}"))?;
-                let path = repo.join(rel);
-                let existing = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
-                let merged = courier::hooks::merge(&dialect, existing, &hc_bin);
-                std::fs::create_dir_all(path.parent().expect("config has a parent"))?;
-                std::fs::write(&path, serde_json::to_string_pretty(&merged)? + "\n")?;
-                println!("hooks   {}", path.display());
-            }
-            let registry = home.registry()?;
-            let mut files = BTreeSet::new();
-            for def in registry.iter().filter(|d| agents.is_empty() || agents.contains(&d.id)) {
-                files.insert(def.instructions_file.clone());
-            }
-            for file in files {
-                let path = repo.join(&file);
-                let changed = courier::write_protocol_block(&path, &test_command)?;
-                println!("{} {}", if changed { "wrote  " } else { "current" }, path.display());
-            }
             Ok(ExitCode::SUCCESS)
         }
         Command::Assay { seed, disable, work, json } => cmd_assay(seed, &disable, work, json),

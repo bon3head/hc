@@ -1,0 +1,34 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: "clippy, rustfmt" }
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy -q --workspace --all-targets -- -D warnings
+      - run: cargo test -q --workspace
+      - run: cargo build -q --release -p hc
+      - run: HC_BIN=$PWD/target/release/hc bash scripts/quickstart.sh "$RUNNER_TEMP/qs"
+      - run: HC_BIN=$PWD/target/release/hc bash scripts/exhibit-stale.sh "$RUNNER_TEMP/ex"
+      - run: ./target/release/hc doctor -v --repo "$RUNNER_TEMP/qs/demo"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build -q --release -p hc
+      # Unsupported natively: doctor must say so and point to WSL, not fail obscurely.
+      - shell: bash
+        run: |
+          out=$(./target/release/hc doctor || true)
+          echo "$out"
+          grep -q "WSL" <<<"$out"

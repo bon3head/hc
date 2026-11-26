@@ -44,7 +44,7 @@ pub struct AgentDef {
 pub enum RosterError {
     #[error("roster file {path}: {source}")]
     Parse { path: PathBuf, source: serde_json::Error },
-    #[error("io: {0}")]
+    #[error("i/o error")]
     Io(#[from] std::io::Error),
     #[error("unknown agent {0:?}")]
     Unknown(String),

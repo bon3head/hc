@@ -20,7 +20,7 @@ Dependencies point down this list; nothing depends on a crate below it.
 | `assay` | Seeded acceptance corpus and pass ablations | `evaluate(work, seed, disabled) -> Report` |
 | `chambers` | The hc home: keys, per-repository dockets, outboxes, roster overrides | `Home::{locate, docket, identity, outbox, registry}` |
 | `clerk` | MCP attestation tier for surfaces without hooks | `Clerk`, tools `schema`, `brief`, `plan`, `claim`, `verify`, `conform`; `serve_stdio` |
-| `hc` | CLI wiring | `run`, `claim`, `brief`, `hook`, `mcp`, `conform`, `onboard`, `assay`, `export-notion` |
+| `hc` | CLI wiring | `run`, `claim`, `brief`, `hook`, `mcp`, `conform`, `init`, `doctor`, `assay`, `export-notion` |
 
 ## Data flow for one session
 

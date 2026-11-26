@@ -11,7 +11,7 @@ use std::process::{Command, Output, Stdio};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GitError {
-    #[error("failed to spawn git: {0}")]
+    #[error("failed to run git (is it installed and on PATH?)")]
     Spawn(#[from] std::io::Error),
     #[error("git {args} exited with {code:?}: {stderr}")]
     Failed { args: String, code: Option<i32>, stderr: String },

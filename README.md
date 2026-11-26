@@ -12,24 +12,29 @@ Coding agents say "done" when they are not, drift from their own plans, and edit
 ```sh
 cargo install --path crates/hc
 cd your-repo
-mkdir -p .handoff
-echo '{"id":"fix-parser","objective":"...","test_command":"cargo test","allowed_paths":["src/**"],"next_step":"..."}' > .handoff/task.json
-hc init
-hc onboard --test-command "cargo test" --hooks      # Claude Code, Codex and Antigravity hook configs
+hc init "Fix the date parser"
 ```
 
-Then work as usual. `scripts/quickstart.sh` runs this flow end to end against a toy repository.
+That's the whole setup. `hc init` finds your test command, installs hooks for the agents on your machine (Claude Code, Codex, Antigravity) and adds the hc protocol to `AGENTS.md`. Then work as usual. Re-running it is safe, and `hc doctor` tells you what's wrong if something isn't working.
+
+**Other MCP clients** (no hooks needed):
+
+```json
+{ "mcpServers": { "hc": { "command": "hc", "args": ["mcp"] } } }
+```
+
+**Requirements:** Linux or macOS, git 2.34+, OpenSSH. bubblewrap is optional and isolates `hc run`. `hc init` stops with the fix if anything is missing.
 
 | Command | Does |
 |---|---|
-| `hc hook <dialect> <event>` | Hook entry point the harness calls |
-| `hc mcp` | MCP server for surfaces without hooks: `brief`, `plan`, `claim`, `verify`, `conform`, `schema` |
-| `hc run --task t.json --agent codex` | Launch an agent headless in a bubblewrap sandbox, verify, retry from a fresh brief |
-| `hc claim` | An agent files typed claims; its identity is detected from the process tree |
-| `hc brief --task t.json` | The compiled handoff for the next agent |
+| `hc init ["objective"]` | Set up the repository; re-run to change the objective |
+| `hc doctor` | Check this machine and repository; every problem comes with its fix (`-v`, `--json`) |
+| `hc brief` | The handoff the next agent receives |
+| `hc mcp` | MCP server: `brief`, `plan`, `claim`, `verify`, `conform`, `schema` |
+| `hc run --task t.json --agent codex` | Launch an agent headless, verify, retry from a fresh brief |
+| `hc claim` | An agent files typed claims; its identity comes from the process tree |
 | `hc conform --session <id>` | Plan-versus-log conformance for one session |
 | `hc assay --seed 7` | Acceptance run over the seeded corpus |
-| `hc export-notion` | Publish a brief to a Notion data source |
 
 ## How it decides
 
@@ -42,11 +47,15 @@ Then work as usual. `scripts/quickstart.sh` runs this flow end to end against a 
 | reexec (P8) | the test command fails on a clean copy of the claimed commit or final tree |
 | falsify (P9) | when tests may be edited, the new tests also pass on the unfixed code |
 
+Every fact names the tree it was checked on. If the code changes afterwards, the fact moves to **stale** instead of being carried forward, and a check that could not run (no snapshot, runner missing) leaves the claim **unresolved** rather than refuted: missing evidence is never reported as a failure. `scripts/exhibit-stale.sh` shows the packets before and after an edit.
+
 At step boundaries the same checks run through hooks, and plan conformance labels every step **matched**, **plan-only** (marked done with no recorded change) or leaves work **log-only** (done outside any step). The same failure twice in a row ends retries with a request for the root cause.
 
 ## Results
 
-`scripts/gate.sh` is the release gate. On the seeded corpus (17 honest and 17 lying sessions, run for real against git repositories and Python test suites, three seeds) hc catches every lie with no false refutations, and disabling any single check lowers recall. See `docs/ablations.txt`.
+`scripts/gate.sh` is the release gate. On the seeded corpus (17 honest and 17 lying sessions, run for real against git repositories and Python test suites, three seeds) hc catches every lie with no false refutations and delivers every verifiable honest claim (32/32) as a fact, so an empty brief cannot pass. Disabling any single check lowers recall. See `docs/ablations.txt`.
+
+`scripts/matrix.sh` runs setup on clean Ubuntu 20.04, 22.04 and 24.04 images as an ordinary user, then breaks one thing at a time (git or ssh-keygen missing, sandbox blocked, unwritable home, hooks pointing at a missing binary, bad task file, missing test runner, a forged docket, a UID with no passwd entry). Each case must either work or stop with the right fix. Release binaries are linked against glibc 2.17 with `cargo zigbuild`, so one Linux build runs on all of them.
 
 ## Layout
 

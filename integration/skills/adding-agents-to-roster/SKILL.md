@@ -23,7 +23,7 @@ Agents are data, not code. Add an entry to `$HC_HOME/roster.json` (a JSON array)
 
 - `id`: lowercase letters, digits, `.`, `_`, `-`. Becomes the signing principal `agent:<id>@hc`; its key is generated on first use.
 - `executables`: binary names matched against the process tree for `hc claim`. Interpreter-wrapped CLIs (`node cli.js`, `python -m tool`) match on the script name.
-- `instructions_file`: where `hc onboard` writes the protocol block.
+- `instructions_file`: where `hc init` writes the protocol block (for agents it detects).
 - `launch`: `null` for detect-only agents. Placeholders: `{prompt}`, `{schema_path}`, `{schema_json}`, `{out_path}`.
 - `output.kind`: `stdout_json_field` (with `field`), `file` (reads `{out_path}`) or `stdout` (parsed as free text).
 

@@ -248,6 +248,9 @@ impl PassId {
 pub enum Outcome {
     Pass,
     Fail,
+    /// The check could not obtain evidence (for example, the test runner did not start).
+    /// It neither supports nor contradicts the claim.
+    Unresolved,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

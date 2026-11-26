@@ -931,7 +931,10 @@ dependencies = [
  "jiff",
  "roster",
  "seal",
+ "serde",
  "serde_json",
+ "shlex",
+ "tempfile",
 ]
 
 [[package]]

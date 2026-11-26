@@ -12,7 +12,7 @@ use bedrock::ir::Role;
 
 #[derive(Debug, thiserror::Error)]
 pub enum IdentityError {
-    #[error("io: {0}")]
+    #[error("i/o error")]
     Io(#[from] std::io::Error),
     #[error("ssh-keygen failed: {0}")]
     Keygen(String),
@@ -89,7 +89,17 @@ impl Keyring {
         let key_path = self.dir.join(&slug).join("id_ed25519");
         if !key_path.exists() {
             std::fs::create_dir_all(key_path.parent().expect("key dir"))?;
-            let out = Command::new("ssh-keygen").args(["-q", "-t", "ed25519", "-N", "", "-C", &principal, "-f"]).arg(&key_path).output()?;
+            let out = Command::new("ssh-keygen")
+                .args(["-q", "-t", "ed25519", "-N", "", "-C", &principal, "-f"])
+                .arg(&key_path)
+                .output()
+                .map_err(|e| {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        IdentityError::Keygen("not found on PATH (install OpenSSH)".into())
+                    } else {
+                        e.into()
+                    }
+                })?;
             if !out.status.success() {
                 return Err(IdentityError::Keygen(String::from_utf8_lossy(&out.stderr).into_owned()));
             }

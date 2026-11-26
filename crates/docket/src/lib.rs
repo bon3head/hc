@@ -26,7 +26,7 @@ const FIELD: char = '\u{1f}';
 pub enum DocketError {
     #[error(transparent)]
     Git(#[from] GitError),
-    #[error("encoding: {0}")]
+    #[error("encoding failed")]
     Json(#[from] serde_json::Error),
     #[error("entry {seq} ({commit}) has signature status {status:?} by {signer:?}")]
     Untrusted { seq: u64, commit: String, status: String, signer: String },

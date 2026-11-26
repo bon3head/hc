@@ -67,7 +67,7 @@ pub mod notion {
 
     #[derive(Debug, thiserror::Error)]
     pub enum NotionError {
-        #[error("http: {0}")]
+        #[error("Notion request failed")]
         Http(#[from] ureq::Error),
     }
 

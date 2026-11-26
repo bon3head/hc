@@ -15,6 +15,8 @@ pub struct Run {
     pub exit_codes: Vec<i32>,
     pub passed: Option<u64>,
     pub failed: Option<u64>,
+    /// Why the command never ran (runner missing or not executable); no exit code means anything then.
+    pub unavailable: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -44,8 +46,22 @@ impl Reexec {
         }
         let mut exit_codes = Vec::new();
         let mut counts = (None, None);
+        let mut unavailable = None;
         for _ in 0..self.runs.max(1) {
-            let out = self.sandbox.command(argv, &dir).env("PYTHONDONTWRITEBYTECODE", "1").output()?;
+            let out = match self.sandbox.command(argv, &dir).env("PYTHONDONTWRITEBYTECODE", "1").output() {
+                Ok(out) => out,
+                Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied) => {
+                    unavailable = Some(format!("`{}` could not start: {e}", argv[0]));
+                    break;
+                }
+                Err(e) => return Err(e.into()),
+            };
+            // bwrap reports an exec failure of its child on stderr with exit 1; 126/127 are the shell conventions.
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            if matches!(out.status.code(), Some(126 | 127)) || stderr.starts_with("bwrap: execvp") {
+                unavailable = Some(format!("`{}` could not start: {}", argv[0], stderr.lines().next().unwrap_or("not found")));
+                break;
+            }
             exit_codes.push(out.status.code().unwrap_or(-1));
             let text = format!("{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
             counts = parse_counts(&text);
@@ -53,7 +69,7 @@ impl Reexec {
         if let Source::Commit { repo, .. } = source {
             let _ = Git::at(repo).run(&["worktree", "remove", "--force", dir.to_str().expect("utf-8")]);
         }
-        Ok(Run { exit_codes, passed: counts.0, failed: counts.1 })
+        Ok(Run { exit_codes, passed: counts.0, failed: counts.1, unavailable })
     }
 }
 

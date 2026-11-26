@@ -40,9 +40,13 @@ impl Home {
 
     /// One docket per repository, keyed by the digest of its canonical path.
     pub fn docket(&self, repo: &Path) -> Result<Docket> {
+        Ok(Docket::open(&self.docket_path(repo)?, self.keyring())?)
+    }
+
+    pub fn docket_path(&self, repo: &Path) -> Result<PathBuf> {
         let canonical = repo.canonicalize().with_context(|| format!("repository {}", repo.display()))?;
         let id = Digest::of(canonical.to_string_lossy().as_bytes()).hex();
-        Ok(Docket::open(&self.root.join("repos").join(&id[..16]).join("docket.git"), self.keyring())?)
+        Ok(self.root.join("repos").join(&id[..16]).join("docket.git"))
     }
 
     pub fn outbox(&self, session: &str) -> Result<PathBuf> {

@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# The README quickstart as a script: a fresh hc home, a toy repository, hooks
-# installed, a protected write denied, a failing Stop blocked, a fixed Stop
-# allowed, a conformant plan. Exits non-zero on any deviation.
+# The README quickstart as a script: a fresh hc home, a toy repository, one
+# `hc init`, a clean `hc doctor`, a protected write denied, a failing Stop
+# blocked, a fixed Stop allowed, a conformant plan. Exits non-zero on any deviation.
 set -euo pipefail
 DIR=${1:-$(mktemp -d)}
 HC=${HC_BIN:-hc}
 export HC_HOME="$DIR/hc-home"
 repo="$DIR/demo"
 rm -rf "$HC_HOME" "$repo"
-mkdir -p "$repo/src" "$repo/tests" "$repo/.handoff"
+mkdir -p "$repo/src" "$repo/tests"
 cd "$repo"
 git init -q .
 printf 'def add(a, b):\n    return a - b\n' >src/calc.py
 : >src/__init__.py
 : >tests/__init__.py
 printf 'import unittest\nfrom src.calc import add\n\n\nclass T(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n' >tests/test_calc.py
-echo '{"id":"fix-add","objective":"Make add correct.","test_command":"python3 -m unittest discover -s tests -t .","allowed_paths":["src/**"],"next_step":"Fix add."}' >.handoff/task.json
 
-"$HC" init >/dev/null
-"$HC" onboard --test-command "python3 -m unittest discover -s tests -t ." --hooks claude >/dev/null
+"$HC" init "Make add correct." --for claude >/dev/null
+grep -q '"test_command": "python3 -m unittest discover -s tests -t ."' .handoff/task.json
 grep -q 'hc hook claude TaskCompleted' .claude/settings.json
+"$HC" doctor >/dev/null
 
 hook() { printf '{"session_id":"demo","cwd":"%s","hook_event_name":"%s",%s}' "$repo" "$1" "$2" | "$HC" hook claude "$1"; }
 
