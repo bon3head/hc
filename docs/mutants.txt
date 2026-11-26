@@ -1,0 +1,54 @@
+Mutation battery (scripts/mutants.py)
+
+Each mutant is one plausible bug in trust-critical code. A control run of the
+unmutated copy must pass every check first; a mutant counts as killed only when
+the check expected to see it fails. Full run on abf5f74:
+
+  ✓ unresolved-promotes: killed by attacks.sh (expects attacks.sh to see: a claim with an unresolved check is promoted (G1))
+  ✓ no-session-passes-vacuously: killed by attacks.sh (expects attacks.sh to see: write checks pass on an unobserved repository (G1))
+  ✓ settled-ignores-policy: killed by attacks.sh (expects attacks.sh to see: a verdict settled under an old policy survives a policy change (G4))
+  ✓ paths-not-normalized: killed by attacks.sh (expects attacks.sh to see: ./src/calc.py is compared as a different file (F6))
+  ✓ paths-exact-only: killed by attacks.sh (expects attacks.sh to see: a claimed directory does not cover its files (F6))
+  ✓ unavailable-rerun-passes: killed by exhibit-stale.sh (expects exhibit-stale.sh to see: a rerun that never started counts as reproduced (packet 3))
+  ✓ tests-pass-any-exit: killed by attacks.sh (expects attacks.sh to see: tests_pass with a null exit code admits a red suite (G2))
+  ✓ reexec-any-run-agrees: killed by attacks.sh (expects attacks.sh to see: a flaky suite is reproduced (G3))
+  ~ tamper-blind: killed-by-other by attacks.sh (expects assay seed 7 to see: edited tests and hook configs go unnoticed (TestsEdited, HookConfig))
+  ✓ stale-never: killed by exhibit-stale.sh (expects exhibit-stale.sh to see: a fact for tree A is shown as current on tree B (packet 2))
+  ✓ inline-raw: killed by cargo test (expects cargo test to see: control characters in agent text reach the brief)
+  ✓ command-rendered-raw: killed by cargo test (expects cargo test to see: the raw command string is rendered instead of its parsed words)
+  ✓ intake-allows-comments: killed by attacks.sh (expects attacks.sh to see: a command with a shell comment is accepted (F3))
+  ✓ intake-allows-any-path: killed by attacks.sh (expects attacks.sh to see: a path carrying a newline is accepted (F3))
+  ✓ intake-null-exit: killed by attacks.sh (expects attacks.sh to see: command_ran with no exit code is accepted (F4))
+  ✓ snapshot-keeps-bytecode: killed by attacks.sh (expects attacks.sh to see: running the suite looks like editing tests/ (F5))
+  ✓ git-meta-blind: killed by attacks.sh (expects attacks.sh to see: a planted .git hook is not recorded (F1, F9))
+  ✗ edits-not-snapshotted: survived (expects attacks.sh to see: a later edit does not move the session's tree (F7))
+  ✓ claim-unbound: killed by attacks.sh (expects attacks.sh to see: a bare hc claim loses its session's writes (F2))
+  ✓ hooks-fail-open: killed by attacks.sh (expects attacks.sh to see: Stop allows when hc cannot evaluate (F8))
+  ✓ task-file-unprotected: killed by attacks.sh (expects attacks.sh to see: the agent can rewrite its own task contract unnoticed (G5))
+  ✓ agent-git-checkout: killed by attacks.sh (expects attacks.sh to see: the agent's post-checkout hook runs inside the verifier (F1))
+  ✓ gap-not-recorded: killed by attacks.sh (expects attacks.sh to see: a change made before a session opened is never recorded (T3))
+  ✓ evidence-session-only: killed by attacks.sh (expects attacks.sh to see: a claim under another session id escapes the recorded writes (G1, T3))
+  ✗ baseline-window-ignored: survived (expects attacks.sh to see: the owner's accepted changes are blamed on the agent (T23))
+  ✓ contract-from-file: killed by attacks.sh (expects attacks.sh to see: an agent-edited task file governs the brief (T4))
+  ✓ stop-tamper-escapable: killed by attacks.sh (expects attacks.sh to see: fail-fast lets a session stop on gutted tests (T24))
+  ✓ stop-ever-written: killed by attacks.sh (expects attacks.sh to see: a restored test file still traps the session (T24))
+  ✓ claim-not-observed: killed by attacks.sh (expects attacks.sh to see: a claim is judged on code older than the claim (T25, F2))
+  ✓ symlink-escape-ignored: killed by attacks.sh (expects attacks.sh to see: code reached through a symlink out of the tree is reproduced (T14))
+  ✓ python-user-site: killed by attacks.sh (expects attacks.sh to see: a .pth in the user's site-packages turns a red suite green (T14))
+
+Full run: 28 killed by the expected check, 1 killed by another check, 2 survived.
+
+Closing the gaps the full run found:
+- edits-not-snapshotted survived: repository continuity made the per-edit snapshot
+  redundant for verdicts, except for a test edit undone before the next claim. Added
+  replay F10; the mutant is now killed by attacks.sh.
+- baseline-window-ignored survived: no replay had a write recorded before a baseline.
+  Added replay T23b (the owner accepts the agent's test edit with hc init); now killed.
+- tamper-blind was caught by attacks.sh rather than the assay: the commit-content
+  check (audit T1) independently refutes the assay's commit-bound tampering. Expected
+  detector corrected to attacks.sh; now killed by it.
+Re-run of those three after the fix: 3/3 killed by the expected check.
+
+Result: 31/31 mutants are caught by the check meant to catch them.
+An earlier run (before audit T13 work) is why every mutant names its detector: five
+"kills" in the first battery were setup failures (see docs/experiments.md).

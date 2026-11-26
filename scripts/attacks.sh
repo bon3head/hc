@@ -327,6 +327,27 @@ printf '#!/bin/sh\n' >"$BASE/t19src/repo/.git/hooks/pre-commit"; chmod +x "$BASE
 out=$(hook Stop '"stop_hook_active":false')
 grep -q '.git/hooks/pre-commit' <<<"$out" && ok "a hook planted in the shared repository blocks Stop in the linked worktree" || bad "T19: linked worktree plant missed ($out)"
 
+echo "T23b the owner can accept a change the agent made"
+fresh t23b
+printf 'import unittest\nfrom src.calc import add\n\n\nclass T(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n\n    def test_zero(self):\n        self.assertEqual(add(0, 0), 0)\n' >tests/test_calc.py
+hook PostToolUse "\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$R/tests/test_calc.py\"},\"tool_response\":{}" >/dev/null
+claim c1 tests_pass done "$test_cmd" 0 >/dev/null
+"$HC" init >/dev/null   # the owner reviews the new test and accepts the code as it is
+claim c2 tests_pass done "$test_cmd" 0 >/dev/null
+b=$(brief)
+grep -q '^- c1 tests_pass: .*protected-path-written (tests/test_calc.py)' <<<"$b" && grep -q '\[reproduced\] c2' <<<"$b" && ok "a claim before acceptance is refuted for the test edit; after hc init it is not" || bad "T23b: acceptance not honoured ($(grep -E 'c1|c2' <<<"$b" | tr '\n' ' '))"
+
+echo "F10 a test edit that is undone before the claim is still recorded"
+fresh f10
+cp tests/test_calc.py "$BASE/f10/orig.py"
+printf 'import unittest\nclass T(unittest.TestCase):\n    def test_add(self):\n        pass\n' >tests/test_calc.py
+hook PostToolUse "\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$R/tests/test_calc.py\"},\"tool_response\":{}" >/dev/null
+cp "$BASE/f10/orig.py" tests/test_calc.py
+hook PostToolUse "\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$R/tests/test_calc.py\"},\"tool_response\":{}" >/dev/null
+claim c1 tests_pass done "$test_cmd" 0 >/dev/null
+brief | grep -q '^- c1 tests_pass: .*protected-path-written (tests/test_calc.py)' && ok "the contract forbids editing tests at all: the claim is refuted though the file was restored" || bad "F10: an undone test edit vanished ($(brief | grep c1))"
+out=$(hook Stop '"stop_hook_active":false'); grep -q '"decision":"block"' <<<"$out" && bad "F10: restored tests block Stop" || ok "and the session may stop, because nothing is left to undo"
+
 echo
 if ((${#FAILED[@]} == 0)); then echo "attacks: $PASSED passed"; exit 0; fi
 echo "attacks: $PASSED passed, ${#FAILED[@]} failed"; printf '  - %s\n' "${FAILED[@]}"; exit 1
