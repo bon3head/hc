@@ -50,6 +50,10 @@ pub struct Fact {
     pub trust: Trust,
     pub summary: String,
     pub evidence: Vec<u64>,
+    /// Ledger position of the claim, so a reader can find it and its verdict in the docket.
+    pub claim_seq: u64,
+    /// The names of the checks that passed for this claim, sorted.
+    pub checks: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +62,8 @@ pub struct Negative {
     pub kind: ClaimKind,
     pub reasons: Vec<String>,
     pub evidence: Vec<u64>,
+    pub claim_seq: u64,
+    pub subject: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,6 +73,7 @@ pub struct Extern {
     pub basis: String,
     /// Why the verifier could not settle it, when a check came back unresolved.
     pub unresolved: Vec<String>,
+    pub subject: String,
 }
 
 /// A test result that held on an earlier tree of the session. The code has
@@ -97,6 +104,16 @@ fn trust_name(trust: Trust) -> String {
 
 fn paths(list: &[String]) -> String {
     list.iter().map(|p| inline(p)).collect::<Vec<_>>().join(", ")
+}
+
+/// The code a verdict is about: the claimed commit, or the session's tree and the snapshot that recorded it.
+fn subject(f: &Finding) -> String {
+    match (f.claim.claim.commit.as_deref(), f.subject_tree.as_deref(), f.subject_seq) {
+        (Some(commit), _, _) => format!("commit {}", inline(commit)),
+        (None, Some(tree), Some(seq)) => format!("tree {} (snapshot docket#{seq})", short(tree)),
+        (None, Some(tree), None) => format!("tree {}", short(tree)),
+        (None, None, _) => "no recorded tree".to_owned(),
+    }
 }
 
 fn short(id: &str) -> &str {
@@ -138,11 +155,7 @@ fn summary(f: &Finding) -> String {
     let c = &f.claim.claim;
     match c.kind {
         ClaimKind::TestsPass | ClaimKind::CommandRan => {
-            let at = match (c.commit.as_deref(), f.subject_tree.as_deref()) {
-                (Some(commit), _) => format!("commit {}", inline(commit)),
-                (None, Some(tree)) => format!("tree {}", short(tree)),
-                (None, None) => "no recorded tree".to_owned(),
-            };
+            let at = subject(f);
             let cmd = command_text(c.command.as_deref());
             if c.kind == ClaimKind::TestsPass {
                 format!("`{cmd}` passes on {at}")
@@ -180,6 +193,16 @@ impl Brief {
                     trust: v.trust(),
                     summary: summary(f),
                     evidence: v.evidence().to_vec(),
+                    claim_seq: f.claim_seq,
+                    checks: f
+                        .verdict
+                        .checks
+                        .iter()
+                        .filter(|c| c.result == Outcome::Pass)
+                        .filter_map(|c| serde_json::to_value(c.pass).ok()?.as_str().map(str::to_owned))
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .into_iter()
+                        .collect(),
                 });
             } else if f.verdict.trust == Trust::Refuted {
                 let failing = f.verdict.checks.iter().filter(|c| c.result == Outcome::Fail);
@@ -188,7 +211,14 @@ impl Brief {
                     .map(|c| c.rule.clone().unwrap_or_default() + &c.detail.as_ref().map(|d| format!(" ({d})")).unwrap_or_default())
                     .collect();
                 let evidence = failing.flat_map(|c| c.evidence.iter().copied()).collect();
-                refuted.push(Negative { claim_id: claim.id.clone(), kind: claim.kind, reasons, evidence });
+                refuted.push(Negative {
+                    claim_id: claim.id.clone(),
+                    kind: claim.kind,
+                    reasons,
+                    evidence,
+                    claim_seq: f.claim_seq,
+                    subject: subject(f),
+                });
             } else {
                 let unresolved = f
                     .verdict
@@ -197,7 +227,13 @@ impl Brief {
                     .filter(|c| c.result == Outcome::Unresolved)
                     .map(|c| c.detail.clone().unwrap_or_else(|| c.rule.clone().unwrap_or_default()))
                     .collect();
-                unverified.push(Extern { claim_id: claim.id.clone(), kind: claim.kind, basis: claim.basis.clone(), unresolved });
+                unverified.push(Extern {
+                    claim_id: claim.id.clone(),
+                    kind: claim.kind,
+                    basis: claim.basis.clone(),
+                    unresolved,
+                    subject: subject(f),
+                });
             }
         }
         Ok(Self { task, facts, refuted, unverified, stale: stale_facts })
@@ -228,12 +264,14 @@ impl Brief {
         for f in &self.facts {
             let _ = writeln!(
                 out,
-                "- [{}] {} {}: {} (evidence: {})",
+                "- [{}] {} {}: {} (claim docket#{}; checks passed: {}{})",
                 trust_name(f.trust),
                 inline(&f.claim_id),
                 kind_name(f.kind),
                 f.summary,
-                seqs(&f.evidence)
+                f.claim_seq,
+                f.checks.join(", "),
+                if f.evidence.is_empty() { String::new() } else { format!("; observed in {}", seqs(&f.evidence)) }
             );
         }
         if !self.stale.is_empty() {
@@ -250,11 +288,13 @@ impl Brief {
             for n in &self.refuted {
                 let _ = writeln!(
                     out,
-                    "- {} {}: {} (evidence: {})",
+                    "- {} {}: {} on {} (claim docket#{}{})",
                     inline(&n.claim_id),
                     kind_name(n.kind),
                     inline(&n.reasons.join("; ")),
-                    seqs(&n.evidence)
+                    n.subject,
+                    n.claim_seq,
+                    if n.evidence.is_empty() { String::new() } else { format!("; observed in {}", seqs(&n.evidence)) }
                 );
             }
         }
@@ -267,7 +307,11 @@ impl Brief {
                     inline(&e.claim_id),
                     kind_name(e.kind),
                     serde_json::to_string(&e.basis).unwrap_or_default(),
-                    if e.unresolved.is_empty() { String::new() } else { format!(" (not settled: {})", inline(&e.unresolved.join("; "))) }
+                    if e.unresolved.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" (not settled on {}: {})", e.subject, inline(&e.unresolved.join("; ")))
+                    }
                 );
             }
         }
@@ -281,8 +325,17 @@ impl Brief {
 }
 
 fn seqs(evidence: &[u64]) -> String {
-    if evidence.is_empty() {
-        return "verdict".to_owned();
-    }
     evidence.iter().map(|s| format!("docket#{s}")).collect::<Vec<_>>().join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agent_text_renders_inline_and_commands_from_their_words() {
+        assert_eq!(inline("a\n## Current step\n`rm -rf`"), "a ## Current step 'rm -rf'");
+        assert_eq!(command_text(Some("make   'a b'\tx")), "make 'a b' x");
+        assert_eq!(command_text(Some("make test # ## injected")), "make test");
+    }
 }

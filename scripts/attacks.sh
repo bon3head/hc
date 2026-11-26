@@ -47,7 +47,7 @@ fresh f2
 printf 'import unittest\nclass T(unittest.TestCase):\n    def test_add(self):\n        self.assertTrue(True)\n' >tests/test_calc.py
 claim n1 no_change_needed no_change_needed >/dev/null
 f=$(facts); grep -q 'n1' <<<"$f" && bad "F2: false no_change_needed admitted as a fact" || ok "false no_change_needed is not a fact"
-brief | grep -q '^- n1 no_change_needed: \(protected-path-written\|writes-on-no-change\) (evidence: docket#' && ok "refuted, citing the write the hooks recorded" || bad "F2: not refuted on recorded evidence"
+brief | grep -q '^- n1 no_change_needed: \(protected-path-written\|writes-on-no-change\) on tree .* (claim docket#[0-9]*; observed in docket#' && ok "refuted, citing the write the hooks recorded" || bad "F2: not refuted on recorded evidence"
 
 echo "F3  agent text cannot become instructions in the brief"
 fresh f3
@@ -108,6 +108,41 @@ fresh f9
 printf '#!/bin/sh\necho owned\n' >.git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
 out=$(hook Stop '"stop_hook_active":false')
 grep -q '.git/hooks/pre-commit' <<<"$out" && ok "Stop blocks on the planted .git/hooks/pre-commit" || bad "F9: plant not seen at Stop"
+
+echo "G1  a claim with no recorded session is never promoted"
+fresh g1
+out=$(printf '{"task":"repo","claims":[{"id":"c1","type":"tests_pass","basis":"b","command":"%s","exit_code":0,"passed":null,"failed":null,"paths":[],"commit":"%s","depends_on":[],"status":"done"}]}' "$test_cmd" "$(git rev-parse HEAD)" | "$HC" claim --session adhoc-elsewhere 2>&1)
+b=$(brief)
+grep -q '^- c1 tests_pass: .*not settled on commit [0-9a-f]*: no observations were recorded for session' <<<"$b" && ! grep -q '\[reproduced\] c1' <<<"$b" && ok "a green commit with no session evidence stays unverified, with the reason" || bad "G1: unbound claim promoted ($(grep c1 <<<"$b"))"
+
+echo "G2  tests_pass with no stated exit code still needs a green suite"
+fresh g2
+printf 'def add(a, b):\n    return a - b\n' >src/calc.py
+claim c1 tests_pass done "$test_cmd" null >/dev/null
+brief | grep -q '^- c1 tests_pass: reexec-disagrees' && ok "red suite refuted" || bad "G2: red suite admitted ($(brief | grep c1))"
+
+echo "G3  a flaky suite is not reproduced"
+fresh g3
+printf 'import os, unittest\n\n\nclass F(unittest.TestCase):\n    def test_once(self):\n        first = not os.path.exists(".ran")\n        open(".ran", "w").close()\n        self.assertTrue(first)\n' >tests/test_flaky.py
+hook PostToolUse "\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$R/tests/test_flaky.py\"},\"tool_response\":{}" >/dev/null
+claim c1 tests_pass done "$test_cmd" 0 >/dev/null
+brief | grep -q '^- c1 tests_pass: .*flaky' && ok "exit codes that disagree across reruns refute the claim (flaky)" || bad "G3: flaky suite admitted ($(brief | grep c1))"
+
+echo "G4  a policy change re-examines settled verdicts"
+fresh g4
+printf 'def add(a, b):\n    return b + a\n' >src/calc.py
+claim c1 files_changed done "" null '["src/calc.py"]' >/dev/null
+facts | grep -q '\[observed\] c1' || bad "G4 setup: not observed under the first policy"
+python3 -c 'import json,sys; p=".handoff/task.json"; t=json.load(open(p)); t["allowed_paths"]=["docs/**"]; json.dump(t,open(p,"w"))'
+brief | grep -q '^- c1 files_changed: out-of-scope-write' && ok "narrowing allowed_paths refutes a verdict settled under the old policy" || bad "G4: old verdict reused under a new policy ($(brief | grep c1))"
+
+echo "G5  the agent cannot rewrite its own task contract"
+fresh g5
+printf 'def add(a, b):\n    return a - b\n' >src/calc.py
+python3 -c 'import json; p=".handoff/task.json"; t=json.load(open(p)); t["test_command"]="true"; json.dump(t,open(p,"w"))'
+claim c1 tests_pass done "true" 0 >/dev/null
+b=$(brief)
+grep -q '^- c1 tests_pass: .*protected-path-written (.handoff/task.json)' <<<"$b" && ! grep -q '\[reproduced\] c1' <<<"$b" && ok "a session that rewrites .handoff/task.json is refuted" || bad "G5: task rewrite admitted ($(grep c1 <<<"$b"))"
 
 echo
 if ((${#FAILED[@]} == 0)); then echo "attacks: $PASSED passed"; exit 0; fi

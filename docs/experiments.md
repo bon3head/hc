@@ -42,6 +42,8 @@ Each entry: the hypothesis, how it was tested, the result, and what changed. Kil
 | Acceptance invariants catch a starved verifier | Corpus argument: all four held with an empty facts section | True: nothing required honest claims to be delivered | `honest_admitted == honest_verifiable` added; disabling reexec now delivers 18/32 and is rejected |
 | `init` can succeed on any machine | Matrix on Ubuntu 20.04 (git 2.25) | Setup succeeded, then every hook would have failed | `init` runs the doctor's system checks first |
 | Errors that wrap a source can repeat it | Matrix: "No such file or directory (os error 2): No such file or directory" | Eleven error variants printed their source twice | Messages no longer embed the source; the chain prints once |
+| A mutation battery's kills mean detection | First battery run: five mutants "killed by cargo test" within seconds | Every kill was a setup failure: the scratch copy lacked `refs/specs` (the RFC 8785 vectors), then a timestamp-preserving sync left a stale binary that cargo did not rebuild | The battery now requires every check to pass on unmutated code before counting a kill, and syncs with fresh timestamps |
+| The README prior-work line was accurate | Opened dunnit's PyPI page and the Soei and HSC-Bench abstracts | dunnit already re-runs proof commands and inspects diffs for test-gaming; Soei already separates completion claims from proof in a hash-chained ledger | README states the overlap and narrows hc's claim to tree-bound verdicts, stale/unresolved semantics, native plans and handoff compilation |
 | rust-analyzer in the build sandbox | Distribution host blocked; alternate download declined | Run locally; clippy pedantic as the enforced gate here |
 
 ## Not yet run

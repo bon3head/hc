@@ -45,7 +45,7 @@ has 1 '[reproduced] c1 tests_pass'
 section 2 'Stale results' | grep -q '^- c1:' || { echo "packet 2: c1 is not stale"; exit 1; }
 section 2 'Verified facts' | grep -q 'c1' && { echo "packet 2: stale c1 still listed as a fact"; exit 1; }
 section 3 'Stale results' | grep -q '^- c1:' || { echo "packet 3: c1 lost its history"; exit 1; }
-section 3 'Unverified' | grep -q "c2 tests_pass.*not settled: .python3. could not start" || { echo "packet 3: c2 is not unresolved"; exit 1; }
+section 3 'Unverified' | grep -q "c2 tests_pass.*not settled on tree [0-9a-f]* (snapshot docket#[0-9]*): .python3. could not start" || { echo "packet 3: c2 is not unresolved"; exit 1; }
 grep -q '^## Refuted' "$OUT/packet-3.md" && { echo "packet 3: missing evidence became a refutation"; exit 1; }
-section 4 'Refuted claims' | grep -q '^- c2 tests_pass: reexec-disagrees' || { echo "packet 4: c2 not refuted"; exit 1; }
+section 4 'Refuted claims' | grep -q '^- c2 tests_pass: reexec-disagrees (exit codes \[1, 1\]) on tree [0-9a-f]* (snapshot docket#[0-9]*)' || { echo "packet 4: c2 not refuted"; exit 1; }
 echo "exhibit ok"

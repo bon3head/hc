@@ -14,12 +14,24 @@ The release question is whether any remaining defect lets the receiver rely on a
 | F6 high | Claims are compared to what happened | `./src/x.py`, or a directory | A false `files_untouched` admitted; a true `files_changed` refuted | Claimed paths are normalized, and a claimed path covers everything beneath it | F6: three cases |
 | F7 high | A fact describes the code in front of the receiver | A file claim followed by more edits | A stale file fact shown as current | Every tree-bound result, including file claims, moves to Stale once the session's tree changes | F7: moved to stale after the edit |
 | F8 medium | "Could not evaluate" is not "allowed" | Any hc error during `PreToolUse`, `TaskCompleted` or `Stop` | The gate silently skipped | Gating hooks block on error with the reason shown. A `Stop` that is already continuing is let through so a broken hc cannot trap the agent; `HC_FAIL_OPEN=1` opts out. `.handoff/task.json` and `.agents/**` are now protected, so deleting the task cannot disable the Stop gate | F8: Stop blocks on a malformed payload; a continuing Stop is let through. The permission case is skipped when run as root |
-| F9 medium | Writes the hooks do not see are still caught | Shell writes to `.git/hooks` or `.git/config`, which git never tracks | An invisible hook plant | The recorder fingerprints `.git/config` and `.git/hooks/*` when a session opens and at every snapshot. Changes are recorded as writes to protected paths, so claims are refuted and the Stop gate blocks. Pre-write denial for shell tools is still not attempted: a tool-name list cannot see what a shell command will write. The snapshot at the next step is the authority | F9: Stop blocks on a planted `pre-commit` |
+| F9 medium | Writes the hooks do not see are still caught | Shell writes to `.git/hooks` or `.git/config`, which git never tracks | An invisible hook plant | The recorder fingerprints `.git/config` and `.git/hooks/*` when a session opens and at every snapshot. Changes are recorded as writes to protected paths, so claims are refuted and the Stop gate blocks. Pre-write denial for shell tools is still not attempted: a tool-name list cannot see what a shell command will write. The snapshot at the next step is the authority | F9: Stop blocks on a planted `pre-commit`; `exhibit` unit test covers the headless recorder path. This compares fingerprints between snapshots; it is not an event log. A hook planted and removed before the next snapshot leaves no record. Because hc never runs git in the agent's repository, such a plant can affect only the session's own git use |
 
 ## Found while closing the audit
 
 - A session that changed nothing had no end tree, so an honest claim on an untouched tree came back unresolved ("no snapshot"). The start snapshot is now the session's tree until something changes (found by F5's attack).
 - The acceptance denominator was chosen by claim type in the evaluator. The assay now compares every brief with a per-scenario manifest of where each claim must land and at what trust, written from what the scenario does to the repository. Missing, extra, duplicated, misplaced and stale claims are all reported. With reexec disabled, the known-bad run must fail with exactly the expected signature: test claims left unverified.
+
+## Found by the mutation battery
+
+`scripts/mutants.py` plants 22 trust-critical bugs and runs the gate's own checks against each one, after the unmutated control passes through the same path. The first valid run killed 13. Six survived, each pointing at a check the gate lacked, so attacks were added:
+
+- G1: a claim with no recorded session is never promoted.
+- G2: `tests_pass` with a null exit code still needs a green suite.
+- G3: a flaky suite is refuted.
+- G4: a policy change re-examines settled verdicts.
+- A renderer unit test.
+
+Two mutants were stillborn. One of them revealed that nothing checked the protection of the task contract, so G5 was added: the agent cannot rewrite `.handoff/task.json`. Results of the rerun: `docs/mutants.txt`.
 
 ## Residual, not closed here
 

@@ -176,3 +176,51 @@ pub fn record_claims(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bedrock::ir::{AttestationLevel, Body, Role};
+
+    fn paths_written(docket: &Docket, session: &str) -> Vec<String> {
+        docket
+            .records()
+            .unwrap()
+            .into_iter()
+            .filter_map(|r| match r.body {
+                Body::Obs(Obs { session: s, event: Event::FileWrite { path, .. }, .. }) if s == session => Some(path),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The headless path (`hc run`, the assay): open, work, close. Git metadata is
+    /// compared between snapshots, so it is an endpoint comparison, not an event log.
+    #[test]
+    fn records_git_metadata_changes_between_snapshots_not_events() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wt = tmp.path().join("wt");
+        Git::default().run(&["init", "-q", wt.to_str().unwrap()]).unwrap();
+        std::fs::write(wt.join("a.py"), "x = 1\n").unwrap();
+        let keys = seal::Keyring::new(tmp.path().join("keys"));
+        let harness = keys.ensure(Role::Harness, "local").unwrap();
+        let docket = Docket::open(&tmp.path().join("docket.git"), keys).unwrap();
+        let rec = Recorder { docket: &docket, harness: &harness, force_paths: &[] };
+        let agent = AgentAttestation { agent_id: "t".into(), level: AttestationLevel::Declared, executable: None, pid: None };
+        let mut open = rec.open("2026-01-01T00:00:00Z", "s", "t", &wt, agent, Isolation::None).unwrap();
+
+        // An ordinary change and two .git changes in the same interval are all recorded.
+        std::fs::write(wt.join("a.py"), "x = 2\n").unwrap();
+        std::fs::write(wt.join(".git/hooks/post-commit"), "#!/bin/sh\n").unwrap();
+        let config = std::fs::read_to_string(wt.join(".git/config")).unwrap();
+        std::fs::write(wt.join(".git/config"), format!("{config}[core]\n\tfsmonitor = touch /tmp/x\n")).unwrap();
+        rec.checkpoint("2026-01-01T00:00:01Z", &mut open).unwrap();
+        assert_eq!(paths_written(&docket, "s"), [".git/config", ".git/hooks/post-commit", "a.py"]);
+
+        // Planted and removed between two snapshots: nothing to compare, nothing recorded.
+        std::fs::write(wt.join(".git/hooks/pre-push"), "#!/bin/sh\n").unwrap();
+        std::fs::remove_file(wt.join(".git/hooks/pre-push")).unwrap();
+        rec.close("2026-01-01T00:00:02Z", &open, Some(0)).unwrap();
+        assert_eq!(paths_written(&docket, "s").len(), 3, "a write reverted before the next snapshot leaves no record");
+    }
+}

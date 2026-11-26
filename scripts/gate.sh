@@ -83,6 +83,9 @@ echo "7. Quickstart reproduces in a fresh hc home"
 check "scripts/quickstart.sh" env HC_BIN="$HC" bash scripts/quickstart.sh "$WORK/qs"
 check "scripts/exhibit-stale.sh: a fact stays scoped to its tree; missing evidence is unresolved, not refuted" env HC_BIN="$HC" bash scripts/exhibit-stale.sh "$WORK/ex"
 check "scripts/attacks.sh: every audit finding replayed through the real entry points" env HC_BIN="$HC" bash scripts/attacks.sh "$WORK/atk"
+readme_lines() { sed -n '/<!-- exhibit:begin -->/,/<!-- exhibit:end -->/p' README.md | grep '^- '; }
+missing=$(readme_lines | while IFS= read -r line; do grep -qxF -- "$line" "$WORK"/ex/packet-*.md || echo "$line"; done)
+if [[ -n $(readme_lines) && -z $missing ]]; then pass "README's packet lines are byte-identical to the release candidate's output"; else fail "README packet lines differ from the exhibit"; echo "$missing" | sed 's/^/       /'; fi
 
 echo "8. Independent audit"
 if [[ -f docs/audit-resolution.md ]] && grep -q '^Unresolved critical or high: 0$' docs/audit-resolution.md; then pass "no unresolved critical or high findings"; else fail "audit not resolved (docs/audit-resolution.md)"; fi

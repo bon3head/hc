@@ -51,6 +51,8 @@ pub struct Finding {
     pub verified: Option<Verified>,
     /// The tree the claim was judged against: the last snapshot before it was filed.
     pub subject_tree: Option<String>,
+    /// Ledger position of the observation that recorded `subject_tree`.
+    pub subject_seq: Option<u64>,
     /// The session's latest snapshot in the whole docket. When it differs from
     /// `subject_tree`, a test result describes code that has since changed.
     pub current_tree: Option<String>,
@@ -76,10 +78,12 @@ struct SessionEvidence<'a> {
     writes: Vec<Write<'a>>,
     start_tree: Option<&'a str>,
     end_tree: Option<&'a str>,
+    /// Ledger position of the observation that recorded `end_tree`.
+    end_seq: Option<u64>,
 }
 
 fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvidence<'a> {
-    let mut ev = SessionEvidence { writes: Vec::new(), start_tree: None, end_tree: None };
+    let mut ev = SessionEvidence { writes: Vec::new(), start_tree: None, end_tree: None, end_seq: None };
     for r in records.iter().filter(|r| r.seq < before) {
         let Body::Obs(obs) = &r.body else { continue };
         if obs.session != session {
@@ -89,11 +93,15 @@ fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvi
             Event::FileWrite { path, after, added_lines, .. } => {
                 ev.writes.push(Write { seq: r.seq, path, after: after.as_deref(), added: added_lines });
             }
-            Event::SessionEnd { tree, .. } | Event::Checkpoint { tree } => ev.end_tree = Some(tree),
+            Event::SessionEnd { tree, .. } | Event::Checkpoint { tree } => {
+                ev.end_tree = Some(tree);
+                ev.end_seq = Some(r.seq);
+            }
             Event::SessionStart { tree, .. } => {
                 // Until something changes, the session's tree is the one it started from.
                 ev.start_tree = Some(tree);
                 ev.end_tree = Some(tree);
+                ev.end_seq = Some(r.seq);
             }
             Event::NoClaim { .. } | Event::PlanUpdate { .. } => {}
         }
@@ -218,6 +226,7 @@ impl Kernel {
                     verdict: verdict.clone(),
                     verified,
                     subject_tree: ev.end_tree.map(str::to_owned),
+                    subject_seq: ev.end_seq,
                     current_tree: self::evidence(records, &cr.session, u64::MAX).end_tree.map(str::to_owned),
                 });
                 continue;
@@ -270,6 +279,7 @@ impl Kernel {
                 verdict,
                 verified,
                 subject_tree: ev.end_tree.map(str::to_owned),
+                subject_seq: ev.end_seq,
                 current_tree,
             });
         }
