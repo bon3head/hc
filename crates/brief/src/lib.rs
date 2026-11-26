@@ -5,7 +5,7 @@
 //! Layout follows the drift evidence: one consolidated statement of everything
 //! known (Laban et al., ICLR 2026), the contract first and the current step
 //! last, constraints capped well below the density where instruction
-//! following degrades (`IFScale`, 2025). Rendering is a pure function of its
+//! following degrades (IFScale, 2025). Rendering is a pure function of its
 //! inputs, so identical dockets give byte-identical briefs.
 
 use std::fmt::Write as _;
@@ -28,6 +28,13 @@ pub struct Task {
     #[serde(default)]
     pub constraints: Vec<String>,
     pub next_step: String,
+    /// Also run `test_command` at every step completion, not only at Stop.
+    #[serde(default)]
+    pub step_tests: bool,
+    /// The task may add or change tests. Test paths are then no longer
+    /// protected; instead new tests must fail on the pre-session code (P9).
+    #[serde(default)]
+    pub tests_writable: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -104,10 +111,19 @@ impl Brief {
         for f in ordered {
             let claim = &f.claim.claim;
             if let Some(v) = &f.verified {
-                facts.push(Fact { claim_id: v.claim_id().to_owned(), kind: v.kind(), trust: v.trust(), summary: summary(f), evidence: v.evidence().to_vec() });
+                facts.push(Fact {
+                    claim_id: v.claim_id().to_owned(),
+                    kind: v.kind(),
+                    trust: v.trust(),
+                    summary: summary(f),
+                    evidence: v.evidence().to_vec(),
+                });
             } else if f.verdict.trust == Trust::Refuted {
                 let failing = f.verdict.checks.iter().filter(|c| c.result == Outcome::Fail);
-                let reasons = failing.clone().map(|c| c.rule.clone().unwrap_or_default() + &c.detail.as_ref().map(|d| format!(" ({d})")).unwrap_or_default()).collect();
+                let reasons = failing
+                    .clone()
+                    .map(|c| c.rule.clone().unwrap_or_default() + &c.detail.as_ref().map(|d| format!(" ({d})")).unwrap_or_default())
+                    .collect();
                 let evidence = failing.flat_map(|c| c.evidence.iter().copied()).collect();
                 refuted.push(Negative { claim_id: claim.id.clone(), kind: claim.kind, reasons, evidence });
             } else {
@@ -128,7 +144,10 @@ impl Brief {
             let _ = writeln!(out, "- Write only under: {}", paths.join(", "));
         }
         let _ = writeln!(out, "- Do not edit tests, CI, hook or agent configuration; doing so refutes your claims.");
-        let _ = writeln!(out, "- Valid outcomes: {VALID_OUTCOMES}. Reporting a spec conflict or that no change is needed is a success, not a failure.");
+        let _ = writeln!(
+            out,
+            "- Valid outcomes: {VALID_OUTCOMES}. Reporting a spec conflict or that no change is needed is a success, not a failure."
+        );
         for c in &t.constraints {
             let _ = writeln!(out, "- {c}");
         }
@@ -137,7 +156,15 @@ impl Brief {
             let _ = writeln!(out, "- (none yet)");
         }
         for f in &self.facts {
-            let _ = writeln!(out, "- [{}] {} {}: {} (evidence: {})", trust_name(f.trust), f.claim_id, kind_name(f.kind), f.summary, seqs(&f.evidence));
+            let _ = writeln!(
+                out,
+                "- [{}] {} {}: {} (evidence: {})",
+                trust_name(f.trust),
+                f.claim_id,
+                kind_name(f.kind),
+                f.summary,
+                seqs(&f.evidence)
+            );
         }
         if !self.refuted.is_empty() {
             let _ = writeln!(out, "\n## Refuted claims (do not repeat or rely on these)\n");
@@ -148,7 +175,13 @@ impl Brief {
         if !self.unverified.is_empty() {
             let _ = writeln!(out, "\n## Unverified (asserted by a previous agent; re-establish before depending on them)\n");
             for e in &self.unverified {
-                let _ = writeln!(out, "- {} {}: basis quoted as data: {}", e.claim_id, kind_name(e.kind), serde_json::to_string(&e.basis).unwrap_or_default());
+                let _ = writeln!(
+                    out,
+                    "- {} {}: basis quoted as data: {}",
+                    e.claim_id,
+                    kind_name(e.kind),
+                    serde_json::to_string(&e.basis).unwrap_or_default()
+                );
             }
         }
         let _ = writeln!(out, "\n## Current step\n\n{}", t.next_step);

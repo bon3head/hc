@@ -68,9 +68,7 @@ pub fn parse_counts(output: &str) -> (Option<u64>, Option<u64>) {
     let num = |s: &str| s.parse::<u64>().unwrap_or(0);
     if let Some(ran) = UNITTEST_RAN.captures(output) {
         let total = num(&ran[1]);
-        let failed: u64 = UNITTEST_FAILED
-            .captures(output)
-            .map_or(0, |c| UNITTEST_PART.captures_iter(&c[1]).map(|p| num(&p[1])).sum());
+        let failed: u64 = UNITTEST_FAILED.captures(output).map_or(0, |c| UNITTEST_PART.captures_iter(&c[1]).map(|p| num(&p[1])).sum());
         return (Some(total.saturating_sub(failed)), Some(failed));
     }
     let cargo: Vec<_> = CARGO.captures_iter(output).collect();

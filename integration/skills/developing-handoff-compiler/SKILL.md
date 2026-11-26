@@ -1,6 +1,6 @@
 ---
 name: developing-handoff-compiler
-description: Guides changes to the hc handoff-compiler Rust workspace (bedrock, seal, docket, intake, exhibit, cell, roster, crossexam, brief, courier, assay, hc). Covers which crate owns a concern, the invariants that must not break, which packed reference code and spec to read first, and the validation loop. Use when editing, reviewing or extending this repository.
+description: Guides changes to the hc handoff-compiler Rust workspace (bedrock, seal, docket, intake, exhibit, cell, roster, agenda, conform, crossexam, bailiff, brief, courier, chambers, clerk, assay, hc). Covers which crate owns a concern, the invariants that must not break, which packed reference code and spec to read first, and the validation loop. Use when editing, reviewing or extending this repository.
 license: MIT
 ---
 
@@ -31,6 +31,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 rust-analyzer diagnostics .
 HC_DISABLE=tamper cargo run -q -p hc -- assay --seed 7   # must print REJECT
 cargo run -q -p hc -- assay --seed 7                       # must print ACCEPT
+scripts/gate.sh                                            # the release gate: must print PASS
 ```
 
 If a change adds a detection pass or cheat signature, add a seeded lie to `crates/assay/src/lib.rs` that only the new code catches, and confirm that disabling the new code turns ACCEPT into REJECT. Details: [references/validation.md](references/validation.md).

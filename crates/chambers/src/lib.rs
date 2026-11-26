@@ -1,4 +1,4 @@
-//! The hc home (`$HC_HOME`, default `~/.hc`): keys, one docket per repository,
+//! chambers: the hc home (`$HC_HOME`, default `~/.hc`): keys, one docket per repository,
 //! session outboxes and the user's roster overrides. Sandboxed agents never
 //! see this directory; only their own session outbox is bound into the cell.
 

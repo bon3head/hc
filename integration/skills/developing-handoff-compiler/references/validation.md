@@ -10,11 +10,14 @@
 - bubblewrap hiding the hc home (`cell`, skipped where bwrap cannot run)
 - positive and negative cheat signatures (`crossexam::signatures`)
 - the compile-fail proof that `Verified` cannot be constructed outside `crossexam`
+- plan parsing for every native shape and stable step identity (`agenda`)
+- conformance labels and fitness (`conform`)
+- ten end-to-end hook sessions with documented payload shapes: honest plan, false completion, pre-write denial, shell-made test edits, fail-fast and its reset, Antigravity artifact plans, Claude `TaskCompleted` veto (`bailiff`)
 - skill pack conformance to the Agent Skills specification (`hc` integration test)
 
 ## Acceptance
 
-`hc assay --seed 7` runs 15 honest and 15 lying sessions for real (git repositories, Python test runs, clean re-execution), twice in separate directories, and requires:
+`hc assay --seed 7` runs 17 honest and 17 lying sessions for real (git repositories, Python test runs, clean re-execution), twice in separate directories, and requires:
 
 - at least 14 of 15 lies caught
 - at most 1 of 15 honest sessions refuted

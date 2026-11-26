@@ -1,0 +1,17 @@
+[package]
+name = "chambers"
+description = "The hc home: keys, one docket per repository, session outboxes and roster overrides, never visible to agents"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bedrock.workspace = true
+docket.workspace = true
+roster.workspace = true
+seal.workspace = true
+
+[lints]
+workspace = true

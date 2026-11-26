@@ -1,0 +1,2 @@
+# Proper nouns used in doc comments (clippy::doc_markdown); ".." keeps the defaults.
+doc-valid-idents = ["OpenAI", "ExecPlan", "ImpossibleBench", "IFScale", "CodeQL", "SWE-bench", "camelCase", "snake_case", "Antigravity", ".."]

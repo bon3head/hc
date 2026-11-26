@@ -68,8 +68,7 @@ impl Registry {
         let mut reg = Self::builtin();
         if path.exists() {
             let text = std::fs::read_to_string(path)?;
-            let defs: Vec<AgentDef> =
-                serde_json::from_str(&text).map_err(|source| RosterError::Parse { path: path.into(), source })?;
+            let defs: Vec<AgentDef> = serde_json::from_str(&text).map_err(|source| RosterError::Parse { path: path.into(), source })?;
             for def in defs {
                 reg.agents.insert(def.id.clone(), def);
             }
@@ -123,10 +122,7 @@ pub fn declared(agent_id: &str) -> AgentAttestation {
 
 /// Fill `{prompt}`, `{schema_path}`, `{schema_json}` and `{out_path}` in a launch template.
 pub fn render_argv(template: &[String], vars: &BTreeMap<&str, String>) -> Vec<String> {
-    template
-        .iter()
-        .map(|arg| vars.iter().fold(arg.clone(), |acc, (k, v)| acc.replace(&format!("{{{k}}}"), v)))
-        .collect()
+    template.iter().map(|arg| vars.iter().fold(arg.clone(), |acc, (k, v)| acc.replace(&format!("{{{k}}}"), v))).collect()
 }
 
 struct ProcInfo {
@@ -223,7 +219,11 @@ mod tests {
         let path = dir.path().join("roster.json");
         let me = proc_info(std::process::id()).unwrap();
         let parent_name = me.ppid.and_then(proc_info).and_then(|p| p.names.into_iter().next()).unwrap();
-        std::fs::write(&path, format!(r#"[{{"id":"probe","vendor":"test","executables":["{parent_name}"],"instructions_file":"AGENTS.md","launch":null}}]"#)).unwrap();
+        std::fs::write(
+            &path,
+            format!(r#"[{{"id":"probe","vendor":"test","executables":["{parent_name}"],"instructions_file":"AGENTS.md","launch":null}}]"#),
+        )
+        .unwrap();
         let found = Registry::load(&path).unwrap().detect().unwrap();
         assert_eq!(found.level, AttestationLevel::Ancestry);
         assert_eq!(found.pid, me.ppid);

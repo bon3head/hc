@@ -1,0 +1,29 @@
+[package]
+name = "bailiff"
+description = "Hook runtime: speaks each harness's native hook dialect to deny protected writes, check plan steps at their boundaries and gate Stop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+agenda.workspace = true
+bedrock.workspace = true
+brief.workspace = true
+cell.workspace = true
+conform.workspace = true
+crossexam.workspace = true
+docket.workspace = true
+exhibit.workspace = true
+globset.workspace = true
+roster.workspace = true
+seal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -90,9 +90,7 @@ impl Git {
 
     pub fn output(&self, args: &[&str], stdin: Option<&[u8]>) -> Result<Output, GitError> {
         let mut cmd = self.command(args);
-        cmd.stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() })
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        cmd.stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
         let mut child = cmd.spawn()?;
         if let Some(input) = stdin {
             child.stdin.take().expect("piped stdin").write_all(input)?;

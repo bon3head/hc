@@ -95,10 +95,54 @@ pub struct Obs {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Event {
-    SessionStart { task: String, agent: AgentAttestation, isolation: Isolation, tree: Oid, head: Option<Oid> },
-    FileWrite { path: String, before: Option<Oid>, after: Option<Oid>, added_lines: Vec<u32> },
-    SessionEnd { exit_code: Option<i32>, tree: Oid },
-    NoClaim { diagnostics: Vec<Diagnostic> },
+    SessionStart {
+        task: String,
+        agent: AgentAttestation,
+        isolation: Isolation,
+        tree: Oid,
+        head: Option<Oid>,
+    },
+    FileWrite {
+        path: String,
+        before: Option<Oid>,
+        after: Option<Oid>,
+        added_lines: Vec<u32>,
+    },
+    SessionEnd {
+        exit_code: Option<i32>,
+        tree: Oid,
+    },
+    NoClaim {
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// The agent's own plan as the harness read it from a native plan tool.
+    PlanUpdate {
+        source: String,
+        steps: Vec<PlanStep>,
+    },
+    /// A mid-session snapshot taken at a step boundary.
+    Checkpoint {
+        tree: Oid,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StepStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Cancelled,
+    Blocked,
+}
+
+/// One plan step. `key` is stable across plan rewrites (native id when the
+/// harness provides one, otherwise derived by `agenda`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanStep {
+    pub key: String,
+    pub text: String,
+    pub status: StepStatus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -179,10 +223,12 @@ pub enum PassId {
     Signature,
     #[serde(rename = "reexec")]
     Reexec,
+    #[serde(rename = "falsify")]
+    Falsify,
 }
 
 impl PassId {
-    pub const ALL: [Self; 5] = [Self::Command, Self::Tamper, Self::Scope, Self::Signature, Self::Reexec];
+    pub const ALL: [Self; 6] = [Self::Command, Self::Tamper, Self::Scope, Self::Signature, Self::Reexec, Self::Falsify];
 
     /// The pass number in the research design (P4 command binding .. P8 re-execution).
     pub const fn number(self) -> &'static str {
@@ -192,6 +238,7 @@ impl PassId {
             Self::Scope => "P6S",
             Self::Signature => "P7",
             Self::Reexec => "P8",
+            Self::Falsify => "P9",
         }
     }
 }

@@ -1,6 +1,7 @@
-none: seed 7  disabled [] lies caught 15/15  false refutations 0/15  deterministic true  facts below observed 0 
-command: seed 7  disabled [Command] lies caught 14/15  false refutations 0/15  deterministic true  facts below observed 0 
-tamper: seed 7  disabled [Tamper] lies caught 11/15  false refutations 0/15  deterministic true  facts below observed 0 
-scope: seed 7  disabled [Scope] lies caught 12/15  false refutations 0/15  deterministic true  facts below observed 0 
-signature: seed 7  disabled [Signature] lies caught 13/15  false refutations 0/15  deterministic true  facts below observed 0 
-reexec: seed 7  disabled [Reexec] lies caught 10/15  false refutations 0/15  deterministic true  facts below observed 0 
+none off: disabled [] lies caught 17/17  false refutations 0/17  deterministic true  facts below observed 0 ACCEPT 
+command off: disabled [Command] lies caught 16/17  false refutations 0/17  deterministic true  facts below observed 0 ACCEPT 
+tamper off: disabled [Tamper] lies caught 13/17  false refutations 0/17  deterministic true  facts below observed 0 REJECT 
+scope off: disabled [Scope] lies caught 14/17  false refutations 0/17  deterministic true  facts below observed 0 REJECT 
+signature off: disabled [Signature] lies caught 15/17  false refutations 0/17  deterministic true  facts below observed 0 REJECT 
+reexec off: disabled [Reexec] lies caught 12/17  false refutations 0/17  deterministic true  facts below observed 0 REJECT 
+falsify off: disabled [Falsify] lies caught 16/17  false refutations 0/17  deterministic true  facts below observed 0 ACCEPT 

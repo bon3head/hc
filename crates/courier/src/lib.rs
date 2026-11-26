@@ -27,7 +27,9 @@ pub fn prompt(brief: &Brief, schema_enforced: bool) -> String {
         out.push_str(intake::CLAIM_SCHEMA.trim());
         out.push_str("\n```\n\n");
     }
-    out.push_str("Write `basis` before deciding `status`. Claim only what you did; every claim is checked against what the harness observed.\n");
+    out.push_str(
+        "Write `basis` before deciding `status`. Claim only what you did; every claim is checked against what the harness observed.\n",
+    );
     out
 }
 
@@ -47,7 +49,9 @@ pub fn write_protocol_block(file: &Path, test_command: &str) -> std::io::Result<
     let block = protocol_block(test_command);
     let current = std::fs::read_to_string(file).unwrap_or_default();
     let next = match (current.find(BEGIN), current.find(END)) {
-        (Some(start), Some(end)) if end > start => format!("{}{block}{}", &current[..start], current[end + END.len()..].trim_start_matches('\n')),
+        (Some(start), Some(end)) if end > start => {
+            format!("{}{block}{}", &current[..start], current[end + END.len()..].trim_start_matches('\n'))
+        }
         _ if current.is_empty() => block,
         _ => format!("{}\n\n{block}", current.trim_end()),
     };
@@ -97,7 +101,16 @@ mod tests {
 
     fn sample() -> Brief {
         Brief::link(
-            Task { id: "T-1".into(), objective: "o".into(), test_command: "make test".into(), allowed_paths: None, constraints: vec![], next_step: "go".into() },
+            Task {
+                id: "T-1".into(),
+                objective: "o".into(),
+                test_command: "make test".into(),
+                allowed_paths: None,
+                constraints: vec![],
+                next_step: "go".into(),
+                step_tests: false,
+                tests_writable: false,
+            },
             &[],
         )
         .unwrap()
@@ -130,5 +143,124 @@ mod tests {
     fn unenforced_prompts_embed_the_schema() {
         assert!(prompt(&sample(), false).contains("\"$defs\""));
         assert!(!prompt(&sample(), true).contains("\"$defs\""));
+    }
+}
+
+/// Hook configuration for each harness, merged into existing files without
+/// disturbing other hooks. Shapes follow each vendor's hook reference:
+/// Claude Code `.claude/settings.json` and Codex `.codex/hooks.json` use
+/// `{"hooks": {Event: [{"matcher", "hooks": [{"type": "command", "command"}]}]}}`;
+/// Antigravity `.agents/hooks.json` uses `{Event: [...]}` where tool events take
+/// matcher groups and other events take handlers directly.
+pub mod hooks {
+    use serde_json::{Map, Value, json};
+
+    pub const MARKER: &str = "hc hook ";
+
+    fn handler(bin: &str, dialect: &str, event: &str) -> Value {
+        json!({"type": "command", "command": format!("{bin} hook {dialect} {event}")})
+    }
+
+    fn group(matcher: Option<&str>, h: &Value) -> Value {
+        match matcher {
+            Some(m) => json!({"matcher": m, "hooks": [h]}),
+            None => json!({"hooks": [h]}),
+        }
+    }
+
+    /// (event, matcher) pairs per dialect.
+    pub fn plan(dialect: &str) -> Vec<(&'static str, Option<&'static str>)> {
+        match dialect {
+            "claude" => vec![
+                ("SessionStart", None),
+                ("PreToolUse", Some("Write|Edit|MultiEdit|NotebookEdit")),
+                ("PostToolUse", Some("TodoWrite|TaskCreate|TaskUpdate|ExitPlanMode|Write|Edit|MultiEdit")),
+                ("TaskCompleted", None),
+                ("Stop", None),
+            ],
+            "codex" => vec![
+                ("SessionStart", None),
+                ("PreToolUse", Some("apply_patch")),
+                ("PostToolUse", Some("update_plan|apply_patch")),
+                ("Stop", None),
+            ],
+            "antigravity" => vec![
+                ("SessionStart", None),
+                ("PreToolUse", Some("write_to_file|replace_file_content|multi_replace_file_content")),
+                ("PostToolUse", Some("write_to_file|replace_file_content|multi_replace_file_content")),
+                ("PostInvocation", None),
+                ("Stop", None),
+            ],
+            _ => Vec::new(),
+        }
+    }
+
+    fn is_ours(v: &Value) -> bool {
+        v.to_string().contains(MARKER)
+    }
+
+    /// Merge hc's hooks into `existing`, replacing any previous hc entries.
+    pub fn merge(dialect: &str, existing: Value, bin: &str) -> Value {
+        let mut root = match existing {
+            Value::Object(m) => m,
+            _ => Map::new(),
+        };
+        let wire = if dialect == "codex" { "claude" } else { dialect };
+        let nested = dialect != "antigravity";
+        let events = if nested {
+            root.entry("hooks").or_insert_with(|| json!({})).as_object_mut().expect("hooks is an object").clone()
+        } else {
+            root.clone()
+        };
+        let mut events = events;
+        for (event, matcher) in plan(dialect) {
+            let list = events.entry(event).or_insert_with(|| json!([]));
+            let mut kept: Vec<Value> = list.as_array().cloned().unwrap_or_default().into_iter().filter(|v| !is_ours(v)).collect();
+            let h = handler(bin, wire, event);
+            let entry = if !nested && matcher.is_none() { h } else { group(matcher, &h) };
+            kept.push(entry);
+            *list = Value::Array(kept);
+        }
+        if nested {
+            root.insert("hooks".into(), Value::Object(events));
+        } else {
+            root = events;
+        }
+        Value::Object(root)
+    }
+
+    pub fn path(dialect: &str) -> Option<&'static str> {
+        match dialect {
+            "claude" => Some(".claude/settings.json"),
+            "codex" => Some(".codex/hooks.json"),
+            "antigravity" => Some(".agents/hooks.json"),
+            _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn merges_idempotently_and_keeps_foreign_hooks() {
+            let mine = json!({"permissions": {}, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "notify-send done"}]}]}});
+            let once = merge("claude", mine, "hc");
+            let twice = merge("claude", once.clone(), "hc");
+            assert_eq!(once, twice);
+            assert_eq!(once["hooks"]["Stop"].as_array().unwrap().len(), 2);
+            assert_eq!(once["hooks"]["TaskCompleted"][0]["hooks"][0]["command"], "hc hook claude TaskCompleted");
+            assert_eq!(once["permissions"], json!({}));
+        }
+
+        #[test]
+        fn codex_speaks_the_claude_dialect_and_antigravity_is_flat() {
+            let c = merge("codex", json!({}), "hc");
+            assert_eq!(c["hooks"]["PostToolUse"][0]["matcher"], "update_plan|apply_patch");
+            assert_eq!(c["hooks"]["Stop"][0]["hooks"][0]["command"], "hc hook claude Stop");
+            let a = merge("antigravity", json!({}), "hc");
+            assert_eq!(a["PostInvocation"][0]["command"], "hc hook antigravity PostInvocation");
+            assert_eq!(a["PreToolUse"][0]["matcher"], "write_to_file|replace_file_content|multi_replace_file_content");
+        }
     }
 }

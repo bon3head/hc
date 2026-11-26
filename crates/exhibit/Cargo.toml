@@ -10,6 +10,7 @@ license.workspace = true
 bedrock.workspace = true
 docket.workspace = true
 seal.workspace = true
+serde.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 

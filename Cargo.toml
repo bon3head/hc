@@ -10,10 +10,15 @@ license = "MIT"
 repository = "https://github.com/bonehead/handoff-compiler"
 
 [workspace.dependencies]
+agenda = { path = "crates/agenda" }
 assay = { path = "crates/assay" }
+bailiff = { path = "crates/bailiff" }
 bedrock = { path = "crates/bedrock" }
 brief = { path = "crates/brief" }
 cell = { path = "crates/cell" }
+chambers = { path = "crates/chambers" }
+clerk = { path = "crates/clerk" }
+conform = { path = "crates/conform" }
 courier = { path = "crates/courier" }
 crossexam = { path = "crates/crossexam" }
 docket = { path = "crates/docket" }
@@ -34,6 +39,9 @@ serde_jcs = "0.4.0"
 sha2 = "0.11.2"
 shlex = "2.0.1"
 regex = "1.13.2"
+rmcp = { version = "3.11.0", features = ["server", "transport-io", "macros"] }
+schemars = "1"
+tokio = { version = "1", features = ["rt", "macros", "io-std"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tree-sitter = "0.27.2"

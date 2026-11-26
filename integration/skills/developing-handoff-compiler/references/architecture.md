@@ -11,11 +11,16 @@ Dependencies point down this list; nothing depends on a crate below it.
 | `exhibit` | Git-tree snapshots, diffs, session recording | `Recorder::{open, close, no_claim}`, `record_claims`, `snapshot::{snapshot, materialize}` |
 | `cell` | bubblewrap isolation hiding the hc home | `Sandbox::{detect, bind, command}` |
 | `roster` | Agent registry as data, ancestry detection, launch templates | `Registry::{load, detect}`, `AgentDef`, `render_argv` |
-| `crossexam` | Kernel: passes P4, P6, P6S, P7, P8 and the sealed `Verified` | `Kernel::{examine, rule}`, `Policy`, `Finding` |
+| `agenda` | Reads native plans into one typed plan; stable step identity | `from_tool`, `from_markdown`, `from_exec_plan`, `Tracker`, `transitions` |
+| `conform` | Plan-versus-log conformance: matched, plan-only, log-only; fail-fast fingerprints | `align(records, session) -> Report`, `fingerprint` |
+| `crossexam` | Kernel: passes P4, P6, P6S, P7, P8, P9 and the sealed `Verified` | `Kernel::{examine, rule}`, `Policy`, `Finding` |
+| `bailiff` | Hook runtime in each harness's native dialect | `handle(env, dialect, input) -> Verdict`, `render` |
 | `brief` | Linker: facts, negative facts, externs, current step | `Brief::{link, render, digest}`, `Task` |
 | `courier` | Delivery: prompts, AGENTS.md/CLAUDE.md block, Notion pages | `prompt`, `write_protocol_block`, `notion::page_body` |
 | `assay` | Seeded acceptance corpus and pass ablations | `evaluate(work, seed, disabled) -> Report` |
-| `hc` | CLI wiring | `run`, `claim`, `brief`, `onboard`, `assay`, `export-notion` |
+| `chambers` | The hc home: keys, per-repository dockets, outboxes, roster overrides | `Home::{locate, docket, identity, outbox, registry}` |
+| `clerk` | MCP attestation tier for surfaces without hooks | `Clerk`, tools `schema`, `brief`, `plan`, `claim`, `verify`, `conform`; `serve_stdio` |
+| `hc` | CLI wiring | `run`, `claim`, `brief`, `hook`, `mcp`, `conform`, `onboard`, `assay`, `export-notion` |
 
 ## Data flow for one session
 

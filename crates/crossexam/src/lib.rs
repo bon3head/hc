@@ -22,8 +22,7 @@ use std::path::PathBuf;
 
 use bedrock::git::Git;
 use bedrock::ir::{
-    Body, Check, Claim, ClaimKind, ClaimRecord, Event, Outcome, PREDICATE_VERDICT, PassId, ResourceDescriptor, Status, Trust,
-    VerdictRecord,
+    Body, Check, Claim, ClaimKind, ClaimRecord, Event, Outcome, PREDICATE_VERDICT, PassId, ResourceDescriptor, Status, Trust, VerdictRecord,
 };
 use docket::{Docket, DocketError, Record};
 use seal::Identity;
@@ -70,11 +69,12 @@ struct Write<'a> {
 
 struct SessionEvidence<'a> {
     writes: Vec<Write<'a>>,
+    start_tree: Option<&'a str>,
     end_tree: Option<&'a str>,
 }
 
 fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvidence<'a> {
-    let mut ev = SessionEvidence { writes: Vec::new(), end_tree: None };
+    let mut ev = SessionEvidence { writes: Vec::new(), start_tree: None, end_tree: None };
     for r in records.iter().filter(|r| r.seq < before) {
         let Body::Obs(obs) = &r.body else { continue };
         if obs.session != session {
@@ -84,8 +84,9 @@ fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvi
             Event::FileWrite { path, after, added_lines, .. } => {
                 ev.writes.push(Write { seq: r.seq, path, after: after.as_deref(), added: added_lines });
             }
-            Event::SessionEnd { tree, .. } => ev.end_tree = Some(tree),
-            Event::SessionStart { .. } | Event::NoClaim { .. } => {}
+            Event::SessionEnd { tree, .. } | Event::Checkpoint { tree } => ev.end_tree = Some(tree),
+            Event::SessionStart { tree, .. } => ev.start_tree = Some(tree),
+            Event::NoClaim { .. } | Event::PlanUpdate { .. } => {}
         }
     }
     ev
@@ -150,13 +151,7 @@ fn trust_of(kind: ClaimKind, checks: &[Check]) -> Trust {
 }
 
 fn check(pass: PassId, ok: bool, rule: &str, evidence: Vec<u64>, detail: Option<String>) -> Check {
-    Check {
-        pass,
-        result: if ok { Outcome::Pass } else { Outcome::Fail },
-        rule: (!ok).then(|| rule.to_owned()),
-        evidence,
-        detail,
-    }
+    Check { pass, result: if ok { Outcome::Pass } else { Outcome::Fail }, rule: (!ok).then(|| rule.to_owned()), evidence, detail }
 }
 
 impl Kernel {
@@ -184,14 +179,24 @@ impl Kernel {
                 checks.extend(pass_scope(claim, &ev, &compiled));
             }
             if self.on(PassId::Signature) {
-                checks.extend(self.pass_signature(claim, &ev)?);
+                checks.extend(self.pass_signature(claim, &ev, &compiled)?);
             }
             if self.on(PassId::Reexec) {
                 checks.extend(self.pass_reexec(claim, &ev, argv.as_deref())?);
             }
+            if self.on(PassId::Falsify) {
+                checks.extend(self.pass_falsify(claim, &ev, &compiled, argv.as_deref())?);
+            }
             let trust = trust_of(claim.kind, &checks);
             let evidence: Vec<u64> = checks.iter().flat_map(|c| c.evidence.iter().copied()).collect::<BTreeSet<_>>().into_iter().collect();
-            let verdict = VerdictRecord { session: cr.session.clone(), about: claim.id.clone(), claim_seq: record.seq, checks, trust, policy: policy_digest };
+            let verdict = VerdictRecord {
+                session: cr.session.clone(),
+                about: claim.id.clone(),
+                claim_seq: record.seq,
+                checks,
+                trust,
+                policy: policy_digest,
+            };
             let verified = Verified::mint(record.seq, claim.id.clone(), claim.kind, trust, evidence);
             findings.push(Finding { claim_seq: record.seq, claim: cr.clone(), verdict, verified });
         }
@@ -199,7 +204,7 @@ impl Kernel {
     }
 
     /// P7: cheat signatures on the Python lines a `done` session added.
-    fn pass_signature(&self, claim: &Claim, ev: &SessionEvidence<'_>) -> Result<Vec<Check>, KernelError> {
+    fn pass_signature(&self, claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compiled) -> Result<Vec<Check>, KernelError> {
         let mut checks = Vec::new();
         if claim.status != Status::Done {
             return Ok(checks);
@@ -208,11 +213,43 @@ impl Kernel {
         for w in ev.writes.iter().filter(|w| signatures::is_python(w.path)) {
             let Some(blob) = w.after else { continue };
             let source = git.run(&["cat-file", "blob", blob])?;
-            for hit in signatures::scan_python(&source, w.added) {
+            for hit in signatures::scan_python(&source, w.added, compiled.is_test(w.path)) {
                 checks.push(check(PassId::Signature, false, hit.rule, vec![w.seq], Some(format!("{}:{}", w.path, hit.line))));
             }
         }
         Ok(checks)
+    }
+
+    /// P9: when the task may edit tests, the session's tests must fail on the
+    /// pre-session code (fail-to-pass, after SWT-Bench). Tests that pass on the
+    /// unfixed code do not discriminate between broken and fixed.
+    fn pass_falsify(
+        &self,
+        claim: &Claim,
+        ev: &SessionEvidence<'_>,
+        compiled: &policy::Compiled,
+        argv: Option<&[String]>,
+    ) -> Result<Vec<Check>, KernelError> {
+        let (true, ClaimKind::TestsPass, Some(reexec), Some(argv), Some(start), Some(end)) =
+            (self.policy.tests_writable, claim.kind, &self.reexec, argv, ev.start_tree, ev.end_tree)
+        else {
+            return Ok(Vec::new());
+        };
+        let tests: Vec<String> = ev.writes.iter().filter(|w| compiled.is_test(w.path)).map(|w| w.path.to_owned()).collect();
+        if tests.is_empty() {
+            return Ok(Vec::new());
+        }
+        let probe = exhibit::snapshot::overlay(&self.docket_git, start, end, &tests)?;
+        let run = reexec.run(Source::Tree { docket_git: &self.docket_git, tree: &probe }, argv)?;
+        let discriminates = run.exit_codes.iter().all(|c| *c != 0);
+        let seqs = ev.writes.iter().filter(|w| compiled.is_test(w.path)).map(|w| w.seq).collect();
+        Ok(vec![check(
+            PassId::Falsify,
+            discriminates,
+            "tests-do-not-discriminate",
+            seqs,
+            Some(format!("new tests on pre-session code: exit codes {:?}", run.exit_codes)),
+        )])
     }
 
     /// P8: re-run the policy test command on the claimed commit or the final observed tree.
@@ -237,10 +274,40 @@ impl Kernel {
         Ok(vec![check(PassId::Reexec, all && counts_ok, rule, vec![], Some(format!("exit codes {:?}", run.exit_codes)))])
     }
 
+    /// A kernel for one task: its test command is the only accepted test command.
+    pub fn for_task(
+        test_command: &str,
+        allowed: Option<Vec<String>>,
+        tests_writable: bool,
+        docket_git: PathBuf,
+        repo: PathBuf,
+        sandbox: cell::Sandbox,
+    ) -> Self {
+        let mut policy = Policy::new(vec![test_command.to_owned()]);
+        if tests_writable {
+            policy = policy.with_writable_tests();
+        }
+        policy.allowed = allowed;
+        Self { policy, disabled: BTreeSet::new(), reexec: Some(Reexec { sandbox, runs: 2 }), docket_git, repo }
+    }
+
+    /// Examine the docket, record verdicts for claims not yet ruled on, and
+    /// return the findings for `task`.
+    pub fn adjudicate(&self, docket: &Docket, kernel: &Identity, ts: &str, task: &str) -> Result<Vec<Finding>, KernelError> {
+        let records = docket.records()?;
+        let ruled: BTreeSet<u64> =
+            records.iter().filter_map(|r| if let Body::Verdict(v) = &r.body { Some(v.claim_seq) } else { None }).collect();
+        let findings: Vec<Finding> = self.examine(&records)?.into_iter().filter(|f| f.claim.task == task).collect();
+        let fresh: Vec<Finding> = findings.iter().filter(|f| !ruled.contains(&f.claim_seq)).cloned().collect();
+        if !fresh.is_empty() {
+            self.rule(docket, kernel, ts, &fresh)?;
+        }
+        Ok(findings)
+    }
+
     /// Append each verdict, signed by the kernel identity. Returns the new entry seqs.
     pub fn rule(&self, docket: &Docket, kernel: &Identity, ts: &str, findings: &[Finding]) -> Result<Vec<u64>, KernelError> {
-        let claim_commits: BTreeMap<u64, String> =
-            docket.records()?.into_iter().map(|r| (r.seq, r.commit)).collect();
+        let claim_commits: BTreeMap<u64, String> = docket.records()?.into_iter().map(|r| (r.seq, r.commit)).collect();
         findings
             .iter()
             .map(|f| {

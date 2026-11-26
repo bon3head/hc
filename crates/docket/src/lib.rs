@@ -13,7 +13,9 @@ use serde::de::DeserializeOwned;
 
 use bedrock::canon;
 use bedrock::git::{Git, GitError};
-use bedrock::ir::{Body, ClaimRecord, Obs, PREDICATE_CLAIM, PREDICATE_OBS, PREDICATE_VERDICT, ResourceDescriptor, Statement, VerdictRecord};
+use bedrock::ir::{
+    Body, ClaimRecord, Obs, PREDICATE_CLAIM, PREDICATE_OBS, PREDICATE_VERDICT, ResourceDescriptor, Statement, VerdictRecord,
+};
 use seal::{Identity, Keyring, parse_principal};
 
 pub const DOCKET_REF: &str = "refs/hc/docket";
@@ -202,7 +204,9 @@ mod tests {
         std::fs::remove_dir_all(replay.keys().dir()).ok();
         std::fs::create_dir_all(replay.keys().dir()).unwrap();
         copy_dir(ledger.keys().dir(), replay.keys().dir());
-        replay.append(&replay.keys().ensure(Role::Harness, "local").unwrap(), "2026-01-01T00:00:01Z", PREDICATE_OBS, vec![], &obs("s1")).unwrap();
+        replay
+            .append(&replay.keys().ensure(Role::Harness, "local").unwrap(), "2026-01-01T00:00:01Z", PREDICATE_OBS, vec![], &obs("s1"))
+            .unwrap();
         assert_eq!(replay.records().unwrap()[0].commit, records[0].commit);
     }
 

@@ -75,5 +75,5 @@ fn skills_conform_to_the_agent_skills_spec() {
         }
         count += 1;
     }
-    assert_eq!(count, 3);
+    assert_eq!(count, 4);
 }

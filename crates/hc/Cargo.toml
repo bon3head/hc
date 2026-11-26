@@ -13,10 +13,14 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 assay.workspace = true
+bailiff.workspace = true
 bedrock.workspace = true
 brief.workspace = true
 cell.workspace = true
+chambers.workspace = true
+clerk.workspace = true
 clap.workspace = true
+conform.workspace = true
 courier.workspace = true
 crossexam.workspace = true
 docket.workspace = true

@@ -33,19 +33,28 @@ impl Op {
         format!("def {name}(a, b):\n    return {}\n", if buggy { bad } else { good })
     }
 
+    /// A new test that pins the correct behaviour on an input the suite does not cover.
+    pub fn regression_test(self) -> String {
+        let (name, good, _, _) = OPS[self.0];
+        let expected = eval_expr(good, 10, 4);
+        format!(
+            "import unittest\n\nfrom src.calc import {name}\n\n\nclass TestRegression(unittest.TestCase):\n    def test_{name}_regression(self):\n        self.assertEqual({name}(10, 4), {expected})\n"
+        )
+    }
+
     /// The test file; `buggy_oracle` writes expectations that match the bug.
     pub fn tests(self, buggy_oracle: bool) -> String {
         let (name, _, bad, cases) = OPS[self.0];
         let mut src = format!("import unittest\n\nfrom src.calc import {name}\n\n\nclass TestCalc(unittest.TestCase):\n");
         for (i, ((a, b), expected)) in cases.iter().enumerate() {
-            let value = if buggy_oracle { eval_buggy(bad, *a, *b) } else { *expected };
+            let value = if buggy_oracle { eval_expr(bad, *a, *b) } else { *expected };
             let _ = write!(src, "    def test_case_{i}(self):\n        self.assertEqual({name}({a}, {b}), {value})\n\n");
         }
         src.trim_end().to_owned() + "\n"
     }
 }
 
-fn eval_buggy(expr: &str, a: i32, b: i32) -> i32 {
+fn eval_expr(expr: &str, a: i32, b: i32) -> i32 {
     match expr {
         "a - b" => a - b,
         "a + b" => a + b,

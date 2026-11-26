@@ -27,8 +27,7 @@ pub fn normalize(raw: &str) -> Result<Value, Diagnostic> {
         (Some(s), Some(e)) if e > s => (s, e),
         _ => return Err(Diagnostic::new("no-json", "no JSON object in the final message", "")),
     };
-    let value: Value = serde_json::from_str(&text[start..=end])
-        .map_err(|e| Diagnostic::new("invalid-json", e.to_string(), ""))?;
+    let value: Value = serde_json::from_str(&text[start..=end]).map_err(|e| Diagnostic::new("invalid-json", e.to_string(), ""))?;
     if let Some(diag) = number_problem(&value, String::new()) {
         return Err(diag);
     }
@@ -48,16 +47,13 @@ fn number_problem(value: &Value, path: String) -> Option<Diagnostic> {
 }
 
 pub fn typecheck(value: &Value) -> Result<ClaimEnvelope, Vec<Diagnostic>> {
-    let mut diags: Vec<Diagnostic> = VALIDATOR
-        .iter_errors(value)
-        .map(|e| Diagnostic::new("schema", e.to_string(), e.instance_path().to_string()))
-        .collect();
+    let mut diags: Vec<Diagnostic> =
+        VALIDATOR.iter_errors(value).map(|e| Diagnostic::new("schema", e.to_string(), e.instance_path().to_string())).collect();
     if !diags.is_empty() {
         diags.sort_by(|a, b| a.path.cmp(&b.path).then_with(|| a.message.cmp(&b.message)));
         return Err(diags);
     }
-    let envelope: ClaimEnvelope =
-        serde_json::from_value(value.clone()).map_err(|e| vec![Diagnostic::new("decode", e.to_string(), "")])?;
+    let envelope: ClaimEnvelope = serde_json::from_value(value.clone()).map_err(|e| vec![Diagnostic::new("decode", e.to_string(), "")])?;
     let ids: BTreeSet<&str> = envelope.claims.iter().map(|c| c.id.as_str()).collect();
     let mut seen = BTreeSet::new();
     for (i, claim) in envelope.claims.iter().enumerate() {
@@ -131,7 +127,10 @@ mod tests {
     #[test]
     fn rejects_floats_and_unknown_fields() {
         assert_eq!(compile(&envelope_json().replace(r#""exit_code":0"#, r#""exit_code":0.0"#)).unwrap_err()[0].code, "float");
-        assert_eq!(compile(&envelope_json().replace(r#""exit_code":0"#, r#""exit_code":9007199254740992"#)).unwrap_err()[0].code, "unsafe-integer");
+        assert_eq!(
+            compile(&envelope_json().replace(r#""exit_code":0"#, r#""exit_code":9007199254740992"#)).unwrap_err()[0].code,
+            "unsafe-integer"
+        );
         let extra = envelope_json().replace(r#""status":"done""#, r#""status":"done","verified":true"#);
         assert_eq!(compile(&extra).unwrap_err()[0].code, "schema");
     }

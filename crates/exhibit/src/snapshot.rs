@@ -36,6 +36,31 @@ pub fn snapshot(ledger_git_dir: &Path, worktree: &Path, force_patterns: &[String
     staged
 }
 
+/// `base` with `paths` taken from `from` (paths absent in `from` are removed).
+pub fn overlay(ledger_git_dir: &Path, base: &str, from: &str, paths: &[String]) -> Result<Oid, GitError> {
+    let index = tempfile::NamedTempFile::new()?;
+    let index_path = index.path().to_path_buf();
+    drop(index);
+    let git = Git::bare(ledger_git_dir).env("GIT_INDEX_FILE", &index_path);
+    let result = (|| {
+        git.run(&["read-tree", base])?;
+        for path in paths {
+            let entry = git.run(&["ls-tree", from, "--", path])?;
+            match entry.split_once('\t').map(|(meta, _)| meta.split(' ').collect::<Vec<_>>()) {
+                Some(meta) if meta.len() == 3 => {
+                    git.run(&["update-index", "--add", "--cacheinfo", &format!("{},{},{path}", meta[0], meta[2])])?;
+                }
+                _ => {
+                    git.run(&["update-index", "--force-remove", "--", path])?;
+                }
+            }
+        }
+        git.run(&["write-tree"])
+    })();
+    let _ = std::fs::remove_file(&index_path);
+    result
+}
+
 /// Write the files of `tree` into the empty directory `dest`.
 pub fn materialize(ledger_git_dir: &Path, tree: &str, dest: &Path) -> Result<(), GitError> {
     let index = tempfile::NamedTempFile::new()?;

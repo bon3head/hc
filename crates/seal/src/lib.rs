@@ -89,10 +89,7 @@ impl Keyring {
         let key_path = self.dir.join(&slug).join("id_ed25519");
         if !key_path.exists() {
             std::fs::create_dir_all(key_path.parent().expect("key dir"))?;
-            let out = Command::new("ssh-keygen")
-                .args(["-q", "-t", "ed25519", "-N", "", "-C", &principal, "-f"])
-                .arg(&key_path)
-                .output()?;
+            let out = Command::new("ssh-keygen").args(["-q", "-t", "ed25519", "-N", "", "-C", &principal, "-f"]).arg(&key_path).output()?;
             if !out.status.success() {
                 return Err(IdentityError::Keygen(String::from_utf8_lossy(&out.stderr).into_owned()));
             }

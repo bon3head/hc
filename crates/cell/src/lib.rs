@@ -17,10 +17,7 @@ pub struct Sandbox {
 impl Sandbox {
     /// Use bwrap when it is installed and can create a namespace here.
     pub fn detect(hide: &Path) -> Self {
-        let works = Command::new("bwrap")
-            .args(["--dev-bind", "/", "/", "--", "true"])
-            .output()
-            .is_ok_and(|o| o.status.success());
+        let works = Command::new("bwrap").args(["--dev-bind", "/", "/", "--", "true"]).output().is_ok_and(|o| o.status.success());
         Self { isolation: if works { Isolation::Bwrap } else { Isolation::None }, hide: hide.to_path_buf(), binds: Vec::new() }
     }
 

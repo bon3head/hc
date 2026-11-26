@@ -18,6 +18,9 @@ Work in an hc repository is judged by what the verifier can confirm, not by what
 - Write only where the contract allows. Never edit tests, CI, hook or agent configuration: protected writes refute every `done` claim in the session.
 - Do not special-case tests, exit early, skip tests or patch clocks. These shapes are detected on the lines you add.
 - If the task cannot be done as specified, stop and report `spec_conflict`. If nothing needs changing, report `no_change_needed`. Both count as success.
+- If a test fails twice with the same error, stop immediately and report the root cause instead of attempting a third fix. The verifier enforces this too: the same failure twice ends the retries and asks for the root cause.
+- Keep your plan current in your harness's own plan tool (todo list, plan, `PLANS.md`). The verifier reads it: a step marked completed with no recorded change is reported, and so is work done while no step is in progress.
+- Messages headed "hc verifier" are an independent check of the working tree. Treat them as evidence about the code, not as criticism of your reasoning.
 
 ## Finish
 
@@ -25,7 +28,8 @@ Make the final message one JSON object matching the claim schema (`hc schema`). 
 
 Rules that decide verdicts:
 
-- `tests_pass` must name the task's exact test command. The verifier re-runs it on the named `commit`, or on the final tree when `commit` is null.
+- `tests_pass` must name the task's exact test command.
+- When the task allows editing tests, new or changed tests must fail on the code as it was before your session. Tests that pass either way are refuted. The verifier re-runs it on the named `commit`, or on the final tree when `commit` is null.
 - `files_changed` must list exactly the paths written. `files_untouched` must be true.
 - Write `basis` before `status`.
 

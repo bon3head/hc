@@ -1,0 +1,18 @@
+[package]
+name = "conform"
+description = "Conformance of an agent's own plan against the harness event log: matched, plan-only and log-only"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bedrock.workspace = true
+docket.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

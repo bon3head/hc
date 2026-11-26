@@ -21,7 +21,7 @@ use seal::Identity;
 pub use diff::Change;
 
 /// A session the recorder has opened and not yet closed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Open {
     pub session: String,
     pub task: String,
@@ -62,15 +62,44 @@ impl Recorder<'_> {
         Ok(Open { session: session.to_owned(), task: task.to_owned(), worktree: worktree.to_path_buf(), tree })
     }
 
+    fn record_changes(&self, ts: &str, open: &Open, tree: &str) -> Result<Vec<Change>, DocketError> {
+        let changes = diff::changes(&self.docket.git_dir(), &open.tree, tree)?;
+        for change in &changes {
+            let blob = change.after.clone().or_else(|| change.before.clone()).expect("a change has one side");
+            let subject = vec![ResourceDescriptor::git(change.path.clone(), "gitBlob", &blob)];
+            let event = Event::FileWrite {
+                path: change.path.clone(),
+                before: change.before.clone(),
+                after: change.after.clone(),
+                added_lines: change.added_lines.clone(),
+            };
+            self.obs(ts, &open.session, subject, event)?;
+        }
+        Ok(changes)
+    }
+
+    /// Record the changes since the last snapshot at a step boundary and advance the baseline.
+    pub fn checkpoint(&self, ts: &str, open: &mut Open) -> Result<Vec<Change>, DocketError> {
+        let tree = self.snapshot(&open.worktree)?;
+        if tree == open.tree {
+            return Ok(Vec::new());
+        }
+        let changes = self.record_changes(ts, open, &tree)?;
+        self.obs(ts, &open.session, vec![ResourceDescriptor::git("worktree", "gitTree", &tree)], Event::Checkpoint { tree: tree.clone() })?;
+        open.tree = tree;
+        Ok(changes)
+    }
+
+    /// Record the agent's own plan as read from a native plan tool.
+    pub fn plan(&self, ts: &str, session: &str, source: &str, steps: Vec<bedrock::ir::PlanStep>) -> Result<u64, DocketError> {
+        let digest = bedrock::canon::digest(&steps)?;
+        self.obs(ts, session, vec![ResourceDescriptor::sha256("plan", digest)], Event::PlanUpdate { source: source.to_owned(), steps })
+    }
+
     /// Snapshot again and record one `file_write` per changed path, then `session_end`.
     pub fn close(&self, ts: &str, open: &Open, exit_code: Option<i32>) -> Result<Oid, DocketError> {
         let tree = self.snapshot(&open.worktree)?;
-        for change in diff::changes(&self.docket.git_dir(), &open.tree, &tree)? {
-            let blob = change.after.clone().or_else(|| change.before.clone()).expect("a change has one side");
-            let subject = vec![ResourceDescriptor::git(change.path.clone(), "gitBlob", &blob)];
-            let event = Event::FileWrite { path: change.path, before: change.before, after: change.after, added_lines: change.added_lines };
-            self.obs(ts, &open.session, subject, event)?;
-        }
+        self.record_changes(ts, open, &tree)?;
         let event = Event::SessionEnd { exit_code, tree: tree.clone() };
         self.obs(ts, &open.session, vec![ResourceDescriptor::git("worktree", "gitTree", &tree)], event)?;
         Ok(tree)
@@ -94,7 +123,12 @@ pub fn record_claims(
         .claims
         .iter()
         .map(|claim| {
-            let record = ClaimRecord { session: session.to_owned(), task: envelope.task.clone(), attestation: attestation.clone(), claim: claim.clone() };
+            let record = ClaimRecord {
+                session: session.to_owned(),
+                task: envelope.task.clone(),
+                attestation: attestation.clone(),
+                claim: claim.clone(),
+            };
             let digest = bedrock::canon::digest(claim)?;
             docket.append(agent, ts, PREDICATE_CLAIM, vec![ResourceDescriptor::sha256(format!("claim:{}", claim.id), digest)], &record)
         })

@@ -68,10 +68,7 @@ mod tests {
 
     #[test]
     fn known_vector() {
-        assert_eq!(
-            Digest::of(b"abc").to_string(),
-            "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-        );
+        assert_eq!(Digest::of(b"abc").to_string(), "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
 
     #[test]
