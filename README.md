@@ -101,11 +101,11 @@ There are three kinds of evidence, and they answer different questions.
 **Fixture behaviour: does hc give the right verdicts?** `scripts/gate.sh` is the release gate, and these numbers come from it:
 
 - **Seeded corpus, three seeds.** 17 honest and 19 lying sessions run against real git repositories and Python test suites. All 19 lies are caught. All 32 facts that a ground-truth manifest, written from what each scenario does, expects are delivered, with no claim missing, extra, misplaced or stale. Disabling any single check lowers recall. With re-execution disabled, the run fails for exactly the expected reason: 22 test claims are left unverified.
-- **Attacks.** `scripts/attacks.sh` replays every confirmed finding of two independent audits (`docs/audit-1.md`, `docs/audit-gtm.md`) through the real entry points: 58 cases. The gate derives the finding list from the audit reports, so a finding cannot be closed by assertion.
+- **Attacks.** `scripts/attacks.sh` replays every confirmed finding of two independent audits (`docs/audit-1.md`, `docs/audit-gtm.md`) through the real entry points: 62 cases. The gate derives the finding list from the audit reports, so a finding cannot be closed by assertion.
 - **Robustness and speed.** Malformed hook payloads block the gate visibly. Hook latency p95 is 8 ms before a write, and 21 ms after an edit (48 ms for a plan update).
 - **Setup.** `scripts/matrix.sh` runs on clean Ubuntu 20.04, 22.04 and 24.04 and under eleven broken-machine faults. Every case either works or stops with the fix.
 
-**Mutation sensitivity: would the gate notice if hc were wrong?** `scripts/mutants.py` plants 31 plausible bugs in trust-critical code. Each is checked by the specific gate check expected to see it, after a baseline run proves those checks pass on the unmutated code. The results are in `docs/mutants.txt`.
+**Mutation sensitivity: would the gate notice if hc were wrong?** `scripts/mutants.py` plants 31 plausible bugs in trust-critical code. A control run must pass every check first, and each mutant counts as caught only if the check expected to see it fails. All 31 are caught. The first full run caught 28: the 2 that survived each exposed a missing replay, and both were added (`docs/mutants.txt`).
 
 **A live receiving agent: does the brief change what the next agent does?** Not measured yet.
 
