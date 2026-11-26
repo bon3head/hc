@@ -18,7 +18,7 @@ cd "$repo"; git init -q .
 printf 'def add(a, b):\n    return a - b\n' >src/calc.py
 : >src/__init__.py; : >tests/__init__.py
 printf 'import unittest\nfrom src.calc import add\n\n\nclass T(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n' >tests/test_calc.py
-"$HC" init "Make add correct." --for claude >/dev/null
+"$HC" init "Make add correct." --for claude --hc-bin hc >/dev/null  # a fixed hook command keeps tree ids independent of where hc is installed
 test_cmd='python3 -m unittest discover -s tests -t .'
 
 hook() { printf '{"session_id":"x","cwd":"%s","hook_event_name":"%s",%s}' "$repo" "$1" "$2" | "$HC" hook claude "$1" >/dev/null; }
