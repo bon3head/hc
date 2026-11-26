@@ -120,6 +120,10 @@ grep -q '^- c1 tests_pass: .*protected-path-written (tests/test_calc.py)' <<<"$b
 export HC_HOME="$BASE/g1b/home"; rm -rf "$BASE/g1b"; mkdir -p "$BASE/g1b/repo"; cd "$BASE/g1b/repo" && git init -q . && mkdir -p tests .handoff && printf '{"id":"repo","objective":"x","test_command":"%s","next_step":""}' "$test_cmd" >.handoff/task.json
 printf '{"task":"repo","claims":[{"id":"c1","type":"no_change_needed","basis":"b","command":null,"exit_code":null,"passed":null,"failed":null,"paths":[],"commit":null,"depends_on":[],"status":"no_change_needed"}]}' | "$HC" claim >/dev/null 2>&1
 grep -q '^- c1 no_change_needed: .*not settled.*nothing was recorded about this repository' <<<"$("$HC" brief 2>/dev/null)" && ok "with nothing recorded about the repository, a claim stays unresolved" || bad "G1: claim on an unobserved repository promoted"
+printf 'def add(a, b):\n    return a + b\n' >calc.py && printf 'import unittest\nfrom calc import add\nclass T(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n' >tests/test_calc.py && : >tests/__init__.py && git add -A && git -c user.email=a@b -c user.name=a commit -qm green
+printf '{"task":"repo","claims":[{"id":"c2","type":"tests_pass","basis":"b","command":"%s","exit_code":0,"passed":null,"failed":null,"paths":[],"commit":"%s","depends_on":[],"status":"done"}]}' "$test_cmd" "$(git rev-parse HEAD)" | "$HC" claim >/dev/null 2>&1
+b=$("$HC" brief 2>/dev/null)
+grep -q '^- c2 tests_pass: .*not settled.*nothing was recorded about this repository' <<<"$b" && ! grep -q '\[reproduced\] c2' <<<"$b" && ok "a green commit in an unobserved repository is not promoted: one unresolved check holds it back" || bad "G1: unresolved check ignored ($(grep c2 <<<"$b"))"
 
 echo "G2  tests_pass with no stated exit code still needs a green suite"
 fresh g2
