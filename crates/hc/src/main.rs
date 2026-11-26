@@ -186,7 +186,7 @@ fn cmd_init(home: &Home, repo: &Path, objective: Option<&str>, test: Option<Stri
     let task_path = repo.join(".handoff/task.json");
     let existing = task_path.exists().then(|| load_task(&task_path)).transpose()?;
     let plan = setup::resolve(repo, test, only, existing.as_ref())?;
-    let (_, created) = setup::write_task(repo, objective, &plan.test_command)?;
+    let (_, created) = setup::write_task(repo, objective, &plan.test_command, plan.test_source == "--test")?;
 
     let row = |k: &str, v: &str| println!("  {k:<7}{v}");
     println!("hc ready in {}\n", repo.canonicalize()?.display());
@@ -204,6 +204,15 @@ fn cmd_init(home: &Home, repo: &Path, objective: Option<&str>, test: Option<Stri
         courier::write_protocol_block(&repo.join(file), &plan.test_command)?;
     }
     row("notes", &notes.iter().map(String::as_str).collect::<Vec<_>>().join(", "));
+    let repo_abs = repo.canonicalize()?;
+    let docket = home.docket(&repo_abs)?;
+    let harness = home.identity(Role::Harness, "local")?;
+    let force = crossexam::policy::Policy::new(vec![]).protected;
+    let recorder = Recorder { docket: &docket, harness: &harness, force_paths: &force };
+    let contract: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&task_path)?)?;
+    let recorded_by = home.registry()?.detect().unwrap_or_else(|| roster::declared("owner"));
+    let tree = recorder.baseline(&now(), &repo_abs, contract, recorded_by)?;
+    row("start", &format!("this code (tree {}) and contract are the recorded starting point", &tree[..12]));
     if plan.harnesses.is_empty() {
         println!("\n  No hook-capable harness found. Any MCP client can use:  hc mcp");
     }
@@ -211,6 +220,35 @@ fn cmd_init(home: &Home, repo: &Path, objective: Option<&str>, test: Option<Stri
         println!("\n  Next: hc init \"<what the agent should do>\"");
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// The task contract the kernel must use: the one the latest baseline recorded (signed,
+/// set by `hc init`), with a sentence saying where it came from for the brief. The
+/// repository's task file is agent-writable, so it is used only when nothing was recorded.
+fn contract(home: &Home, repo: &Path, task_path: &Path) -> Result<(Task, String)> {
+    use bedrock::ir::{AttestationLevel, Body, Event};
+    let records = home.docket(repo)?.records()?;
+    let recorded = records.iter().rev().find_map(|r| match &r.body {
+        Body::Obs(o) => match &o.event {
+            Event::Baseline { task, recorded_by, .. } => Some((r.seq, task.clone(), recorded_by.clone())),
+            _ => None,
+        },
+        _ => None,
+    });
+    let file: Option<serde_json::Value> = std::fs::read_to_string(task_path).ok().and_then(|t| serde_json::from_str(&t).ok());
+    let Some((seq, task, by)) = recorded else {
+        let note = "not recorded; read from the repository's task file, which an agent can edit (run `hc init` to record it)";
+        return Ok((load_task(task_path)?, note.to_owned()));
+    };
+    let who = match by.level {
+        AttestationLevel::Declared => "the owner (no agent in the process tree)".to_owned(),
+        _ => format!("a process running under agent {} (process ancestry)", by.agent_id),
+    };
+    let mut note = format!("recorded at docket#{seq} by {who}");
+    if file.as_ref() != Some(&task) {
+        note.push_str("; the repository's task file differs and was ignored (run `hc init` yourself to accept it)");
+    }
+    Ok((serde_json::from_value(task).context("recorded contract")?, note))
 }
 
 fn load_task(path: &Path) -> Result<Task> {
@@ -285,7 +323,14 @@ fn cmd_claim(home: &Home, file: Option<&Path>, repo: &Path, session: Option<Stri
     let session = session
         .or_else(|| bailiff::open_session_for(&env, repo))
         .unwrap_or_else(|| format!("adhoc-{}", jiff::Timestamp::now().as_second()));
-    bailiff::checkpoint_recorded(&env, &session, &repo.canonicalize()?)?;
+    let worktree = repo.canonicalize()?;
+    // Judge the claim against the code as it is now. Only in a repository hc already
+    // tracks: a first snapshot taken here would make the write checks pass on an empty
+    // history, so an untracked repository's claims stay unresolved instead.
+    if !bailiff::checkpoint_recorded(&env, &session, &worktree)? && docket.last_tree()?.is_some() {
+        let force = crossexam::policy::Policy::new(vec![]).protected;
+        Recorder { docket: &docket, harness: &harness, force_paths: &force }.observe(&now(), &session, &worktree)?;
+    }
     exhibit::record_claims(&docket, &agent, &now(), &session, &attestation, &envelope)?;
     eprintln!("[hc] recorded {} claims from {} ({:?})", envelope.claims.len(), attestation.agent_id, attestation.level);
     Ok(ExitCode::SUCCESS)
@@ -303,7 +348,9 @@ fn extract_output(spec: &OutputSpec, stdout: &str, out_path: &Path) -> Option<St
 }
 
 fn cmd_run(home: &Home, task_path: &Path, agent_id: &str, repo: &Path, max_attempts: u32, isolate: bool) -> Result<ExitCode> {
-    let task = load_task(task_path)?;
+    // Absolute from here on: the sandbox resolves a relative path against its own root.
+    let repo = &repo.canonicalize().with_context(|| format!("repository {}", repo.display()))?;
+    let (task, _) = contract(home, repo, task_path)?;
     let registry = home.registry()?;
     let def = registry.get(agent_id)?.clone();
     let launch = def.launch.clone().ok_or_else(|| roster::RosterError::NoLaunch(def.id.clone()))?;
@@ -494,11 +541,13 @@ fn run(cli: Cli) -> Result<ExitCode> {
         }
         Command::Claim { file, repo, session, declared_as } => cmd_claim(&home, file.as_deref(), &repo, session, declared_as.as_deref()),
         Command::Brief { task, repo } => {
-            let task = load_task(&task)?;
+            let (task, provenance) = contract(&home, &repo, &task)?;
             let kernel = kernel_for(&home, &repo, &task, true)?;
             let findings = adjudicate(&home, &repo, &task, &kernel)?;
             print_findings(&findings);
-            print!("{}", Brief::link(task, &findings)?.render());
+            let mut brief = Brief::link(task, &findings)?;
+            brief.provenance = Some(provenance);
+            print!("{}", brief.render());
             Ok(ExitCode::SUCCESS)
         }
         Command::Run { task, agent, repo, max_attempts, no_isolation } => cmd_run(&home, &task, &agent, &repo, max_attempts, !no_isolation),

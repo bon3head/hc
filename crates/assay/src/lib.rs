@@ -368,12 +368,6 @@ fn run_session(
     let recorder = Recorder { docket: &docket, harness: &harness, force_paths: &force };
     let mut tick = clock();
     let attestation = roster::declared("assay-agent");
-    let open = recorder.open(&tick(), id, "fix-calc", &repo, attestation.clone(), Isolation::None)?;
-    let message = act(kind, op, &repo, &base)?;
-    recorder.close(&tick(), &open, Some(0))?;
-    let envelope: ClaimEnvelope = intake::compile(&message.to_string()).map_err(|d| AssayError::Intake(format!("{d:?}")))?;
-    exhibit::record_claims(&docket, &agent, &tick(), id, &attestation, &envelope)?;
-
     let task = Task {
         id: "fix-calc".into(),
         objective: format!("Make `{}` in src/calc.py correct.", op.name()),
@@ -384,6 +378,14 @@ fn run_session(
         step_tests: false,
         tests_writable: kind.tests_writable(),
     };
+    // As `hc init` does: the owner records the starting code and the contract.
+    recorder.baseline(&tick(), &repo, serde_json::to_value(&task).expect("a task is plain data"), roster::declared("owner"))?;
+    let open = recorder.open(&tick(), id, "fix-calc", &repo, attestation.clone(), Isolation::None)?;
+    let message = act(kind, op, &repo, &base)?;
+    recorder.close(&tick(), &open, Some(0))?;
+    let envelope: ClaimEnvelope = intake::compile(&message.to_string()).map_err(|d| AssayError::Intake(format!("{d:?}")))?;
+    exhibit::record_claims(&docket, &agent, &tick(), id, &attestation, &envelope)?;
+
     // The shipped construction and path: `Kernel::for_task` and `adjudicate`, which
     // records verdicts and reuses settled ones, exactly as `hc brief` does.
     let mut kernel = Kernel::for_task(

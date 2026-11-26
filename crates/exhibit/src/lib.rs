@@ -28,9 +28,27 @@ pub struct Open {
     pub task: String,
     pub worktree: PathBuf,
     pub tree: Oid,
-    /// Digests of `.git/config` and `.git/hooks/*` at the last snapshot.
-    #[serde(default)]
-    pub git_meta: BTreeMap<String, bedrock::Digest>,
+}
+
+const GIT_META_FILE: &str = "hc-git-meta.json";
+
+/// Copy of the contract recorded by the latest baseline, beside the ledger, for the
+/// hooks' fast path. The signed `Baseline` record is the authority (`hc brief` reads it).
+pub const CONTRACT_FILE: &str = "hc-contract.json";
+
+pub fn recorded_contract(docket_dir: &Path) -> Option<serde_json::Value> {
+    serde_json::from_str(&std::fs::read_to_string(docket_dir.join(CONTRACT_FILE)).ok()?).ok()
+}
+
+fn load_git_meta(docket_dir: &Path) -> Option<BTreeMap<String, bedrock::Digest>> {
+    serde_json::from_str(&std::fs::read_to_string(docket_dir.join(GIT_META_FILE)).ok()?).ok()
+}
+
+/// Best effort: a lost cache means the next comparison is skipped, and records nothing.
+fn store_git_meta(docket_dir: &Path, meta: &BTreeMap<String, bedrock::Digest>) {
+    if let Ok(text) = serde_json::to_string(meta) {
+        let _ = std::fs::write(docket_dir.join(GIT_META_FILE), text);
+    }
 }
 
 /// `.git/config` and every file in `.git/hooks`, by digest. Git never tracks its
@@ -70,15 +88,43 @@ impl Recorder<'_> {
         self.docket.append(self.harness, ts, PREDICATE_OBS, subject, &obs)
     }
 
-    /// Record a `file_write` for every `.git/config` or `.git/hooks/*` change since the last snapshot; return the new digests.
-    fn record_git_meta(&self, ts: &str, open: &Open) -> Result<BTreeMap<String, bedrock::Digest>, DocketError> {
-        let now = git_meta(&open.worktree);
-        let names: BTreeSet<&String> = now.keys().chain(open.git_meta.keys()).collect();
-        for name in names.into_iter().filter(|n| now.get(*n) != open.git_meta.get(*n)) {
-            let subject = now.get(name).map(|d| vec![ResourceDescriptor::sha256(name.clone(), *d)]).unwrap_or_default();
-            self.obs(ts, &open.session, subject, Event::FileWrite { path: name.clone(), before: None, after: None, added_lines: vec![] })?;
+    /// Record a `file_write` for every `.git/config` or `.git/hooks/*` change since the
+    /// repository's last observation, in whichever session observes it.
+    fn record_git_meta(&self, ts: &str, session: &str, worktree: &Path) -> Result<(), DocketError> {
+        let dir = self.docket.git_dir();
+        let now = git_meta(worktree);
+        if let Some(before) = load_git_meta(&dir) {
+            let names: BTreeSet<&String> = now.keys().chain(before.keys()).collect();
+            for name in names.into_iter().filter(|n| now.get(*n) != before.get(*n)) {
+                let subject = now.get(name).map(|d| vec![ResourceDescriptor::sha256(name.clone(), *d)]).unwrap_or_default();
+                self.obs(ts, session, subject, Event::FileWrite { path: name.clone(), before: None, after: None, added_lines: vec![] })?;
+            }
         }
-        Ok(now)
+        store_git_meta(&dir, &now);
+        Ok(())
+    }
+
+    /// Record the repository as it is now, under `session`: what a claim filed next is judged against.
+    pub fn observe(&self, ts: &str, session: &str, worktree: &Path) -> Result<Oid, DocketError> {
+        Ok(self.advance(ts, session, worktree)?.0)
+    }
+
+    /// Snapshot the working tree and record every change since the repository's last
+    /// snapshot (from any session) as this session's writes. Returns the tree and changes.
+    fn advance(&self, ts: &str, session: &str, worktree: &Path) -> Result<(Oid, Vec<Change>), DocketError> {
+        self.record_git_meta(ts, session, worktree)?;
+        let tree = self.snapshot(worktree)?;
+        let base = self.docket.last_tree()?;
+        if base.as_deref() == Some(tree.as_str()) {
+            return Ok((tree, Vec::new()));
+        }
+        let changes = match &base {
+            Some(base) => self.record_changes(ts, session, base, &tree)?,
+            None => Vec::new(),
+        };
+        self.obs(ts, session, vec![ResourceDescriptor::git("worktree", "gitTree", &tree)], Event::Checkpoint { tree: tree.clone() })?;
+        self.docket.set_last_tree(&tree)?;
+        Ok((tree, changes))
     }
 
     fn snapshot(&self, worktree: &Path) -> Result<Oid, DocketError> {
@@ -94,21 +140,35 @@ impl Recorder<'_> {
         agent: AgentAttestation,
         isolation: Isolation,
     ) -> Result<Open, DocketError> {
-        let tree = self.snapshot(worktree)?;
+        // The session starts where the repository was last seen, so anything changed in
+        // between is recorded as this session's writes by the first `advance`.
+        let start = match self.docket.last_tree()? {
+            Some(tree) => tree,
+            None => self.snapshot(worktree)?,
+        };
         let head = Git::untrusted(worktree).try_run(&["rev-parse", "--verify", "-q", "HEAD"])?;
-        let event = Event::SessionStart { task: task.to_owned(), agent, isolation, tree: tree.clone(), head };
-        self.obs(ts, session, vec![ResourceDescriptor::git("worktree", "gitTree", &tree)], event)?;
-        Ok(Open {
-            session: session.to_owned(),
-            task: task.to_owned(),
-            worktree: worktree.to_path_buf(),
-            tree,
-            git_meta: git_meta(worktree),
-        })
+        let event = Event::SessionStart { task: task.to_owned(), agent, isolation, tree: start.clone(), head };
+        self.obs(ts, session, vec![ResourceDescriptor::git("worktree", "gitTree", &start)], event)?;
+        let mut open = Open { session: session.to_owned(), task: task.to_owned(), worktree: worktree.to_path_buf(), tree: start };
+        self.checkpoint(ts, &mut open)?;
+        Ok(open)
     }
 
-    fn record_changes(&self, ts: &str, open: &Open, tree: &str) -> Result<Vec<Change>, DocketError> {
-        let changes = diff::changes(&self.docket.git_dir(), &open.tree, tree)?;
+    /// Record the owner's accepted starting point: the current code and the task
+    /// contract. Later writes are attributed to agent sessions; earlier ones are not.
+    pub fn baseline(&self, ts: &str, worktree: &Path, task: serde_json::Value, recorded_by: AgentAttestation) -> Result<Oid, DocketError> {
+        let tree = self.snapshot(worktree)?;
+        let head = Git::untrusted(worktree).try_run(&["rev-parse", "--verify", "-q", "HEAD"])?;
+        std::fs::write(self.docket.git_dir().join(CONTRACT_FILE), serde_json::to_string_pretty(&task).unwrap_or_default())?;
+        let event = Event::Baseline { tree: tree.clone(), head, task, recorded_by };
+        self.obs(ts, "baseline", vec![ResourceDescriptor::git("worktree", "gitTree", &tree)], event)?;
+        self.docket.set_last_tree(&tree)?;
+        store_git_meta(&self.docket.git_dir(), &git_meta(worktree));
+        Ok(tree)
+    }
+
+    fn record_changes(&self, ts: &str, session: &str, base: &str, tree: &str) -> Result<Vec<Change>, DocketError> {
+        let changes = diff::changes(&self.docket.git_dir(), base, tree)?;
         for change in &changes {
             let blob = change.after.clone().or_else(|| change.before.clone()).expect("a change has one side");
             let subject = vec![ResourceDescriptor::git(change.path.clone(), "gitBlob", &blob)];
@@ -118,20 +178,14 @@ impl Recorder<'_> {
                 after: change.after.clone(),
                 added_lines: change.added_lines.clone(),
             };
-            self.obs(ts, &open.session, subject, event)?;
+            self.obs(ts, session, subject, event)?;
         }
         Ok(changes)
     }
 
     /// Record the changes since the last snapshot at a step boundary and advance the baseline.
     pub fn checkpoint(&self, ts: &str, open: &mut Open) -> Result<Vec<Change>, DocketError> {
-        open.git_meta = self.record_git_meta(ts, open)?;
-        let tree = self.snapshot(&open.worktree)?;
-        if tree == open.tree {
-            return Ok(Vec::new());
-        }
-        let changes = self.record_changes(ts, open, &tree)?;
-        self.obs(ts, &open.session, vec![ResourceDescriptor::git("worktree", "gitTree", &tree)], Event::Checkpoint { tree: tree.clone() })?;
+        let (tree, changes) = self.advance(ts, &open.session, &open.worktree)?;
         open.tree = tree;
         Ok(changes)
     }
@@ -144,9 +198,7 @@ impl Recorder<'_> {
 
     /// Snapshot again and record one `file_write` per changed path, then `session_end`.
     pub fn close(&self, ts: &str, open: &Open, exit_code: Option<i32>) -> Result<Oid, DocketError> {
-        self.record_git_meta(ts, open)?;
-        let tree = self.snapshot(&open.worktree)?;
-        self.record_changes(ts, open, &tree)?;
+        let (tree, _) = self.advance(ts, &open.session, &open.worktree)?;
         let event = Event::SessionEnd { exit_code, tree: tree.clone() };
         self.obs(ts, &open.session, vec![ResourceDescriptor::git("worktree", "gitTree", &tree)], event)?;
         Ok(tree)

@@ -4,32 +4,32 @@
 
 <p align="center">When one coding agent hands work to the next, hc tells the next one what still holds,<br>for the exact code in front of it, and why.</p>
 
-Agents say "done" when they are not, edit the tests that are supposed to check them, and hand over summaries nobody verified. The next agent then builds on whatever it was told. hc sits in the harnesses you already use (Claude Code, Codex, Antigravity, any MCP client), records what actually happened in a signed ledger the agent cannot reach, checks every claim deterministically, and compiles the handoff from the facts that held up. No LLM decides a verdict.
+Agents say "done" when they are not, edit the tests that are supposed to check them, and hand over summaries nobody verified. The next agent then builds on whatever it was told. hc sits in the harnesses you already use (Claude Code, Codex, Antigravity, any MCP client), records what actually happened in a signed ledger outside the repository, checks every claim deterministically, and compiles the handoff from the facts that held up. No LLM decides a verdict.
 
 ## What the next agent receives
 
 One agent fixes `add()` and claims the suite passes. It then keeps editing, and on that second edit it breaks `add()`. These are the lines the next agent receives at each point, taken verbatim from `scripts/exhibit-stale.sh` (a release-gate check, so they cannot drift from the code):
 
 <!-- exhibit:begin -->
-**1. After the fix (tree c39331d126c4).** The claim was re-run outside the agent's session and holds:
+**1. After the fix.** The hooks recorded the fixed code as tree c39331d126c4 (ledger entry 3). The claim (entry 4) was re-run on that tree outside the agent's session and holds:
 ```
-- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4 (snapshot docket#2) (claim docket#3; checks passed: command, reexec, tamper)
+- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4 (snapshot docket#3) (claim docket#4; checks passed: command, reexec, tamper)
 ```
-**2. After another edit (tree 3b01a194da46).** The result is still true of the old tree, so it is kept, but it no longer describes the code:
+**2. After another edit.** The result is still true of tree c39331d126c4, so it is kept, but it no longer describes the code:
 ```
-- c1: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4 (snapshot docket#2); the session's tree is now 3b01a194da46
+- c1: `python3 -m unittest discover -s tests -t .` passes on tree c39331d126c4 (snapshot docket#3); the code is now at tree 3b01a194da46
 ```
-**3. The agent claims the suite passes on the new tree, and the verifier cannot start `python3`.** Missing evidence is not a failure, and it is not a pass either:
+**3. The agent claims the suite passes on the new tree, and the verifier cannot start `python3`.** Missing evidence is neither a failure nor a pass:
 ```
-- c2 tests_pass: basis quoted as data: "ran the suite" (not settled on tree 3b01a194da46 (snapshot docket#6): 'python3' could not start: No such file or directory (os error 2))
+- c2 tests_pass: basis quoted as data: "ran the suite" (not settled on tree 3b01a194da46 (snapshot docket#7): 'python3' could not start: No such file or directory (os error 2))
 ```
-**4. The verifier can run it.** The claim is false:
+**4. The verifier can run it.** The same claim on the same tree is false:
 ```
-- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 3b01a194da46 (snapshot docket#6) (claim docket#7)
+- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 3b01a194da46 (snapshot docket#7) (claim docket#8)
 ```
 <!-- exhibit:end -->
 
-So the answer to "can I rely on this for the code in front of me?" is in the brief itself. Facts (1) name their check and tree. Stale results (2) say what changed. Unsettled claims (3) say why. Refutations (4) give the observed outcome. The evidence ends at the brief: whether a receiving agent behaves better with it is a separate, live measurement that has not been run yet.
+So the answer to "can I rely on this for the code in front of me?" is in the brief itself. Every line names the tree it is about and the ledger entry that recorded that tree, and `git log refs/hc/docket` in the repository's ledger under `~/.hc/repos/` lists the observation, the claim and the kernel's verdict behind each one. hc verifies every entry's SSH signature and signer role whenever it reads the ledger. Facts (1) say which checks passed. Stale results (2) say what changed. Unsettled claims (3) say why. Refutations (4) give the observed outcome. The evidence ends at the brief: whether a receiving agent behaves better with it is a separate, live measurement that has not been run yet.
 
 ## Quickstart
 
@@ -63,7 +63,7 @@ That's the whole setup. `hc init` finds your test command, installs hooks for th
 ## How a claim becomes a fact
 
 1. **Claim.** The agent files typed JSON (`hc schema`). Intake rejects anything that could change meaning on the way to the brief: comments in commands, markup in ids, `..` in paths, a `command_ran` with no exit code.
-2. **Observation.** The hooks snapshot the working tree into hc's ledger after every edit, at every plan step and before every claim. That includes `.git/config` and `.git/hooks`, which git itself never tracks. Every entry is an SSH-signed git commit in a repository the agent cannot see.
+2. **Observation.** The hooks snapshot the working tree into hc's ledger after every edit, at every plan step and before every claim. That includes `.git/config` and `.git/hooks`, which git itself never tracks. A change made while no session was watching is attributed to the next one, because every snapshot is compared with the repository's last recorded tree. Every entry is an SSH-signed git commit in hc's own repository under `~/.hc`.
 3. **Verdict.** The kernel checks the claim against those observations:
 
    | Check | Refutes a claim when |
@@ -78,7 +78,20 @@ That's the whole setup. `hc init` finds your test command, installs hooks for th
    A check that cannot get evidence (runner missing, commit unknown, no recorded session) leaves the claim **unresolved**: never refuted, never promoted. A settled verdict is never recomputed, so a fact stays true of the tree it was checked on.
 4. **Brief.** Facts carry their tree, their claim's ledger entry and the checks that passed. Once the tree moves on they become **stale**. Agent-written text is quoted as data, one line, never as instructions.
 
+`hc init` records the starting point: the accepted code and the task contract. The kernel and the hooks follow that recorded contract. If the repository's `.handoff/task.json` is edited, the brief says it differs and ignores it. Re-running `hc init` is how the owner changes the contract.
+
 At step boundaries the same checks run through the harness's own hooks. The gating hooks block, and if hc itself fails they block too: "could not check" never reads as "allowed". The same failure twice in a row ends retries with a request for the root cause.
+
+## Trust model
+
+hc catches the honest mistakes and the known cheating patterns: edited tests, fake passes, misreported files, laundering through new sessions, stale results, injected text. Each one is replayed by `scripts/attacks.sh`. What it can hold against depends on how the agent runs:
+
+| Mode | The agent can | So the ledger is |
+|---|---|---|
+| Hooks and MCP (`hc init`) | run anything as your user, including reading `~/.hc` | evidence against mistakes and cheating in the repository, but not against an agent that deliberately attacks hc's own files or keys |
+| `hc run` (bubblewrap) | see an empty `~/.hc`; write only the repository and its outbox | out of the agent's reach: its keys and records are not visible to it |
+
+No check run as the same OS user can keep a determined same-user process away from that user's files. The brief also says who recorded the contract: if `hc init` was run from inside an agent's session, process ancestry detects it and the brief names the agent.
 
 ## Evidence
 

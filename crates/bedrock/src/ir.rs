@@ -124,6 +124,15 @@ pub enum Event {
     Checkpoint {
         tree: Oid,
     },
+    /// The starting point the owner accepted with `hc init`: the code as it was, and the
+    /// task contract that governs everything recorded after it. Writes are attributed to
+    /// agents from here on, whichever session records them.
+    Baseline {
+        tree: Oid,
+        head: Option<Oid>,
+        task: serde_json::Value,
+        recorded_by: AgentAttestation,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

@@ -83,7 +83,11 @@ impl Clerk {
         repo.map_or_else(|| self.default_repo.clone(), PathBuf::from)
     }
 
-    fn task(repo: &Path) -> anyhow::Result<Task> {
+    /// The contract `hc init` recorded; the repository's task file only when none was recorded.
+    fn task(&self, repo: &Path) -> anyhow::Result<Task> {
+        if let Some(contract) = exhibit::recorded_contract(&self.home.docket(repo)?.git_dir()) {
+            return Ok(serde_json::from_value(contract)?);
+        }
         let path = repo.join(".handoff/task.json");
         let raw = std::fs::read_to_string(&path).with_context(|| format!("no task file at {}", path.display()))?;
         Ok(serde_json::from_str(&raw)?)
@@ -131,7 +135,7 @@ impl Clerk {
     }
 
     fn brief_text(&self, repo: &Path) -> anyhow::Result<String> {
-        let task = Self::task(repo)?;
+        let task = self.task(repo)?;
         let docket = self.home.docket(repo)?;
         let kernel = Kernel::for_task(
             &task.test_command,
@@ -161,7 +165,14 @@ impl Clerk {
         let attestation = self.home.registry()?.detect().unwrap_or_else(|| roster::declared(agent.unwrap_or("mcp-client")));
         let identity = self.home.identity(Role::Agent, &attestation.agent_id)?;
         let docket = self.home.docket(repo)?;
-        exhibit::record_claims(&docket, &identity, &now(), &format!("mcp-{session}"), &attestation, &envelope)?;
+        exhibit::record_claims(
+            &docket,
+            &identity,
+            &now(),
+            &bailiff::session_name(bailiff::dialect::Dialect::Mcp, session),
+            &attestation,
+            &envelope,
+        )?;
         let mut out = format!("recorded {} claims from {} ({:?})\n", envelope.claims.len(), attestation.agent_id, attestation.level);
         out.push_str(&self.brief_text(repo).unwrap_or_default());
         Ok(out)
@@ -215,7 +226,7 @@ impl Clerk {
     async fn conform(&self, Parameters(args): Parameters<SessionArgs>) -> Result<CallToolResult, McpError> {
         let repo = self.repo(args.repo.as_deref());
         let records = self.home.docket(&repo).and_then(|d| Ok(d.records()?)).map_err(|e| fail(&e))?;
-        let report = conform::align(&records, &format!("mcp-{}", args.session));
+        let report = conform::align(&records, &bailiff::session_name(bailiff::dialect::Dialect::Mcp, &args.session));
         Ok(text(serde_json::to_string_pretty(&report).unwrap_or_default()))
     }
 }

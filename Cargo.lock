@@ -674,6 +674,7 @@ dependencies = [
  "docket",
  "seal",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
 ]

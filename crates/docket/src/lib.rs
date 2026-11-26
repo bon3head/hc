@@ -19,6 +19,12 @@ use bedrock::ir::{
 use seal::{Identity, Keyring, parse_principal};
 
 pub const DOCKET_REF: &str = "refs/hc/docket";
+
+/// The tree of the repository's latest snapshot. Every new snapshot is diffed against
+/// it, so a change made while no session was watching is still recorded, in the next
+/// session that sees it. Unsigned: it only selects the diff base, and a wrong base can
+/// only add recorded writes, never remove them, because each one is diffed afresh.
+pub const LAST_TREE_REF: &str = "refs/hc/last-tree";
 const ENTRY_FILE: &str = "statement.json";
 const FIELD: char = '\u{1f}';
 
@@ -28,6 +34,8 @@ pub enum DocketError {
     Git(#[from] GitError),
     #[error("encoding failed")]
     Json(#[from] serde_json::Error),
+    #[error("cannot write to the hc home")]
+    Io(#[from] std::io::Error),
     #[error("entry {seq} ({commit}) has signature status {status:?} by {signer:?}")]
     Untrusted { seq: u64, commit: String, status: String, signer: String },
     #[error("entry {seq} is a {predicate} but was signed by {signer}")]
@@ -67,6 +75,15 @@ impl Docket {
 
     pub fn keys(&self) -> &Keyring {
         &self.keys
+    }
+
+    pub fn last_tree(&self) -> Result<Option<String>, DocketError> {
+        Ok(self.git.try_run(&["rev-parse", "--verify", "-q", LAST_TREE_REF])?)
+    }
+
+    pub fn set_last_tree(&self, tree: &str) -> Result<(), DocketError> {
+        self.git.run(&["update-ref", LAST_TREE_REF, tree])?;
+        Ok(())
     }
 
     pub fn head(&self) -> Result<Option<String>, DocketError> {

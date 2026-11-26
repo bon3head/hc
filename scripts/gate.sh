@@ -87,8 +87,38 @@ readme_lines() { sed -n '/<!-- exhibit:begin -->/,/<!-- exhibit:end -->/p' READM
 missing=$(readme_lines | while IFS= read -r line; do grep -qxF -- "$line" "$WORK"/ex/packet-*.md || echo "$line"; done)
 if [[ -n $(readme_lines) && -z $missing ]]; then pass "README's packet lines are byte-identical to the release candidate's output"; else fail "README packet lines differ from the exhibit"; echo "$missing" | sed 's/^/       /'; fi
 
-echo "8. Independent audit"
-if [[ -f docs/audit-resolution.md ]] && grep -q '^Unresolved critical or high: 0$' docs/audit-resolution.md; then pass "no unresolved critical or high findings"; else fail "audit not resolved (docs/audit-resolution.md)"; fi
+echo "8. Every confirmed blocking finding is closed by a passing replay"
+# The independent audits list their findings; attacks.sh (criterion 7, which must pass)
+# replays them by id. A confirmed critical, high, release-blocking or major finding with
+# no replay must be named under "Closed without a replay" in a resolution file, with the
+# reason, so nothing is closed by assertion alone.
+audit=$(python3 - <<'PY'
+import re, pathlib
+ids = set()
+for f in ("docs/audit-1.md", "docs/audit-gtm.md"):
+    for line in pathlib.Path(f).read_text().splitlines():
+        m = re.match(r"\|\s*([FT]\d+)\s*\|\s*(critical|high|release-blocking|major)\s*\|\s*CONFIRMED", line)
+        if m:
+            ids.add(m.group(1))
+replayed = set()
+for h in re.findall(r'^echo "([FGT][0-9]+(?:-T[0-9]+)?)', pathlib.Path("scripts/attacks.sh").read_text(), re.M):
+    if "-" in h:
+        a, b = (int(x.lstrip("FGT")) for x in h.split("-"))
+        replayed.update(f"T{n}" for n in range(a, b + 1))
+    else:
+        replayed.add(h)
+closed = set()
+for f in ("docs/audit-resolution.md", "docs/audit-gtm-resolution.md"):
+    text = pathlib.Path(f).read_text() if pathlib.Path(f).exists() else ""
+    part = text.split("## Closed without a replay", 1)
+    if len(part) == 2:
+        closed.update(re.findall(r"^\|\s*([FT]\d+)\s*\|", part[1].split("\n## ", 1)[0], re.M))
+open_ids = sorted(ids - replayed - closed, key=lambda x: (x[0], int(x[1:])))
+print(len(ids), len(ids & replayed), len(ids & closed - replayed), " ".join(open_ids) or "-")
+PY
+)
+read -r total rep cl open_ids <<<"$audit"
+if [[ $open_ids == "-" && $total -gt 0 ]]; then pass "$total confirmed blocking findings: $rep replayed by attacks.sh, $cl closed without a replay and documented"; else fail "findings with neither a replay nor a documented closure: $open_ids"; fi
 
 echo
 if (( ${#FAILED[@]} == 0 )); then echo "PASS"; exit 0; else echo "FAIL (${#FAILED[@]})"; printf '  - %s\n' "${FAILED[@]}"; exit 1; fi

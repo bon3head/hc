@@ -91,7 +91,7 @@ pub fn forged_commit(repo: &Path, files: &[(&str, &str)]) -> Result<String, GitE
     }
     let tree = git.run(&["write-tree"])?;
     let _ = std::fs::remove_file(&index);
-    Git::at(repo).config("user.name=assay").config("user.email=assay@hc").run(&["commit-tree", &tree, "-p", "HEAD", "-m", "forged"])
+    repo_git(repo).run(&["commit-tree", &tree, "-p", "HEAD", "-m", "forged"])
 }
 
 pub fn write(repo: &Path, rel: &str, content: &str) -> std::io::Result<()> {

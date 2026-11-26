@@ -8,6 +8,7 @@
 //! following degrades (IFScale, 2025). Rendering is a pure function of its
 //! inputs, so identical dockets give byte-identical briefs.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use bedrock::Digest;
@@ -92,6 +93,9 @@ pub struct Brief {
     pub refuted: Vec<Negative>,
     pub unverified: Vec<Extern>,
     pub stale: Vec<Stale>,
+    /// Where the contract came from, said in the brief so a reader can tell a recorded
+    /// contract from an unrecorded or edited task file.
+    pub provenance: Option<String>,
 }
 
 fn kind_name(kind: ClaimKind) -> String {
@@ -180,15 +184,25 @@ impl Brief {
         let mut refuted = Vec::new();
         let mut unverified = Vec::new();
         let mut stale_facts = Vec::new();
+        // An id used by more than one session (two `hc run` attempts both say `c1`) is
+        // shown with its session, so the reader never mistakes one claim for the other.
+        let mut uses: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+        for f in findings {
+            uses.entry(f.claim.claim.id.as_str()).or_default().insert(f.claim.session.as_str());
+        }
+        let label = |f: &Finding| {
+            let id = &f.claim.claim.id;
+            if uses.get(id.as_str()).is_some_and(|s| s.len() > 1) { format!("{}:{id}", f.claim.session) } else { id.clone() }
+        };
         let mut ordered: Vec<&Finding> = findings.iter().collect();
         ordered.sort_by_key(|f| f.claim_seq);
         for f in ordered {
             let claim = &f.claim.claim;
             if let (Some(_), Some(now)) = (&f.verified, stale(f)) {
-                stale_facts.push(Stale { claim_id: claim.id.clone(), summary: summary(f), current_tree: now });
+                stale_facts.push(Stale { claim_id: label(f), summary: summary(f), current_tree: now });
             } else if let Some(v) = &f.verified {
                 facts.push(Fact {
-                    claim_id: v.claim_id().to_owned(),
+                    claim_id: if label(f) == v.claim_id() { v.claim_id().to_owned() } else { label(f) },
                     kind: v.kind(),
                     trust: v.trust(),
                     summary: summary(f),
@@ -213,7 +227,7 @@ impl Brief {
                 let evidence =
                     failing.flat_map(|c| c.evidence.iter().copied()).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
                 refuted.push(Negative {
-                    claim_id: claim.id.clone(),
+                    claim_id: label(f),
                     kind: claim.kind,
                     reasons,
                     evidence,
@@ -229,7 +243,7 @@ impl Brief {
                     .map(|c| c.detail.clone().unwrap_or_else(|| c.rule.clone().unwrap_or_default()))
                     .collect();
                 unverified.push(Extern {
-                    claim_id: claim.id.clone(),
+                    claim_id: label(f),
                     kind: claim.kind,
                     basis: claim.basis.clone(),
                     unresolved,
@@ -237,7 +251,7 @@ impl Brief {
                 });
             }
         }
-        Ok(Self { task, facts, refuted, unverified, stale: stale_facts })
+        Ok(Self { task, facts, refuted, unverified, stale: stale_facts, provenance: None })
     }
 
     pub fn render(&self) -> String {
@@ -245,6 +259,9 @@ impl Brief {
         let mut out = String::new();
         let _ = writeln!(out, "# Handoff brief: {}\n", t.id);
         let _ = writeln!(out, "## Contract\n");
+        if let Some(p) = &self.provenance {
+            let _ = writeln!(out, "- Contract: {}", inline(p));
+        }
         // The task file is user-written; it is still rendered inline so no line of it can
         // open a section. A session that edits it has its claims refuted (it is protected).
         let _ = writeln!(out, "- Objective: {}", inline(&t.objective));
@@ -283,7 +300,7 @@ impl Brief {
                 "\n## Stale results (held on an earlier tree; the code has changed since, so re-run before relying on them)\n"
             );
             for s in &self.stale {
-                let _ = writeln!(out, "- {}: {}; the session's tree is now {}", inline(&s.claim_id), s.summary, short(&s.current_tree));
+                let _ = writeln!(out, "- {}: {}; the code is now at tree {}", inline(&s.claim_id), s.summary, short(&s.current_tree));
             }
         }
         if !self.refuted.is_empty() {

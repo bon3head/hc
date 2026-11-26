@@ -75,38 +75,69 @@ struct Write<'a> {
 }
 
 struct SessionEvidence<'a> {
+    /// Every write recorded since the latest baseline, by any session: what the work
+    /// under this contract did to the repository. Checks of tampering, signatures and
+    /// "untouched" or "no change" claims use these, so no session choice hides a write.
     writes: Vec<Write<'a>>,
+    /// The claim's own session's writes since the baseline, for `files_changed`, which
+    /// is a statement about that session's work.
+    session_writes: Vec<Write<'a>>,
+    /// The code before the work: the baseline's tree, or without a baseline the
+    /// claim's session's starting tree.
     start_tree: Option<&'a str>,
-    /// The commit checked out when the session started, if any.
+    /// The commit checked out at that point, if any.
     start_head: Option<&'a str>,
+    /// The repository's latest snapshot before the claim, from any session.
     end_tree: Option<&'a str>,
     /// Ledger position of the observation that recorded `end_tree`.
     end_seq: Option<u64>,
 }
 
 fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvidence<'a> {
-    let mut ev = SessionEvidence { writes: Vec::new(), start_tree: None, start_head: None, end_tree: None, end_seq: None };
+    let mut ev = SessionEvidence {
+        writes: Vec::new(),
+        session_writes: Vec::new(),
+        start_tree: None,
+        start_head: None,
+        end_tree: None,
+        end_seq: None,
+    };
+    let baseline = records.iter().filter(|r| r.seq < before).rev().find_map(|r| match &r.body {
+        Body::Obs(o) => match &o.event {
+            Event::Baseline { tree, head, .. } => Some((r.seq, tree.as_str(), head.as_deref())),
+            _ => None,
+        },
+        _ => None,
+    });
+    let since = baseline.map_or(0, |(seq, ..)| seq);
+    if let Some((_, tree, head)) = baseline {
+        ev.start_tree = Some(tree);
+        ev.start_head = head;
+    }
     for r in records.iter().filter(|r| r.seq < before) {
         let Body::Obs(obs) = &r.body else { continue };
-        if obs.session != session {
-            continue;
-        }
+        let own = obs.session == session;
         match &obs.event {
-            Event::FileWrite { path, after, added_lines, .. } => {
-                ev.writes.push(Write { seq: r.seq, path, after: after.as_deref(), added: added_lines });
-            }
-            Event::SessionEnd { tree, .. } | Event::Checkpoint { tree } => {
-                ev.end_tree = Some(tree);
-                ev.end_seq = Some(r.seq);
+            Event::FileWrite { path, after, added_lines, .. } if r.seq > since => {
+                let w = Write { seq: r.seq, path, after: after.as_deref(), added: added_lines };
+                if own {
+                    ev.session_writes.push(Write { seq: r.seq, path, after: after.as_deref(), added: added_lines });
+                }
+                ev.writes.push(w);
             }
             Event::SessionStart { tree, head, .. } => {
-                // Until something changes, the session's tree is the one it started from.
-                ev.start_tree = Some(tree);
-                ev.start_head = head.as_deref();
+                if own && baseline.is_none() {
+                    ev.start_tree = Some(tree);
+                    ev.start_head = head.as_deref();
+                }
                 ev.end_tree = Some(tree);
                 ev.end_seq = Some(r.seq);
             }
-            Event::NoClaim { .. } | Event::PlanUpdate { .. } => {}
+            Event::SessionEnd { tree, .. } | Event::Checkpoint { tree } | Event::Baseline { tree, .. } => {
+                ev.end_tree = Some(tree);
+                ev.end_seq = Some(r.seq);
+            }
+            Event::FileWrite { .. } | Event::NoClaim { .. } | Event::PlanUpdate { .. } => {}
         }
     }
     ev
@@ -150,6 +181,7 @@ fn pass_scope(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compil
     let mut checks = Vec::new();
     let written: BTreeSet<&str> = ev.writes.iter().map(|w| w.path).collect();
     let seqs = |pred: &dyn Fn(&Write) -> bool| ev.writes.iter().filter(|w| pred(w)).map(|w| w.seq).collect::<Vec<_>>();
+    let session_written: BTreeSet<&str> = ev.session_writes.iter().map(|w| w.path).collect();
     if compiled.is_allowed("").is_some() {
         let outside = seqs(&|w| compiled.is_allowed(w.path) == Some(false) && !compiled.is_protected(w.path));
         checks.push(check(PassId::Scope, outside.is_empty(), "out-of-scope-write", outside, None));
@@ -162,9 +194,10 @@ fn pass_scope(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compil
             checks.push(check(PassId::Scope, touched.is_empty(), "claimed-untouched-was-written", touched, None));
         }
         ClaimKind::FilesChanged => {
-            let ok = written.len() == claimed.len() && written.iter().all(|w| claimed.contains(*w));
-            let detail = (!ok).then(|| format!("claimed {claimed:?}, observed {written:?}"));
-            checks.push(check(PassId::Scope, ok, "files-changed-mismatch", seqs(&|_| true), detail));
+            let ok = session_written.len() == claimed.len() && session_written.iter().all(|w| claimed.contains(*w));
+            let detail = (!ok).then(|| format!("claimed {claimed:?}, observed {session_written:?}"));
+            let seen = ev.session_writes.iter().map(|w| w.seq).collect();
+            checks.push(check(PassId::Scope, ok, "files-changed-mismatch", seen, detail));
         }
         ClaimKind::NoChangeNeeded => checks.push(check(PassId::Scope, written.is_empty(), "writes-on-no-change", seqs(&|_| true), None)),
         _ => {}
@@ -255,13 +288,13 @@ impl Kernel {
             if self.on(PassId::Command) {
                 checks.extend(pass_command(claim, argv.as_ref()));
             }
-            if ev.start_tree.is_none() {
-                // No recorded session: what the agent wrote is unknown, so the write-based
-                // passes cannot pass. They would pass vacuously on an empty write set.
+            if ev.end_tree.is_none() {
+                // Nothing recorded about the repository: what was written is unknown, so the
+                // write-based passes cannot pass. They would pass vacuously on an empty write set.
                 checks.push(unresolved(
                     PassId::Tamper,
-                    "no-session-evidence",
-                    format!("no observations were recorded for session {:?}", cr.session),
+                    "no-repository-evidence",
+                    "nothing was recorded about this repository before the claim".to_owned(),
                 ));
             } else {
                 if self.on(PassId::Tamper) {

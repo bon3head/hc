@@ -21,6 +21,7 @@
 
 pub mod dialect;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use bedrock::git::Git;
@@ -154,7 +155,12 @@ fn collect_strings(v: &Value, out: &mut Vec<String>) {
     }
 }
 
-fn load_task(cwd: &Path) -> Option<Task> {
+/// The contract recorded by `hc init`; the repository's task file only when none was
+/// recorded (a repository set up before baselines existed).
+fn load_task(env: &Env<'_>, cwd: &Path) -> Option<Task> {
+    if let Some(contract) = exhibit::recorded_contract(&env.docket.git_dir()) {
+        return serde_json::from_value(contract).ok();
+    }
     let text = std::fs::read_to_string(cwd.join(".handoff/task.json")).ok()?;
     serde_json::from_str(&text).ok()
 }
@@ -218,11 +224,40 @@ impl Gate<'_, '_> {
     }
 
     /// Protected writes and cheat signatures among `writes` (docket records of `file_write`).
-    fn hard(&self, writes: &[&Record], compiled: &Compiled) -> Result<Vec<String>, BailiffError> {
+    /// What the session must still undo before it may stop: protected paths whose content
+    /// differs from the baseline now, and known cheat patterns in each file's latest
+    /// content. A protected file restored to its accepted content no longer blocks.
+    fn hard(&self, records: &[Record], since: u64, compiled: &Compiled) -> Result<Vec<String>, BailiffError> {
         let git = Git::bare(self.env.docket.git_dir());
+        let tree_of = |want_baseline: bool| {
+            records.iter().rev().find_map(|r| match &r.body {
+                Body::Obs(Obs { event: Event::Baseline { tree, .. }, .. }) if want_baseline => Some(tree.clone()),
+                Body::Obs(Obs { event: Event::SessionStart { tree, .. }, .. }) if !want_baseline => Some(tree.clone()),
+                _ => None,
+            })
+        };
+        let base = tree_of(true).or_else(|| tree_of(false));
+        let now = self.env.docket.last_tree()?;
+        let blob = |tree: Option<&String>, path: &str| -> Result<Option<String>, BailiffError> {
+            Ok(match tree {
+                Some(t) => git.try_run(&["rev-parse", "--verify", "-q", &format!("{t}:{path}")])?,
+                None => None,
+            })
+        };
+        // The latest write per path is the one that describes the file now.
+        let mut latest: BTreeMap<&str, &Record> = BTreeMap::new();
+        for r in file_writes(records).into_iter().filter(|r| r.seq >= since) {
+            if let Body::Obs(Obs { event: Event::FileWrite { path, .. }, .. }) = &r.body {
+                latest.insert(path.as_str(), r);
+            }
+        }
         let mut failures = Vec::new();
-        for r in writes {
+        for r in latest.into_values() {
             let Body::Obs(Obs { event: Event::FileWrite { path, after, added_lines, .. }, .. }) = &r.body else { continue };
+            let untracked = path.starts_with(".git/");
+            if !untracked && now.is_some() && blob(base.as_ref(), path)? == blob(now.as_ref(), path)? {
+                continue;
+            }
             if compiled.is_protected(path) {
                 failures.push(format!("{path} was modified; it is protected (tests, CI, hook or agent configuration)."));
             }
@@ -240,8 +275,10 @@ impl Gate<'_, '_> {
     }
 }
 
+/// Writes recorded since the latest baseline: earlier ones were accepted by the owner.
 fn file_writes(records: &[Record]) -> Vec<&Record> {
-    records.iter().filter(|r| matches!(&r.body, Body::Obs(Obs { event: Event::FileWrite { .. }, .. }))).collect()
+    let since = records.iter().rev().find(|r| matches!(&r.body, Body::Obs(Obs { event: Event::Baseline { .. }, .. }))).map_or(0, |r| r.seq);
+    records.iter().filter(|r| r.seq > since && matches!(&r.body, Body::Obs(Obs { event: Event::FileWrite { .. }, .. }))).collect()
 }
 
 fn message(items: &[String]) -> String {
@@ -289,12 +326,13 @@ pub fn session_name(dialect: Dialect, id: &str) -> String {
 
 fn state_path(env: &Env<'_>, dialect: Dialect, session: &str) -> PathBuf {
     let slug: String = session.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' }).collect();
-    env.state_dir.join(format!("{dialect:?}-{slug}.json").to_lowercase())
+    // The id keeps its case: `Work-1` and `work-1` are different sessions, as they are in the ledger.
+    env.state_dir.join(format!("{}-{slug}.json", format!("{dialect:?}").to_lowercase()))
 }
 
 /// Handle one hook invocation and return what the harness should do.
 pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict, BailiffError> {
-    let task = load_task(&input.cwd);
+    let task = load_task(env, &input.cwd);
     let (_policy, compiled) = compiled_policy(task.as_ref())?;
 
     if input.kind == EventKind::PreToolUse {
@@ -395,7 +433,7 @@ pub fn checkpoint_recorded(env: &Env<'_>, session: &str, cwd: &Path) -> Result<b
 /// Snapshot the session now (opening it if needed), so claims filed next are
 /// judged against the tree as it is, not as it was at the last step boundary.
 pub fn checkpoint_now(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<(), BailiffError> {
-    let task = load_task(&input.cwd);
+    let task = load_task(env, &input.cwd);
     let path = state_path(env, dialect, &input.session);
     let mut state: State = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
     let force = Policy::new(vec![]).protected;
@@ -452,8 +490,7 @@ fn post_tool_use(
         return Ok(Verdict::Allow);
     }
     let records = gate.records()?;
-    let fresh: Vec<&Record> = file_writes(&records).into_iter().filter(|r| r.seq >= before_seq).collect();
-    let hard = gate.hard(&fresh, compiled)?;
+    let hard = gate.hard(&records, before_seq, compiled)?;
     let report = conform::align(&records, &gate.session);
     let soft: Vec<String> = report
         .plan_only()
@@ -487,8 +524,7 @@ fn task_completed(
     let before_seq = gate.env.docket.count()?;
     checkpoint(recorder, state, ts)?;
     let records = gate.records()?;
-    let fresh: Vec<&Record> = file_writes(&records).into_iter().filter(|r| r.seq >= before_seq).collect();
-    let mut hard = gate.hard(&fresh, compiled)?;
+    let mut hard = gate.hard(&records, before_seq, compiled)?;
     if task.is_some_and(|t| t.step_tests) {
         hard.extend(acceptance(gate, state, task)?);
     }
@@ -545,8 +581,13 @@ fn stop(
 ) -> Result<Verdict, BailiffError> {
     checkpoint(recorder, state, ts)?;
     let records = gate.records()?;
-    let mut failures = gate.hard(&file_writes(&records), compiled)?;
-    failures.extend(acceptance(gate, state, task)?);
+    let tampering = gate.hard(&records, 0, compiled)?;
+    if !tampering.is_empty() {
+        // Never released by the fail-fast escape below: repeating "tests were edited" is not
+        // a fix loop, and letting the third Stop through would end the session on tampered code.
+        return Ok(Verdict::Block(message(&tampering)));
+    }
+    let failures = acceptance(gate, state, task)?;
     let fingerprint = (!failures.is_empty()).then(|| conform::fingerprint(&failures));
     if state.escalated {
         if fingerprint.is_some() && fingerprint == state.last_failure {

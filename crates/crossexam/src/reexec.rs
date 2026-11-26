@@ -59,12 +59,26 @@ impl Reexec {
                 exhibit::snapshot::materialize(docket_git, tree, &dir)?;
             }
         }
+        if let Some(why) = escaping_symlink(&dir) {
+            return Ok(Run { exit_codes: vec![], passed: None, failed: None, unavailable: Some(why) });
+        }
         let mut exit_codes = Vec::new();
         let mut counts = (None, None);
         let mut unavailable = None;
         for _ in 0..self.runs.max(1) {
             // Python must not import the user's site-packages (a `.pth` file there runs at startup).
-            let out = match self.sandbox.command(argv, &dir).env("PYTHONDONTWRITEBYTECODE", "1").env("PYTHONNOUSERSITE", "1").output() {
+            // Variables that make Python load code from outside the tree are dropped as well.
+            let out = match self
+                .sandbox
+                .command(argv, &dir)
+                .env("PYTHONDONTWRITEBYTECODE", "1")
+                .env("PYTHONNOUSERSITE", "1")
+                .env_remove("PYTHONPATH")
+                .env_remove("PYTHONSTARTUP")
+                .env_remove("PYTHONHOME")
+                .env_remove("PYTHONINSPECT")
+                .output()
+            {
                 Ok(out) => out,
                 Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied) => {
                     unavailable = Some(format!("`{}` could not start: {e}", argv[0]));
@@ -112,6 +126,39 @@ static PYTEST: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\d+) (passed|fai
 static CARGO: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"test result: \w+\. (\d+) passed; (\d+) failed").unwrap());
 
 /// (passed, failed) as reported by unittest, pytest or cargo test; `None` when absent.
+/// A symlink in the materialized tree whose target lies outside it: the code that
+/// would run is then not the code the ledger recorded, so nothing it does is evidence.
+fn escaping_symlink(root: &Path) -> Option<String> {
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).ok()?.flatten() {
+            let path = entry.path();
+            let Ok(meta) = std::fs::symlink_metadata(&path) else { continue };
+            if meta.file_type().is_symlink() {
+                let target = std::fs::read_link(&path).ok()?;
+                // Depth of the link's directory below the root; leaving the root makes it negative.
+                let mut depth = i64::try_from(path.strip_prefix(root).ok()?.components().count()).unwrap_or(i64::MAX) - 1;
+                let escapes = target.is_absolute()
+                    || target.components().any(|c| {
+                        match c {
+                            std::path::Component::ParentDir => depth -= 1,
+                            std::path::Component::Normal(_) => depth += 1,
+                            _ => {}
+                        }
+                        depth < 0
+                    });
+                if escapes {
+                    let rel = path.strip_prefix(root).unwrap_or(&path).display().to_string();
+                    return Some(format!("{rel} is a symlink to {} outside the recorded tree", target.display()));
+                }
+            } else if meta.is_dir() {
+                stack.push(path);
+            }
+        }
+    }
+    None
+}
+
 pub fn parse_counts(output: &str) -> (Option<u64>, Option<u64>) {
     let num = |s: &str| s.parse::<u64>().unwrap_or(0);
     if let Some(ran) = UNITTEST_RAN.captures(output) {
