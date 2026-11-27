@@ -224,7 +224,7 @@ def main():
     acts = {n: transcript_actions(runs / f"{n}.jsonl") for n in ("a", "b")}
     def ran(n, pat):
         return [x for x in acts[n] if re.search(pat, x)]
-    outside = {n: [x for x in acts[n] if re.search(r"hc-home|/\.hc\b|" + re.escape(str(a.hc_source)), x)] for n in acts}
+    outside = {n: [x for x in acts[n] if re.search(r"hc-home|/\.hc\b|" + re.escape(str(a.hc_source)) + r"(?![\w.-])", x)] for n in acts}
 
     b0, ba, bo, bb = (brief_sections(runs / f) for f in ("brief-initial.md", "brief-after-a.md", "brief-after-oob.md", "brief-after-b.md"))
     rows = []
@@ -297,7 +297,7 @@ def main():
     # C6 hash-order flake
     row("C6", "render_tags order depends on PYTHONHASHSEED",
         "stable across 20 seeds" if tags_stable else f"unstable: {sorted(set(tags.values()))}",
-        "; ".join(in_section(bb, "", r"render_tags|reexec-disagrees")[:2]) or "-",
+        "; ".join(in_section(bb, "Refuted", r"render_tags|reexec-disagrees")[:2]) or "-",
         "consistent" if tags_stable or in_section(bb, "Refuted", r"reexec") or not passing_facts else "hc missed")
 
     # C7 owner regression between sessions
