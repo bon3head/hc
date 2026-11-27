@@ -34,7 +34,7 @@ So the answer to "can I rely on this for the code in front of me?" is in the bri
 ## Quickstart
 
 ```sh
-cargo install --path crates/hc
+cargo install --locked --path crates/hc
 cd your-repo
 hc init "Fix the date parser"
 ```

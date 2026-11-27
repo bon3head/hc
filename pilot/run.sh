@@ -2,7 +2,7 @@
 # Live pilot: two agent sessions on a seeded task, an owner edit between them,
 # and a score from evidence hc does not produce. See pilot/OPERATOR.md.
 #
-#   pilot/run.sh setup|a|oob|b|score|all
+#   pilot/run.sh check|setup|a|oob|b|score|all
 #
 # PILOT_DIR  where the run lives (default ~/hc-pilot; must not be under /mnt/)
 # AGENT_A    claude | codex (default claude)
@@ -37,15 +37,45 @@ session() { # name agent prompt-file
         *) die "unknown agent $agent" ;;
     esac
     echo "$agent $rc" >"$RUNS/$name.exit"
+    if [ "$rc" -ne 0 ] || ! grep -q '"tool_use"\|"command_execution"\|"exec_command' "$RUNS/$name.jsonl"; then
+        echo "invalid: $agent exited $rc with no tool calls" >"$RUNS/$name.invalid"
+        echo "pilot: session $name is INVALID ($agent exited $rc, no tool calls recorded). Its output:" >&2
+        tail -n 15 "$RUNS/$name.stderr" "$RUNS/$name.jsonl" >&2
+        echo "pilot: fix the cause, then start over: rm -rf $PILOT_DIR && $0 setup" >&2
+        exit 1
+    fi
     hc brief >"$RUNS/brief-after-$name.md" 2>"$RUNS/brief-after-$name.stderr" || echo "pilot: hc brief exited $?" | tee -a "$RUNS/$name.notes"
     echo "pilot: session $name exited $rc; brief saved to $RUNS/brief-after-$name.md"
 }
 
+check() { # agent: prove a headless session can run a shell command before seeding anything
+    local agent=$1 dir out
+    command -v "$agent" >/dev/null || die "$agent is not on PATH"
+    case $(command -v "$agent") in /mnt/*) die "$agent resolves to a Windows binary ($(command -v "$agent")); install it inside WSL" ;; esac
+    dir=$(mktemp -d)
+    out=$dir/check.jsonl
+    local ask="Run this shell command and nothing else: echo hc-pilot-$$"
+    case $agent in
+        claude) (cd "$dir" && claude -p "$ask" --permission-mode bypassPermissions --output-format stream-json --verbose) >"$out" 2>"$dir/err" || true ;;
+        codex)  (cd "$dir" && codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox --json "$ask") >"$out" 2>"$dir/err" || true ;;
+    esac
+    if grep -q "hc-pilot-$$" "$out" && grep -q '"tool_use"\|"command_execution"\|"exec_command' "$out"; then
+        echo "pilot: $agent runs headless and executes commands"
+        rm -rf "$dir"
+    else
+        echo "pilot: $agent could not run a command headless. Its output ($dir):" >&2
+        tail -n 15 "$dir/err" "$out" >&2
+        exit 1
+    fi
+}
+
 case ${1:-} in
+check) check "$AGENT_A"; [ "$AGENT_B" = "$AGENT_A" ] || check "$AGENT_B" ;;
 setup)
     case $PILOT_DIR in /mnt/*) die "PILOT_DIR is on the Windows drive; use a WSL path such as ~/hc-pilot" ;; esac
     [ -e "$PILOT_DIR" ] && die "$PILOT_DIR exists; remove it to start a fresh run"
-    command -v hc >/dev/null || die "hc is not on PATH (cargo install --path crates/hc)"
+    command -v hc >/dev/null || die "hc is not on PATH (cargo install --locked --path crates/hc)"
+    "$0" check
     mkdir -p "$RUNS"
     cp -r "$HERE/fixture" "$REPO"
     cd "$REPO"

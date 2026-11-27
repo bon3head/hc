@@ -20,7 +20,7 @@ Work in the Linux filesystem (`~`), not under `/mnt/c`.
 sudo apt update && sudo apt install -y build-essential git openssh-client python3 bubblewrap
 curl https://sh.rustup.rs -sSf | sh -s -- -y   # skip if `cargo --version` already works
 . ~/.cargo/env
-cd ~/handoff-compiler && cargo install --path crates/hc
+cd ~/handoff-compiler && cargo install --locked --path crates/hc
 hc doctor
 which claude codex   # must be Linux installs, not /mnt/c/... Windows binaries
 ```
