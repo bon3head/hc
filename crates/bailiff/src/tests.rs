@@ -328,3 +328,30 @@ fn the_next_session_is_told_what_changed_while_no_session_ran() {
     assert!(text.contains("- src/extra.py added: made while no session was running"), "{text}");
     assert!(!text.contains("abs("), "contents never enter the brief: {text}");
 }
+
+#[test]
+fn the_next_brief_marks_the_step_as_the_owners_and_lists_pending_outcomes() {
+    use bedrock::ir::{ClaimKind, Status};
+    let w = world();
+    w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    w.claim(ClaimKind::SpecConflict, Status::SpecConflict);
+    *w.session.borrow_mut() = "sess-2".into();
+    let brief = w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    let text = text(&brief);
+    assert!(text.contains("## Current step\n\nFix it.\n\n(The owner's step, recorded with the contract"), "{text}");
+    assert!(text.contains("Outcomes reported since, awaiting the owner: c1 spec_conflict (unverified)."), "{text}");
+}
+
+#[test]
+fn a_failing_suite_reported_as_command_ran_reaches_the_next_brief_reproduced() {
+    use bedrock::ir::{ClaimKind, Status};
+    let w = world();
+    w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    // The seeded add() is still wrong: the suite exits 1, as the claim says.
+    w.claim(ClaimKind::CommandRan, Status::Blocked);
+    *w.session.borrow_mut() = "sess-2".into();
+    let brief = w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    let text = text(&brief);
+    let facts = text.split("## Verified facts").nth(1).unwrap().split("\n## ").next().unwrap();
+    assert!(facts.contains("[reproduced] c1 command_ran"), "{text}");
+}

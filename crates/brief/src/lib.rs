@@ -356,7 +356,21 @@ impl Brief {
             }
         }
         let _ = writeln!(out, "\n## Current step\n\n{}", inline(&t.next_step));
+        let _ = writeln!(out, "\n(The owner's step, recorded with the contract; agent sessions do not advance it.)");
+        let pending = self.pending_outcomes();
+        if !pending.is_empty() {
+            let _ = writeln!(out, "Outcomes reported since, awaiting the owner: {}.", pending.join(", "));
+        }
         out
+    }
+
+    /// `spec_conflict`, `blocked` and `no_change_needed` claims not refuted: what a session
+    /// said stands between the task and done. Ids and kinds only, never agent text.
+    fn pending_outcomes(&self) -> Vec<String> {
+        let outcome = |k: ClaimKind| matches!(k, ClaimKind::SpecConflict | ClaimKind::Blocked | ClaimKind::NoChangeNeeded);
+        let held = self.facts.iter().filter(|f| outcome(f.kind)).map(|f| (f.claim_id.as_str(), f.kind, trust_name(f.trust)));
+        let open = self.unverified.iter().filter(|e| outcome(e.kind)).map(|e| (e.claim_id.as_str(), e.kind, "unverified".to_owned()));
+        held.chain(open).map(|(id, kind, trust)| format!("{} {} ({trust})", inline(id), kind_name(kind))).collect()
     }
 
     pub fn digest(&self) -> Digest {

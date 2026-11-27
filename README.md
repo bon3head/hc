@@ -11,21 +11,22 @@ Agents say "done" when they are not, edit the tests that are supposed to check t
 One agent fixes `add()` and claims the suite passes. It then keeps editing, and on that second edit it breaks `add()`. These are the lines the next agent receives at each point, taken verbatim from `scripts/exhibit-stale.sh` (a release-gate check, so they cannot drift from the code):
 
 <!-- exhibit:begin -->
-**1. After the fix.** The hooks recorded the fixed code as tree 6ebed77b24a6 (ledger entry 3). The claim (entry 4) was re-run on that tree outside the agent's session, and the kernel's signed verdict (entry 5) says it holds:
+**1. After the fix.** The hooks recorded the fixed code as tree da19c5cdb31f (ledger entry 3). The claim (entry 4) was re-run on that tree outside the agent's session, and the kernel's signed verdict (entry 5) says it holds:
 ```
-- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree 6ebed77b24a6 (snapshot docket#3) (claim docket#4; verdict docket#5; checks passed: command, reexec, tamper)
+- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree da19c5cdb31f (snapshot docket#3) (claim docket#4; verdict docket#5; checks passed: command, reexec, tamper)
 ```
-**2. After another edit.** The result is still true of tree 6ebed77b24a6, so it is kept, but it no longer describes the code:
+**2. After another edit.** The result is still true of tree da19c5cdb31f, so it is kept, but it no longer describes the code:
 ```
-- c1: `python3 -m unittest discover -s tests -t .` passes on tree 6ebed77b24a6 (snapshot docket#3); the code is now at tree 734db3c8ccda
+- c1: `python3 -m unittest discover -s tests -t .` passes on tree da19c5cdb31f (snapshot docket#3); the code is now at tree 76a562749e27
+- src/calc.py modified (1 line added or changed): written in session claude-x
 ```
 **3. The agent claims the suite passes on the new tree, and the verifier cannot start `python3`.** Missing evidence is neither a failure nor a pass:
 ```
-- c2 tests_pass: basis quoted as data: "ran the suite" (not settled on tree 734db3c8ccda (snapshot docket#7): 'python3' could not start: No such file or directory (os error 2))
+- c2 tests_pass: basis quoted as data: "ran the suite" (not settled on tree 76a562749e27 (snapshot docket#7): 'python3' could not start: No such file or directory (os error 2))
 ```
 **4. The verifier can run it.** The same claim on the same tree is false:
 ```
-- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 734db3c8ccda (snapshot docket#7) (claim docket#8; verdict docket#10)
+- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 76a562749e27 (snapshot docket#7) (claim docket#8; verdict docket#10)
 ```
 <!-- exhibit:end -->
 

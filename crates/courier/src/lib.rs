@@ -8,6 +8,7 @@
 //!
 //! Every copy is a view. Trust is decided only from the docket.
 
+use std::fmt::Write as _;
 use std::path::Path;
 
 use brief::Brief;
@@ -30,6 +31,11 @@ pub fn prompt(brief: &Brief, schema_enforced: bool) -> String {
     out.push_str(
         "Write `basis` before deciding `status`. Claim only what you did; every claim is checked against what the harness observed.\n",
     );
+    let _ = writeln!(
+        out,
+        "Test results are re-run and can be confirmed only as `tests_pass` or `command_ran` (with `exit_code`, `passed`, `failed`) naming `{}`.",
+        brief.task.test_command
+    );
     out
 }
 
@@ -40,6 +46,7 @@ pub fn protocol_block(test_command: &str) -> String {
          - Finish by reporting claims: write JSON matching `hc schema` and pipe it to `hc claim`.\n\
          - The verifier re-runs `{test_command}` outside your session. Editing tests, CI, hooks or agent configuration refutes your claims.\n\
          - `spec_conflict` and `no_change_needed` are successful outcomes. Use them instead of forcing a pass.\n\
+         - To report a test run so it can be verified, run exactly `{test_command}` and claim `tests_pass` (exit 0) or, when it fails, `command_ran` with its `exit_code` and `passed`/`failed` counts. The verifier re-runs it and confirms either; a claim naming another test command is refuted, and `requirement_met` or `note` stay unverified.\n\
          {END}\n"
     )
 }
