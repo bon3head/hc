@@ -86,6 +86,41 @@ impl World {
         self.hook(Dialect::Claude, "Stop", json!({"stop_hook_active": false, "last_assistant_message": "done"}))
     }
 
+    /// File a claim as `hc claim` does: checkpoint the hook session, then record.
+    fn claim(&self, kind: bedrock::ir::ClaimKind, status: bedrock::ir::Status) {
+        let clock = || "2026-01-01T01:00:00Z".to_owned();
+        let env = Env {
+            docket: &self.docket,
+            harness: &self.harness,
+            state_dir: self.state.clone(),
+            sandbox: cell::Sandbox::none(Path::new("/nonexistent")),
+            clock: &clock,
+        };
+        assert!(checkpoint_recorded(&env, "claude-sess-1", &self.repo).unwrap());
+        let agent = self.docket.keys().ensure(Role::Agent, "claude-code").unwrap();
+        let claim = bedrock::ir::Claim {
+            id: "c1".into(),
+            kind,
+            basis: "the test contradicts the spec".into(),
+            command: Some(TEST.into()),
+            exit_code: Some(1),
+            passed: None,
+            failed: None,
+            paths: vec![],
+            commit: None,
+            depends_on: vec![],
+            status,
+        };
+        let attestation = bedrock::ir::AgentAttestation {
+            agent_id: "claude-code".into(),
+            level: bedrock::ir::AttestationLevel::Declared,
+            executable: None,
+            pid: None,
+        };
+        let envelope = bedrock::ir::ClaimEnvelope { task: "fix-add".into(), claims: vec![claim] };
+        exhibit::record_claims(&self.docket, &agent, &clock(), "claude-sess-1", &attestation, &envelope).unwrap();
+    }
+
     fn report(&self, session: &str) -> conform::Report {
         conform::align(&self.docket.records().unwrap(), session)
     }
@@ -216,4 +251,39 @@ fn claude_task_completed_can_keep_a_step_open() {
     let (_, stderr, code) = render(Dialect::Claude, EventKind::TaskCompleted, &v);
     assert_eq!(code, 2);
     assert!(stderr.contains(".claude/settings.json"));
+}
+
+#[test]
+fn a_reported_spec_conflict_lets_a_failing_suite_stop() {
+    use bedrock::ir::{ClaimKind, Status};
+    let w = world();
+    assert_eq!(w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"})), Verdict::Allow);
+    write(&w.repo, "src/calc.py", "def add(a, b):\n    return a * b\n");
+    w.claim(ClaimKind::SpecConflict, Status::SpecConflict);
+    assert_eq!(w.stop(), Verdict::Allow, "a valid outcome is not pushed toward forcing a pass");
+    write(&w.repo, "src/calc.py", "def add(a, b):\n    return a ** b\n");
+    let after_edit = w.stop();
+    assert!(
+        matches!(after_edit, Verdict::Block(_)) && text(&after_edit).contains("exits 1 on a clean copy"),
+        "a claim filed before later edits does not describe the tree: {after_edit:?}"
+    );
+}
+
+#[test]
+fn a_reported_conflict_does_not_excuse_tampering() {
+    use bedrock::ir::{ClaimKind, Status};
+    let w = world();
+    w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    write(&w.repo, "tests/test_calc.py", "import unittest\n");
+    w.claim(ClaimKind::Blocked, Status::Blocked);
+    let v = w.stop();
+    assert!(matches!(v, Verdict::Block(_)) && text(&v).contains("tests/test_calc.py was modified"), "{v:?}");
+}
+
+#[test]
+fn writes_without_any_plan_are_not_reported_as_unplanned() {
+    let w = world();
+    w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    write(&w.repo, "src/calc.py", "def add(a, b):\n    return a + b\n");
+    assert_eq!(w.stop(), Verdict::Allow, "no plan step was ever opened, so there is nothing to conform to");
 }

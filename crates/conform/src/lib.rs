@@ -66,8 +66,12 @@ impl Report {
         for s in self.plan_only() {
             out.push(format!("Step \"{}\" is marked completed, but no file changes were recorded while it was in progress.", s.text));
         }
-        if !self.unplanned.is_empty() {
-            let paths: Vec<&str> = self.unplanned.iter().map(|(_, p)| p.as_str()).collect();
+        // With no plan at all there is nothing to conform to: harnesses run headless often
+        // keep none, and the agent cannot open a step after the fact.
+        if !self.unplanned.is_empty() && !self.steps.is_empty() {
+            let mut paths: Vec<&str> = self.unplanned.iter().map(|(_, p)| p.as_str()).collect();
+            paths.sort_unstable();
+            paths.dedup();
             out.push(format!("Changes to {} were made while no plan step was in progress.", paths.join(", ")));
         }
         for text in &self.out_of_order {

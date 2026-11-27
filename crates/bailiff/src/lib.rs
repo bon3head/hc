@@ -565,6 +565,19 @@ fn acceptance(gate: &Gate<'_, '_>, state: &State, task: Option<&Task>) -> Result
         .unwrap_or_default())
 }
 
+/// Whether `records` (one session) hold a `spec_conflict` or `blocked` claim for `task`
+/// filed after the session's last recorded write, so it describes the tree as it is.
+/// `hc claim` checkpoints before recording, so writes made before the claim precede it.
+fn reported_outcome(records: &[Record], task: &str) -> bool {
+    let last_write =
+        records.iter().rev().find(|r| matches!(&r.body, Body::Obs(Obs { event: Event::FileWrite { .. }, .. }))).map_or(0, |r| r.seq);
+    records.iter().any(|r| {
+        r.seq > last_write
+            && matches!(&r.body, Body::Claim(c) if c.task == task
+                && matches!(c.claim.status, bedrock::ir::Status::SpecConflict | bedrock::ir::Status::Blocked))
+    })
+}
+
 /// Split as the kernel does (P4 and P8 use `shlex`), so the Stop gate runs the same argv.
 fn shlex_split(command: &str) -> Option<Vec<String>> {
     shlex::split(command).filter(|argv| !argv.is_empty())
@@ -587,7 +600,13 @@ fn stop(
         // a fix loop, and letting the third Stop through would end the session on tampered code.
         return Ok(Verdict::Block(message(&tampering)));
     }
-    let failures = acceptance(gate, state, task)?;
+    let mut failures = acceptance(gate, state, task)?;
+    if !failures.is_empty() && task.is_some_and(|t| reported_outcome(&records, &t.id)) {
+        // The session already reported why the suite cannot pass (a valid outcome per the
+        // contract). Blocking again would push it toward forcing a pass; the claim stays
+        // unverified in the brief for the owner to settle.
+        failures.clear();
+    }
     let fingerprint = (!failures.is_empty()).then(|| conform::fingerprint(&failures));
     if state.escalated {
         if fingerprint.is_some() && fingerprint == state.last_failure {
