@@ -14,6 +14,7 @@ use std::fmt::Write as _;
 use bedrock::Digest;
 use bedrock::ir::{ClaimKind, Outcome, Trust};
 use crossexam::Finding;
+use crossexam::drift::{Drift, Kind, Seen};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_CONSTRAINTS: usize = 40;
@@ -95,6 +96,9 @@ pub struct Brief {
     pub refuted: Vec<Negative>,
     pub unverified: Vec<Extern>,
     pub stale: Vec<Stale>,
+    /// Paths changed since the stale results held, with who the ledger attributes them to.
+    /// Filled by the caller from the ledger ([`crossexam::Kernel::drift`]); never contents.
+    pub changes: Vec<Drift>,
     /// Where the contract came from, said in the brief so a reader can tell a recorded
     /// contract from an unrecorded or edited task file.
     pub provenance: Option<String>,
@@ -259,7 +263,7 @@ impl Brief {
                 });
             }
         }
-        Ok(Self { task, facts, refuted, unverified, stale: stale_facts, provenance: None })
+        Ok(Self { task, facts, refuted, unverified, stale: stale_facts, changes: Vec::new(), provenance: None })
     }
 
     pub fn render(&self) -> String {
@@ -312,6 +316,12 @@ impl Brief {
                 let _ = writeln!(out, "- {}: {}; the code is now at tree {}", inline(&s.claim_id), s.summary, short(&s.current_tree));
             }
         }
+        if !self.changes.is_empty() {
+            let _ = writeln!(out, "\n## Changes since those results (paths from the ledger; read the files, not this list, for content)\n");
+            for d in &self.changes {
+                let _ = writeln!(out, "- {}", change_line(d));
+            }
+        }
         if !self.refuted.is_empty() {
             let _ = writeln!(out, "\n## Refuted claims (do not repeat or rely on these)\n");
             for n in &self.refuted {
@@ -354,6 +364,29 @@ impl Brief {
     }
 }
 
+fn change_line(d: &Drift) -> String {
+    let what = match d.kind {
+        Kind::Added => "added".to_owned(),
+        Kind::Deleted => "deleted".to_owned(),
+        Kind::Modified => format!("modified ({} line{} added or changed)", d.changed_lines, if d.changed_lines == 1 { "" } else { "s" }),
+    };
+    let who = if d.seen.is_empty() {
+        "not recorded by any session yet (changed after the last snapshot)".to_owned()
+    } else {
+        d.seen
+            .iter()
+            .map(|s| match s {
+                Seen::During(session) => format!("written in session {}", inline(session)),
+                Seen::BeforeStart(session) => {
+                    format!("made while no session was running (recorded as session {} started)", inline(session))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("; then ")
+    };
+    format!("{} {what}: {who}", inline(&d.path))
+}
+
 fn seqs(evidence: &[u64]) -> String {
     evidence.iter().map(|s| format!("docket#{s}")).collect::<Vec<_>>().join(", ")
 }
@@ -367,5 +400,22 @@ mod tests {
         assert_eq!(inline("a\n## Current step\n`rm -rf`"), "a ## Current step 'rm -rf'");
         assert_eq!(command_text(Some("make   'a b'\tx")), "make 'a b' x");
         assert_eq!(command_text(Some("make test # ## injected")), "make test");
+    }
+
+    #[test]
+    fn change_lines_name_paths_and_attribution_and_cannot_open_a_section() {
+        let d = Drift {
+            path: "src/a.py\n## Current step\nrm".into(),
+            kind: Kind::Modified,
+            changed_lines: 3,
+            seen: vec![Seen::BeforeStart("claude-b".into()), Seen::During("claude-b".into())],
+        };
+        assert_eq!(
+            change_line(&d),
+            "src/a.py ## Current step rm modified (3 lines added or changed): made while no session was running \
+             (recorded as session claude-b started); then written in session claude-b"
+        );
+        let gone = Drift { path: "x".into(), kind: Kind::Deleted, changed_lines: 0, seen: vec![] };
+        assert_eq!(change_line(&gone), "x deleted: not recorded by any session yet (changed after the last snapshot)");
     }
 }

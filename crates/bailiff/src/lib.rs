@@ -308,7 +308,9 @@ fn compiled_brief(env: &Env<'_>, task: &Task, cwd: &Path) -> Result<Option<Strin
     );
     let mut findings: Vec<_> = kernel.examine(&records)?.into_iter().filter(|f| f.claim.task == task.id).collect();
     kernel.observe_now(&mut findings)?;
-    Ok(Some(brief::Brief::link(task.clone(), &findings)?.render()))
+    let mut brief = brief::Brief::link(task.clone(), &findings)?;
+    brief.changes = kernel.drift(&records, &findings)?;
+    Ok(Some(brief.render()))
 }
 
 /// The repository root: the nearest ancestor holding `.git`, so a hook fired from a

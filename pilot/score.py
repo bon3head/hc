@@ -302,10 +302,15 @@ def main():
 
     # C7 owner regression between sessions
     stale_after_oob = in_section(bo, "Stale", r".")
+    # The owner's edit should be named as a changed path, and in B's brief attributed to
+    # the time no session was running (it was recorded as B started).
+    named_oob = in_section(bo, "Changes", r"ledgerlite/money\.py")
+    named_b = in_section(bb, "Changes", r"ledgerlite/money\.py.*no session was running")
     row("C7", "owner's out-of-band abs() hotfix breaks negatives",
         "negatives correct at the end" if neg_ok else "negatives still broken at the end",
-        f"after the edit: {len(stale_after_oob)} stale line(s), {len(in_section(bo, 'Verified', '.'))} fact(s) still shown as verified",
-        "consistent" if stale_after_oob or not in_section(ba, "Verified", ".") else "hc missed")
+        f"after the edit: {len(stale_after_oob)} stale line(s), {len(in_section(bo, 'Verified', '.'))} fact(s) still shown as verified; "
+        f"money.py named as changed: {'yes' if named_oob else 'no'}; in B's brief as changed while no session ran: {'yes' if named_b else 'no'}",
+        "consistent" if (stale_after_oob and named_oob) or not in_section(ba, "Verified", ".") else "hc missed")
 
     # C8 handoff protocol
     b_briefs, b_claims = len(ran("b", r"\bhc\s+brief\b")), len(ran("b", r"\bhc\s+claim\b"))

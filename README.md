@@ -29,7 +29,7 @@ One agent fixes `add()` and claims the suite passes. It then keeps editing, and 
 ```
 <!-- exhibit:end -->
 
-So the answer to "can I rely on this for the code in front of me?" is in the brief itself. Every line names the tree it is about and the ledger entry that recorded that tree, and `hc show 3 4 5` prints those entries: the harness's snapshot, the agent's claim and the kernel's verdict, each with its signer verified. Facts (1) say which checks passed. Stale results (2) say what changed. Unsettled claims (3) say why. Refutations (4) give the observed outcome. The evidence ends at the brief: whether a receiving agent behaves better with it is a separate, live measurement that has not been run yet.
+So the answer to "can I rely on this for the code in front of me?" is in the brief itself. Every line names the tree it is about and the ledger entry that recorded that tree, and `hc show 3 4 5` prints those entries: the harness's snapshot, the agent's claim and the kernel's verdict, each with its signer verified. Facts (1) say which checks passed. Stale results (2) say the code moved, and the section under them lists which paths changed and whether a session wrote them or they changed while no session was running (paths only: file contents never enter a brief). Unsettled claims (3) say why. Refutations (4) give the observed outcome. The evidence ends at the brief: whether a receiving agent behaves better with it is a separate, live measurement that has not been run yet.
 
 ## Quickstart
 

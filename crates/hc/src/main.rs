@@ -283,6 +283,13 @@ fn adjudicate(home: &Home, repo: &Path, task: &Task, kernel: &Kernel) -> Result<
     Ok(findings)
 }
 
+/// The brief for `findings`, with the paths changed since its stale results.
+fn link(home: &Home, repo: &Path, task: &Task, kernel: &Kernel, findings: &[Finding]) -> Result<Brief> {
+    let mut brief = Brief::link(task.clone(), findings)?;
+    brief.changes = kernel.drift(&home.docket(repo)?.records()?, findings)?;
+    Ok(brief)
+}
+
 fn print_findings(findings: &[Finding]) {
     for f in findings {
         let trust = serde_json::to_value(f.verdict.trust).unwrap_or_default();
@@ -373,7 +380,7 @@ fn cmd_run(home: &Home, task_path: &Path, agent_id: &str, repo: &Path, max_attem
 
     for attempt in 1..=max_attempts {
         let findings = adjudicate(home, repo, &task, &kernel)?;
-        let brief = Brief::link(task.clone(), &findings)?;
+        let brief = link(home, repo, &task, &kernel, &findings)?;
         let session = format!("{}-{}-{attempt}", task.id, jiff::Timestamp::now().as_second());
         let outbox = home.outbox(&session)?;
         let schema_path = outbox.join("claim.v0.json");
@@ -420,13 +427,13 @@ fn cmd_run(home: &Home, task_path: &Path, agent_id: &str, repo: &Path, max_attem
         print_findings(&findings.iter().filter(|f| f.claim.session == session).cloned().collect::<Vec<_>>());
         let clean = !mine.is_empty() && mine.iter().all(|f| f.verdict.trust != Trust::Refuted);
         if clean {
-            let brief = Brief::link(task.clone(), &findings)?;
+            let brief = link(home, repo, &task, &kernel, &findings)?;
             println!("{}", brief.render());
             return Ok(ExitCode::SUCCESS);
         }
     }
     let findings = adjudicate(home, repo, &task, &kernel)?;
-    println!("{}", Brief::link(task, &findings)?.render());
+    println!("{}", link(home, repo, &task, &kernel, &findings)?.render());
     eprintln!("[hc] stopped after {max_attempts} attempts with refuted or missing claims");
     Ok(ExitCode::FAILURE)
 }
@@ -554,7 +561,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
             let kernel = kernel_for(&home, &repo, &task, true)?;
             let findings = adjudicate(&home, &repo, &task, &kernel)?;
             print_findings(&findings);
-            let mut brief = Brief::link(task, &findings)?;
+            let mut brief = link(&home, &repo, &task, &kernel, &findings)?;
             brief.provenance = Some(provenance);
             print!("{}", brief.render());
             Ok(ExitCode::SUCCESS)
@@ -603,7 +610,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
             let task = load_task(&task)?;
             let kernel = kernel_for(&home, &repo, &task, true)?;
             let findings = adjudicate(&home, &repo, &task, &kernel)?;
-            let brief = Brief::link(task, &findings)?;
+            let brief = link(&home, &repo, &task, &kernel, &findings)?;
             let page = courier::notion::create_page(&token, &courier::notion::page_body(&data_source, &title_property, &brief))?;
             println!("{}", page.get("url").and_then(|u| u.as_str()).unwrap_or("created"));
             Ok(ExitCode::SUCCESS)

@@ -18,6 +18,7 @@ struct World {
     harness: Identity,
     state: PathBuf,
     tick: Cell<u32>,
+    session: std::cell::RefCell<String>,
 }
 
 const TEST: &str = "python3 -m unittest discover -s tests -t .";
@@ -46,7 +47,15 @@ fn world() -> World {
     let keys = Keyring::new(tmp.path().join("keys"));
     let harness = keys.ensure(Role::Harness, "local").unwrap();
     let docket = Docket::open(&tmp.path().join("docket.git"), keys).unwrap();
-    World { state: tmp.path().join("state"), _tmp: tmp, repo, docket, harness, tick: Cell::new(0) }
+    World {
+        state: tmp.path().join("state"),
+        _tmp: tmp,
+        repo,
+        docket,
+        harness,
+        tick: Cell::new(0),
+        session: std::cell::RefCell::new("sess-1".into()),
+    }
 }
 
 impl World {
@@ -65,7 +74,7 @@ impl World {
         let mut raw = payload;
         match dialect {
             Dialect::Claude | Dialect::Mcp => {
-                raw["session_id"] = json!("sess-1");
+                raw["session_id"] = json!(*self.session.borrow());
                 raw["cwd"] = json!(self.repo);
                 raw["hook_event_name"] = json!(event);
             }
@@ -88,6 +97,10 @@ impl World {
 
     /// File a claim as `hc claim` does: checkpoint the hook session, then record.
     fn claim(&self, kind: bedrock::ir::ClaimKind, status: bedrock::ir::Status) {
+        self.claim_paths(kind, status, &[]);
+    }
+
+    fn claim_paths(&self, kind: bedrock::ir::ClaimKind, status: bedrock::ir::Status, paths: &[&str]) {
         let clock = || "2026-01-01T01:00:00Z".to_owned();
         let env = Env {
             docket: &self.docket,
@@ -96,7 +109,8 @@ impl World {
             sandbox: cell::Sandbox::none(Path::new("/nonexistent")),
             clock: &clock,
         };
-        assert!(checkpoint_recorded(&env, "claude-sess-1", &self.repo).unwrap());
+        let session = format!("claude-{}", self.session.borrow());
+        assert!(checkpoint_recorded(&env, &session, &self.repo).unwrap());
         let agent = self.docket.keys().ensure(Role::Agent, "claude-code").unwrap();
         let claim = bedrock::ir::Claim {
             id: "c1".into(),
@@ -106,7 +120,7 @@ impl World {
             exit_code: Some(1),
             passed: None,
             failed: None,
-            paths: vec![],
+            paths: paths.iter().map(|p| (*p).to_owned()).collect(),
             commit: None,
             depends_on: vec![],
             status,
@@ -118,7 +132,7 @@ impl World {
             pid: None,
         };
         let envelope = bedrock::ir::ClaimEnvelope { task: "fix-add".into(), claims: vec![claim] };
-        exhibit::record_claims(&self.docket, &agent, &clock(), "claude-sess-1", &attestation, &envelope).unwrap();
+        exhibit::record_claims(&self.docket, &agent, &clock(), &session, &attestation, &envelope).unwrap();
     }
 
     fn report(&self, session: &str) -> conform::Report {
@@ -286,4 +300,31 @@ fn writes_without_any_plan_are_not_reported_as_unplanned() {
     w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
     write(&w.repo, "src/calc.py", "def add(a, b):\n    return a + b\n");
     assert_eq!(w.stop(), Verdict::Allow, "no plan step was ever opened, so there is nothing to conform to");
+}
+
+#[test]
+fn the_next_session_is_told_what_changed_while_no_session_ran() {
+    use bedrock::ir::{ClaimKind, Status};
+    let w = world();
+    w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    write(&w.repo, "src/calc.py", "def add(a, b):\n    return a + b\n");
+    w.claim_paths(ClaimKind::FilesChanged, Status::Done, &["src/calc.py"]);
+    assert_eq!(w.stop(), Verdict::Allow);
+
+    // The owner edits between sessions, with no `hc init`.
+    write(&w.repo, "src/calc.py", "def add(a, b):\n    return abs(a + b)\n");
+    write(&w.repo, "src/extra.py", "X = 1\n");
+    *w.session.borrow_mut() = "sess-2".into();
+    let brief = w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"}));
+    let text = text(&brief);
+    assert!(text.contains("## Stale results"), "{text}");
+    assert!(text.contains("## Changes since those results"), "{text}");
+    assert!(
+        text.contains(
+            "- src/calc.py modified (1 line added or changed): made while no session was running (recorded as session claude-sess-2 started)"
+        ),
+        "{text}"
+    );
+    assert!(text.contains("- src/extra.py added: made while no session was running"), "{text}");
+    assert!(!text.contains("abs("), "contents never enter the brief: {text}");
 }

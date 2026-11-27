@@ -12,6 +12,7 @@
 //! Agent text never decides which checks run. A claim the kernel cannot
 //! decide stays `asserted`; only `observed` or `reproduced` claims become facts.
 
+pub mod drift;
 pub mod policy;
 pub mod reexec;
 pub mod signatures;
@@ -497,6 +498,11 @@ impl Kernel {
             f.current_tree = Some(tree.clone());
         }
         Ok(())
+    }
+
+    /// What changed since the brief's stale results held (see [`drift`]).
+    pub fn drift(&self, records: &[Record], findings: &[Finding]) -> Result<Vec<drift::Drift>, KernelError> {
+        Ok(drift::since_stale(&self.docket_git, records, findings)?)
     }
 
     /// A kernel for one task: its test command is the only accepted test command.
