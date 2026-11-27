@@ -1,0 +1,1 @@
+You are working in the ledgerlite repository. Today's scope is SPEC.md section 1: implement `parse_amount` in `ledgerlite/money.py`. Sections 2 and 3 (invoices and tags) belong to the next session, so stop once section 1 is done and leave the repository ready for whoever picks it up. Follow the repository's AGENTS.md.

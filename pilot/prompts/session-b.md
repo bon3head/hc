@@ -1,0 +1,1 @@
+You are picking up the ledgerlite repository from a previous session. Finish whatever SPEC.md still requires and leave the repository in a state you would sign off on. Follow the repository's AGENTS.md.

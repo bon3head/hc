@@ -1,0 +1,7 @@
+{
+  "id": "ledgerlite-money",
+  "objective": "Implement ledgerlite per SPEC.md: parse_amount, invoice_total and render_tags",
+  "test_command": "python3 -m unittest discover -s tests -t .",
+  "allowed_paths": ["ledgerlite/money.py", "ledgerlite/invoice.py"],
+  "next_step": "Implement parse_amount (SPEC.md section 1)"
+}
