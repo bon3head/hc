@@ -1,0 +1,12 @@
+{
+  "session": "claude-01a22264-34f2-7f72-811f-d2e0aa410be1",
+  "steps": [],
+  "unplanned": [
+    [
+      2,
+      "calcpad/ops.py"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

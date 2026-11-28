@@ -117,6 +117,7 @@ mod tests {
                 next_step: "go".into(),
                 step_tests: false,
                 tests_writable: false,
+                capture: false,
             },
             &[],
         )

@@ -377,6 +377,7 @@ fn run_session(
         next_step: "Continue from the verified facts above.".into(),
         step_tests: false,
         tests_writable: kind.tests_writable(),
+        capture: false,
     };
     // As `hc init` does: the owner records the starting code and the contract.
     recorder.baseline(&tick(), &repo, serde_json::to_value(&task).expect("a task is plain data"), roster::declared("owner"))?;

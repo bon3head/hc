@@ -37,6 +37,11 @@ pub struct Task {
     /// protected; instead new tests must fail on the pre-session code (P9).
     #[serde(default)]
     pub tests_writable: bool,
+    /// Capture only: hooks record observations but never inject context, deny a
+    /// write or block a step, and `hc init` writes no protocol block. Used to
+    /// measure an agent's behavior without hc's contract in front of it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub capture: bool,
 }
 
 #[derive(Debug, thiserror::Error)]

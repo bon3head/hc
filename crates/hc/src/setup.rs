@@ -80,13 +80,13 @@ pub fn resolve(repo: &Path, test: Option<String>, only: &[String], existing: Opt
     Ok(Plan { test_command, test_source, harnesses: found.iter().map(|h| h.0).collect(), roster_ids: found.iter().map(|h| h.1).collect() })
 }
 
-/// Write `.handoff/task.json` when absent. When present, a given objective, and a test
-/// command passed explicitly with `--test`, replace the stored ones; everything else is
-/// kept. Returns the path and whether the file was created.
-pub fn write_task(repo: &Path, objective: Option<&str>, test_command: &str, test_given: bool) -> Result<(PathBuf, bool)> {
+/// Write `.handoff/task.json` when absent. When present, a given objective, a test
+/// command passed explicitly with `--test`, and `--capture`, replace the stored ones;
+/// everything else is kept. Returns the path and whether the file was created.
+pub fn write_task(repo: &Path, objective: Option<&str>, test_command: &str, test_given: bool, capture: bool) -> Result<(PathBuf, bool)> {
     let path = repo.join(".handoff/task.json");
     if path.exists() {
-        if objective.is_some() || test_given {
+        if objective.is_some() || test_given || capture {
             let mut task: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
             let Some(map) = task.as_object_mut() else { bail!("{} is not a JSON object", path.display()) };
             if let Some(objective) = objective {
@@ -95,6 +95,9 @@ pub fn write_task(repo: &Path, objective: Option<&str>, test_command: &str, test
             if test_given {
                 map.insert("test_command".into(), test_command.into());
             }
+            if capture {
+                map.insert("capture".into(), true.into());
+            }
             std::fs::write(&path, serde_json::to_string_pretty(&task)? + "\n")?;
         }
         return Ok((path, false));
@@ -102,10 +105,11 @@ pub fn write_task(repo: &Path, objective: Option<&str>, test_command: &str, test
     let id = repo.canonicalize()?.file_name().map_or_else(|| "task".into(), |n| n.to_string_lossy().into_owned());
     let q = |s: &str| serde_json::Value::from(s).to_string();
     let text = format!(
-        "{{\n  \"id\": {},\n  \"objective\": {},\n  \"test_command\": {},\n  \"next_step\": \"\"\n}}\n",
+        "{{\n  \"id\": {},\n  \"objective\": {},\n  \"test_command\": {},\n  \"next_step\": \"\"{}\n}}\n",
         q(&id),
         q(objective.unwrap_or("")),
-        q(test_command)
+        q(test_command),
+        if capture { ",\n  \"capture\": true" } else { "" }
     );
     std::fs::create_dir_all(path.parent().expect("has parent"))?;
     std::fs::write(&path, text)?;
@@ -157,13 +161,25 @@ mod tests {
     #[test]
     fn task_file_is_written_once() {
         let dir = tempfile::tempdir().unwrap();
-        let (path, created) = write_task(dir.path(), Some("Fix the parser"), "cargo test", false).unwrap();
+        let (path, created) = write_task(dir.path(), Some("Fix the parser"), "cargo test", false, false).unwrap();
         assert!(created);
         let task: Task = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!((task.objective.as_str(), task.test_command.as_str()), ("Fix the parser", "cargo test"));
-        assert!(!write_task(dir.path(), None, "other", false).unwrap().1);
-        write_task(dir.path(), Some("Fix the lexer"), "other", false).unwrap();
+        assert!(!write_task(dir.path(), None, "other", false, false).unwrap().1);
+        write_task(dir.path(), Some("Fix the lexer"), "other", false, false).unwrap();
         let task: Task = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!((task.objective.as_str(), task.test_command.as_str()), ("Fix the lexer", "cargo test"));
+    }
+
+    #[test]
+    fn capture_flag_is_stored_in_the_task_and_only_set_when_asked() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, _) = write_task(dir.path(), Some("Fix the parser"), "cargo test", false, false).unwrap();
+        let task: Task = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(!task.capture);
+        write_task(dir.path(), None, "cargo test", false, true).unwrap();
+        let task: Task = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(task.capture, "--capture on an existing task file sets the flag");
+        assert_eq!(task.objective, "Fix the parser", "and keeps the rest");
     }
 }

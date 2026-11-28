@@ -1,0 +1,34 @@
+{
+  "valid": true,
+  "problems": [],
+  "isolation": {
+    "agent": "claude",
+    "arm": "capture",
+    "model": "claude-opus-5-5",
+    "plugins": [
+      "cc-plugin-agents-md@builtin",
+      "cc-plugin-telemetry@builtin",
+      "cc-plugin-privacy@builtin",
+      "cc-plugin-plugin-authoring@builtin"
+    ],
+    "plugins_builtin_only": true,
+    "mcp_servers": [],
+    "mcp_tools": [],
+    "hook_events": [
+      "SessionStart:startup",
+      "Stop"
+    ],
+    "hook_responses": 2,
+    "hook_injections": 0,
+    "hook_blocks": 0,
+    "non_hc_hook_output": []
+  },
+  "agents_md_has_hc_block": false,
+  "c9": [],
+  "suite": {
+    "exit": 0,
+    "failing": [],
+    "ran": 1
+  },
+  "cost_usd": 0.102591
+}

@@ -55,6 +55,10 @@ enum Command {
         /// Command hook configs use to invoke hc (default: `hc` when it is on PATH, else this binary's path).
         #[arg(long, hide = true)]
         hc_bin: Option<String>,
+        /// Capture only: hooks record what happens but never inject the brief, deny a
+        /// write or block a step, and no protocol block is written to instruction files.
+        #[arg(long)]
+        capture: bool,
     },
     /// Check that hc can work on this machine and in this repository.
     Doctor {
@@ -187,7 +191,15 @@ fn default_hc_bin() -> Result<String> {
     Ok(if on_path.as_deref() == Some(me.as_path()) { "hc".into() } else { me.to_string_lossy().into_owned() })
 }
 
-fn cmd_init(home: &Home, repo: &Path, objective: Option<&str>, test: Option<String>, only: &[String], hc_bin: &str) -> Result<ExitCode> {
+fn cmd_init(
+    home: &Home,
+    repo: &Path,
+    objective: Option<&str>,
+    test: Option<String>,
+    only: &[String],
+    hc_bin: &str,
+    capture: bool,
+) -> Result<ExitCode> {
     doctor::preflight()?;
     for role in [Role::Harness, Role::Kernel] {
         home.identity(role, "local")?;
@@ -195,7 +207,7 @@ fn cmd_init(home: &Home, repo: &Path, objective: Option<&str>, test: Option<Stri
     let task_path = repo.join(".handoff/task.json");
     let existing = task_path.exists().then(|| load_task(&task_path)).transpose()?;
     let plan = setup::resolve(repo, test, only, existing.as_ref())?;
-    let (_, created) = setup::write_task(repo, objective, &plan.test_command, plan.test_source == "--test")?;
+    let (_, created) = setup::write_task(repo, objective, &plan.test_command, plan.test_source == "--test", capture)?;
 
     let row = |k: &str, v: &str| println!("  {k:<7}{v}");
     println!("hc ready in {}\n", repo.canonicalize()?.display());
@@ -209,10 +221,14 @@ fn cmd_init(home: &Home, repo: &Path, objective: Option<&str>, test: Option<Stri
     let mut notes: BTreeSet<String> =
         registry.iter().filter(|d| plan.roster_ids.contains(&d.id.as_str())).map(|d| d.instructions_file.clone()).collect();
     notes.insert("AGENTS.md".into());
-    for file in &notes {
-        courier::write_protocol_block(&repo.join(file), &plan.test_command)?;
+    if capture {
+        row("notes", "none (capture only: hooks record, never inject or block)");
+    } else {
+        for file in &notes {
+            courier::write_protocol_block(&repo.join(file), &plan.test_command)?;
+        }
+        row("notes", &notes.iter().map(String::as_str).collect::<Vec<_>>().join(", "));
     }
-    row("notes", &notes.iter().map(String::as_str).collect::<Vec<_>>().join(", "));
     let repo_abs = repo.canonicalize()?;
     let docket = home.docket(&repo_abs)?;
     let harness = home.identity(Role::Harness, "local")?;
@@ -534,9 +550,9 @@ fn run(cli: Cli) -> Result<ExitCode> {
     }
     let home = Home::locate()?;
     match cli.command {
-        Command::Init { objective, test, only, repo, hc_bin } => {
+        Command::Init { objective, test, only, repo, hc_bin, capture } => {
             let bin = hc_bin.map_or_else(default_hc_bin, Ok)?;
-            cmd_init(&home, &repo, objective.as_deref(), test, &only, &bin)
+            cmd_init(&home, &repo, objective.as_deref(), test, &only, &bin, capture)
         }
         Command::Doctor { .. } => unreachable!("handled before the home is opened"),
         Command::Schema => {

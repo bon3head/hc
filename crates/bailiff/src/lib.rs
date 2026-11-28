@@ -336,8 +336,12 @@ fn state_path(env: &Env<'_>, dialect: Dialect, session: &str) -> PathBuf {
 pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict, BailiffError> {
     let task = load_task(env, &input.cwd);
     let (_policy, compiled) = compiled_policy(task.as_ref())?;
+    let capture = task.as_ref().is_some_and(|t| t.capture);
 
     if input.kind == EventKind::PreToolUse {
+        if capture {
+            return Ok(Verdict::Allow);
+        }
         let tool = input.tool.as_deref().unwrap_or_default();
         let blocked: Vec<String> =
             written_paths(tool, &input.tool_input, &input.cwd).into_iter().filter(|p| compiled.is_protected(p)).collect();
@@ -385,7 +389,8 @@ pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict,
     };
     std::fs::create_dir_all(&env.state_dir)?;
     std::fs::write(&path, serde_json::to_string(&state)?)?;
-    Ok(verdict)
+    // Capture only: everything above has been recorded; nothing reaches the agent.
+    Ok(if capture { Verdict::Allow } else { verdict })
 }
 
 /// The hook session currently open on `repo`, most recently active first, so a

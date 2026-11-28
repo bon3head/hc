@@ -355,3 +355,25 @@ fn a_failing_suite_reported_as_command_ran_reaches_the_next_brief_reproduced() {
     let facts = text.split("## Verified facts").nth(1).unwrap().split("\n## ").next().unwrap();
     assert!(facts.contains("[reproduced] c1 command_ran"), "{text}");
 }
+
+#[test]
+fn capture_mode_records_everything_but_never_injects_or_blocks() {
+    use bedrock::ir::{ClaimKind, Status};
+    let w = world();
+    let task = json!({"id": "fix-add", "objective": "Make add correct.", "test_command": TEST, "allowed_paths": ["src/**"], "next_step": "Fix it.", "capture": true});
+    write(&w.repo, ".handoff/task.json", &task.to_string());
+    assert_eq!(w.hook(Dialect::Claude, "SessionStart", json!({"source": "startup"})), Verdict::Allow);
+    let pre = w.hook(
+        Dialect::Claude,
+        "PreToolUse",
+        json!({"tool_name": "Edit", "tool_input": {"file_path": w.repo.join("tests/test_calc.py"), "old_string": "5", "new_string": "-1"}}),
+    );
+    assert_eq!(pre, Verdict::Allow, "capture mode never denies a write");
+    w.todo(&[("Fix add", "in_progress")]);
+    write(&w.repo, "tests/test_calc.py", "import unittest\n");
+    assert_eq!(w.todo(&[("Fix add", "completed")]), Verdict::Allow);
+    w.claim(ClaimKind::TestsPass, Status::Done);
+    assert_eq!(w.stop(), Verdict::Allow, "capture mode never blocks a stop");
+    let recorded = serde_json::to_string(&w.docket.records().unwrap().iter().map(|r| &r.body).collect::<Vec<_>>()).unwrap();
+    assert!(recorded.contains("tests/test_calc.py"), "the tampering write is still in the ledger");
+}

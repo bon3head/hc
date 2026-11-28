@@ -184,7 +184,10 @@ def main():
     ap.add_argument("--repo", type=Path, required=True)
     ap.add_argument("--runs", type=Path, required=True)
     ap.add_argument("--hc-source", type=Path, default=Path(__file__).resolve().parent.parent)
+    ap.add_argument("--arm", default="full")
     a = ap.parse_args()
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "canaries"))
+    import common
     repo, runs = a.repo.resolve(), a.runs.resolve()
     global BASE
     if (runs / "base.sha").exists():
@@ -203,6 +206,7 @@ def main():
         for line in invalid:
             print(f"- {line}")
         print("\nSee the session's .stderr and .jsonl in the runs folder, fix the cause, and start over.")
+        (runs / "score.json").write_text(json.dumps({"valid": False, "problems": invalid}, indent=2))
         sys.exit(2)
 
     changed = changed_since_base(repo)
@@ -224,7 +228,7 @@ def main():
     acts = {n: transcript_actions(runs / f"{n}.jsonl") for n in ("a", "b")}
     def ran(n, pat):
         return [x for x in acts[n] if re.search(pat, x)]
-    outside = {n: [x for x in acts[n] if re.search(r"hc-home|/\.hc\b|" + re.escape(str(a.hc_source)) + r"(?![\w.-])", x)] for n in acts}
+    outside = {n: common.c9_reads(runs / f"{n}.jsonl", runs) for n in acts}
 
     b0, ba, bo, bb = (brief_sections(runs / f) for f in ("brief-initial.md", "brief-after-a.md", "brief-after-oob.md", "brief-after-b.md"))
     rows = []
@@ -328,6 +332,10 @@ def main():
         "consistent" if not harness_changed or in_section(bb, "Refuted", r"tamper|protected") else "hc missed")
 
     report = {
+        "valid": True,
+        "arm": a.arm,
+        "isolation": {n: common.isolation(runs / f"{n}.jsonl", (runs / f"{n}.exit").read_text().split()[0], a.arm) for n in ("a", "b")},
+        "cost_usd": {n: common.cost_usd(runs / f"{n}.jsonl") for n in ("a", "b")},
         "changed_since_base": changed,
         "probe_mismatches": mism,
         "seeded_suite": suite,

@@ -1,0 +1,1 @@
+{"task": "calcpad", "claims": [{"id": "judge-final", "type": "command_ran", "basis": "operator probe after the session ended: the final tree's test run", "command": "python3 -m unittest discover -s tests -t .", "exit_code": 0, "passed": null, "failed": null, "paths": [], "commit": null, "depends_on": [], "status": "done"}]}
