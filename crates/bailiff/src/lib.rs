@@ -296,7 +296,9 @@ fn message(items: &[String]) -> String {
 fn compiled_brief(env: &Env<'_>, task: &Task, cwd: &Path) -> Result<Option<String>, BailiffError> {
     let records = env.docket.records()?;
     if !records.iter().any(|r| matches!(&r.body, Body::Claim(c) if c.task == task.id)) {
-        return Ok(None);
+        // Nothing to cross-examine yet, but the contract itself is the first thing a
+        // session needs: without it the first session works from the prompt alone.
+        return Ok(Some(brief::Brief::link(task.clone(), &[])?.render()));
     }
     let kernel = crossexam::Kernel::for_task(
         &task.test_command,
@@ -306,6 +308,10 @@ fn compiled_brief(env: &Env<'_>, task: &Task, cwd: &Path) -> Result<Option<Strin
         cwd.to_path_buf(),
         env.sandbox.clone(),
     );
+    let kernel = match &task.holdout {
+        Some(command) => kernel.with_holdout(command, &crossexam::holdout_dir(env.sandbox.hidden(), &task.id)),
+        None => kernel,
+    };
     let mut findings: Vec<_> = kernel.examine(&records)?.into_iter().filter(|f| f.claim.task == task.id).collect();
     kernel.observe_now(&mut findings)?;
     let mut brief = brief::Brief::link(task.clone(), &findings)?;
@@ -345,18 +351,47 @@ pub fn history_read(tool: &str, input: &Value) -> Option<String> {
         };
         let args: Vec<&str> = rest.collect();
         let any = |flags: &[&str]| args.iter().any(|a| flags.contains(a));
-        let is_sha = |a: &&str| (7..=40).contains(&a.len()) && a.chars().all(|c| c.is_ascii_hexdigit());
+        let other = |a: &&str| args_name_other_revision(a);
         match sub {
             Some("reflog" | "cat-file" | "fsck" | "for-each-ref" | "show-ref") => true,
             Some("log" | "rev-list" | "shortlog" | "whatchanged") => {
-                any(&["--all", "--branches", "--remotes", "--reflog", "-g", "--walk-reflogs"])
+                any(&["--all", "--branches", "--remotes", "--reflog", "-g", "--walk-reflogs"]) || args.iter().any(other)
             }
-            Some("show") => args.iter().any(is_sha),
+            Some("show" | "diff" | "checkout" | "restore" | "switch" | "grep" | "archive" | "ls-tree") => args.iter().any(other),
             Some("branch") => any(&["-a", "--all", "-r", "--remotes"]),
             _ => false,
         }
     });
     hit.then(|| command.to_owned())
+}
+
+/// Whether a git argument names a revision other than the current branch's own history:
+/// a commit id, `rev:path`, a range `a..b` or `a...b`, `refs/...`, a remote branch, the
+/// stash or a reflog entry (`x@{n}`), including `--source=<rev>`. `HEAD`, `HEAD~n` and plain
+/// paths do not count, so ordinary `git diff`, `git log -3` and `git show HEAD` stay quiet.
+fn args_name_other_revision(arg: &str) -> bool {
+    let arg = arg.strip_prefix("--source=").unwrap_or(arg);
+    if arg.starts_with('-') {
+        return false;
+    }
+    // In a range or `rev:path` the revision is explicit, so any revision but HEAD counts.
+    let explicit = |r: &str| {
+        let base = r.split(['~', '^']).next().unwrap_or(r);
+        !base.is_empty() && base != "HEAD"
+    };
+    if let Some((a, b)) = arg.split_once("...").or_else(|| arg.split_once("..")) {
+        return explicit(a) || explicit(b);
+    }
+    if let Some((rev, _)) = arg.split_once(':') {
+        return explicit(rev);
+    }
+    // A bare word could be a path, so only shapes no path takes count. SHORTCUT: a plain
+    // local branch name (`git log wip`) is indistinguishable from a path and is missed.
+    let base = arg.split(['~', '^']).next().unwrap_or(arg);
+    ((7..=40).contains(&base.len()) && base.chars().all(|c| c.is_ascii_hexdigit()))
+        || ["refs/", "origin/", "upstream/"].iter().any(|p| base.starts_with(p))
+        || base == "stash"
+        || base.contains("@{")
 }
 
 /// The repository root: the nearest ancestor holding `.git`, so a hook fired from a

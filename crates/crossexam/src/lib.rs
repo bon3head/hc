@@ -68,11 +68,21 @@ pub struct Kernel {
     pub reexec: Option<Reexec>,
     pub docket_git: PathBuf,
     pub repo: PathBuf,
+    /// The owner's held-out check, as argv with `{holdout}` already resolved.
+    pub holdout: Option<Vec<String>>,
+}
+
+/// Where hc keeps the owner's held-out probes for `task`: inside hc's home, which the
+/// sandbox hides from agents (`hc run`) and which no brief ever quotes.
+pub fn holdout_dir(home: &std::path::Path, task: &str) -> PathBuf {
+    let slug: String = task.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') { c } else { '_' }).collect();
+    home.join("holdout").join(slug)
 }
 
 struct Write<'a> {
     seq: u64,
     path: &'a str,
+    before: Option<&'a str>,
     after: Option<&'a str>,
     added: &'a [u32],
 }
@@ -121,10 +131,16 @@ fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvi
         let Body::Obs(obs) = &r.body else { continue };
         let own = obs.session == session;
         match &obs.event {
-            Event::FileWrite { path, after, added_lines, .. } if r.seq > since => {
-                let w = Write { seq: r.seq, path, after: after.as_deref(), added: added_lines };
+            Event::FileWrite { path, before, after, added_lines } if r.seq > since => {
+                let w = Write { seq: r.seq, path, before: before.as_deref(), after: after.as_deref(), added: added_lines };
                 if own {
-                    ev.session_writes.push(Write { seq: r.seq, path, after: after.as_deref(), added: added_lines });
+                    ev.session_writes.push(Write {
+                        seq: r.seq,
+                        path,
+                        before: before.as_deref(),
+                        after: after.as_deref(),
+                        added: added_lines,
+                    });
                 }
                 ev.writes.push(w);
             }
@@ -184,9 +200,12 @@ fn pass_scope(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compil
     let mut checks = Vec::new();
     let written: BTreeSet<&str> = ev.writes.iter().map(|w| w.path).collect();
     let seqs = |pred: &dyn Fn(&Write) -> bool| ev.writes.iter().filter(|w| pred(w)).map(|w| w.seq).collect::<Vec<_>>();
-    let session_written: BTreeSet<&str> = ev.session_writes.iter().map(|w| w.path).collect();
+    // Scope is about what the work leaves behind: a scratch file created and removed again
+    // (or a file restored to how it was) changes nothing. Tamper checks stay on every write.
+    let session_written = net_changed(&ev.session_writes);
+    let net_all = net_changed(&ev.writes);
     if compiled.is_allowed("").is_some() {
-        let outside = seqs(&|w| compiled.is_allowed(w.path) == Some(false) && !compiled.is_protected(w.path));
+        let outside = seqs(&|w| net_all.contains(w.path) && compiled.is_allowed(w.path) == Some(false) && !compiled.is_protected(w.path));
         checks.push(check(PassId::Scope, outside.is_empty(), "out-of-scope-write", outside, None));
     }
     let claimed: BTreeSet<String> = claim.paths.iter().map(|p| normalize_path(p)).collect();
@@ -206,6 +225,15 @@ fn pass_scope(claim: &Claim, ev: &SessionEvidence<'_>, compiled: &policy::Compil
         _ => {}
     }
     checks
+}
+
+/// Paths whose content after their last write differs from before their first one.
+fn net_changed<'a>(writes: &[Write<'a>]) -> BTreeSet<&'a str> {
+    let mut span: std::collections::BTreeMap<&str, (Option<&str>, Option<&str>)> = std::collections::BTreeMap::new();
+    for w in writes {
+        span.entry(w.path).and_modify(|e| e.1 = w.after).or_insert((w.before, w.after));
+    }
+    span.into_iter().filter(|(_, (first, last))| first != last).map(|(p, _)| p).collect()
 }
 
 /// `./src//a.py` and `src/a.py` name the same file; intake already rejected `..`, absolute and empty paths.
@@ -244,7 +272,7 @@ impl Kernel {
 
     /// Digest of everything that decides a verdict: the policy and the disabled passes.
     fn digest(&self) -> Result<bedrock::Digest, KernelError> {
-        Ok(bedrock::canon::digest(&(&self.policy, &self.disabled))?)
+        Ok(bedrock::canon::digest(&(&self.policy, &self.disabled, &self.holdout))?)
     }
 
     /// The kernel's own recorded verdicts that settled their claim under this exact policy.
@@ -360,13 +388,22 @@ impl Kernel {
             (None, Some(tree)) => (tree, "AMT"),
             (None, None) => return Ok(Vec::new()),
         };
-        let Some(changed) = reexec::commit_changes(&self.docket_git, &self.repo, base, commit, filter)? else {
-            return Ok(vec![unresolved(
-                PassId::Tamper,
-                "commit-unreadable",
-                format!("cannot compare commit {commit:?} with the session's start"),
-            )]);
+        let unreadable = || {
+            Ok(vec![unresolved(PassId::Tamper, "commit-unreadable", format!("cannot compare commit {commit:?} with the session's start"))])
         };
+        let Some(mut changed) = reexec::commit_changes(&self.docket_git, &self.repo, base, commit, filter)? else {
+            return unreadable();
+        };
+        // The start head can predate files that were already in the start snapshot (hc init
+        // writes its hooks and instruction files after the seed commit). A path the commit
+        // leaves as the snapshot had it is not the session's change; a deleted or edited
+        // path differs from both and still counts.
+        if let (Some(_), Some(tree)) = (ev.start_head, ev.start_tree) {
+            let Some(vs_tree) = reexec::commit_changes(&self.docket_git, &self.repo, tree, commit, "AMDT")? else {
+                return unreadable();
+            };
+            changed.retain(|p| vs_tree.contains(p));
+        }
         let mut checks = Vec::new();
         if self.on(PassId::Tamper) {
             let hit = changed.iter().find(|p| compiled.is_protected(p));
@@ -515,7 +552,21 @@ impl Kernel {
                 ),
             )];
         }
-        vec![check(PassId::Reexec, all && counts_ok, rule, vec![], detail)]
+        let mut checks = vec![check(PassId::Reexec, all && counts_ok, rule, vec![], detail)];
+        // A success the task's own tests agree with may still be fitted to those tests. The
+        // owner's held-out check decides; only its exit code is kept, never its output.
+        let claims_success = claim.kind == ClaimKind::TestsPass || claim.exit_code == Some(0);
+        if let (true, true, Some(holdout)) = (all && counts_ok, claims_success, &self.holdout) {
+            checks.push(match reexec.run(source, holdout) {
+                Err(e) => unresolved(PassId::Reexec, "holdout-unavailable", format!("could not prepare a clean copy: {e}")),
+                Ok(Run { unavailable: Some(why), .. }) => unresolved(PassId::Reexec, "holdout-unavailable", why),
+                Ok(run) => {
+                    let ok = !run.exit_codes.is_empty() && run.exit_codes.iter().all(|c| *c == 0);
+                    check(PassId::Reexec, ok, "holdout-disagrees", vec![], Some(format!("held-out check exit codes {:?}", run.exit_codes)))
+                }
+            });
+        }
+        checks
     }
 
     /// Snapshot the working tree now and make it the "current" tree every finding is
@@ -549,7 +600,20 @@ impl Kernel {
         if tests_writable {
             policy = policy.with_writable_tests();
         }
-        Self { policy, disabled: BTreeSet::new(), reexec: Some(Reexec { sandbox, runs: 2 }), docket_git, repo }
+        Self { policy, disabled: BTreeSet::new(), reexec: Some(Reexec { sandbox, runs: 2 }), docket_git, repo, holdout: None }
+    }
+
+    /// Run `command` (`{holdout}` = `dir`) on the clean copy after a success claim agrees
+    /// with the task's own tests. `dir` is bound read-only into the re-execution sandbox,
+    /// so the code under test can read the probes' imports but never rewrite them.
+    #[must_use]
+    pub fn with_holdout(mut self, command: &str, dir: &std::path::Path) -> Self {
+        let dir_text = dir.display().to_string();
+        self.holdout = shlex::split(command).map(|argv| argv.into_iter().map(|a| a.replace("{holdout}", &dir_text)).collect());
+        if let Some(r) = &mut self.reexec {
+            r.sandbox = r.sandbox.clone().ro_bind(dir);
+        }
+        self
     }
 
     /// Examine the docket, record verdicts for claims not yet ruled on, and

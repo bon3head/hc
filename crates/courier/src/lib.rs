@@ -118,6 +118,7 @@ mod tests {
                 step_tests: false,
                 tests_writable: false,
                 capture: false,
+                holdout: None,
             },
             &[],
         )

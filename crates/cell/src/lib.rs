@@ -12,17 +12,23 @@ pub struct Sandbox {
     pub isolation: Isolation,
     hide: PathBuf,
     binds: Vec<PathBuf>,
+    ro_binds: Vec<PathBuf>,
 }
 
 impl Sandbox {
     /// Use bwrap when it is installed and can create a namespace here.
     pub fn detect(hide: &Path) -> Self {
         let works = Command::new("bwrap").args(["--dev-bind", "/", "/", "--", "true"]).output().is_ok_and(|o| o.status.success());
-        Self { isolation: if works { Isolation::Bwrap } else { Isolation::None }, hide: hide.to_path_buf(), binds: Vec::new() }
+        Self {
+            isolation: if works { Isolation::Bwrap } else { Isolation::None },
+            hide: hide.to_path_buf(),
+            binds: Vec::new(),
+            ro_binds: Vec::new(),
+        }
     }
 
     pub fn none(hide: &Path) -> Self {
-        Self { isolation: Isolation::None, hide: hide.to_path_buf(), binds: Vec::new() }
+        Self { isolation: Isolation::None, hide: hide.to_path_buf(), binds: Vec::new(), ro_binds: Vec::new() }
     }
 
     /// Make `dir` (inside the hidden home) visible and writable inside the sandbox.
@@ -30,6 +36,18 @@ impl Sandbox {
     pub fn bind(mut self, dir: impl Into<PathBuf>) -> Self {
         self.binds.push(dir.into());
         self
+    }
+
+    /// Make `dir` (inside the hidden home) visible but read-only inside the sandbox.
+    #[must_use]
+    pub fn ro_bind(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.ro_binds.push(dir.into());
+        self
+    }
+
+    /// The directory the sandbox hides (hc's home).
+    pub fn hidden(&self) -> &Path {
+        &self.hide
     }
 
     pub fn command(&self, argv: &[String], cwd: &Path) -> Command {
@@ -44,6 +62,9 @@ impl Sandbox {
                 cmd.args(["--dev-bind", "/", "/", "--die-with-parent", "--tmpfs"]).arg(&self.hide);
                 for dir in &self.binds {
                     cmd.arg("--bind").arg(dir).arg(dir);
+                }
+                for dir in &self.ro_binds {
+                    cmd.arg("--ro-bind").arg(dir).arg(dir);
                 }
                 // bwrap resolves a relative --chdir inside the new namespace, from `/`.
                 let cwd = cwd.canonicalize().unwrap_or_else(|_| std::path::absolute(cwd).unwrap_or_else(|_| cwd.to_path_buf()));

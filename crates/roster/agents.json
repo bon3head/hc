@@ -15,7 +15,7 @@
     "executables": ["codex"],
     "instructions_file": "AGENTS.md",
     "launch": {
-      "argv": ["codex", "exec", "--output-schema", "{schema_path}", "-o", "{out_path}", "{prompt}"],
+      "argv": ["codex", "exec", "--dangerously-bypass-hook-trust", "--output-schema", "{schema_path}", "-o", "{out_path}", "{prompt}"],
       "output": {"kind": "file"}
     }
   },

@@ -116,6 +116,46 @@ pub fn write_task(repo: &Path, objective: Option<&str>, test_command: &str, test
     Ok((path, true))
 }
 
+/// Copy the owner's held-out probes from `src` into hc's home and name the check in the
+/// task file. `src` must lie outside the repository: probes the agent can read are not held
+/// out. Returns the number of files copied.
+pub fn install_holdout(home: &Path, repo: &Path, task_path: &Path, src: &Path, command: &str) -> Result<usize> {
+    let src = src.canonicalize().with_context(|| format!("holdout directory {}", src.display()))?;
+    if src.starts_with(repo.canonicalize()?) {
+        bail!("{} is inside the repository, where the agent can read it; keep held-out probes elsewhere", src.display());
+    }
+    if !command.contains("{holdout}") {
+        bail!("--holdout-command must name the probes as {{holdout}}, e.g. \"python3 -I {{holdout}}/probes.py\"");
+    }
+    let mut task: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(task_path)?)?;
+    let id = task.get("id").and_then(|v| v.as_str()).context("task has no id")?.to_owned();
+    let dest = crossexam::holdout_dir(home, &id);
+    if dest.exists() {
+        std::fs::remove_dir_all(&dest)?;
+    }
+    let copied = copy_tree(&src, &dest)?;
+    task.as_object_mut().context("task is not a JSON object")?.insert("holdout".into(), command.into());
+    std::fs::write(task_path, serde_json::to_string_pretty(&task)? + "\n")?;
+    Ok(copied)
+}
+
+fn copy_tree(src: &Path, dest: &Path) -> Result<usize> {
+    std::fs::create_dir_all(dest)?;
+    let mut n = 0;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let to = dest.join(entry.file_name());
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            n += copy_tree(&entry.path(), &to)?;
+        } else if kind.is_file() {
+            std::fs::copy(entry.path(), &to)?;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
 pub fn install_hooks(repo: &Path, dialect: &str, bin: &str) -> Result<PathBuf> {
     let path = repo.join(courier::hooks::path(dialect).expect("known dialect"));
     let existing = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();

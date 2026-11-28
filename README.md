@@ -52,7 +52,7 @@ That's the whole setup. `hc init` finds your test command, installs hooks for th
 
 | Command | Does |
 |---|---|
-| `hc init ["objective"]` | Set up the repository; re-run to change the objective (`--capture`: record only, never inject or block) |
+| `hc init ["objective"]` | Set up the repository; re-run to change the objective (`--capture`: record only, never inject or block; `--holdout`: owner's held-out probes) |
 | `hc doctor` | Check this machine and repository, with a fix for each problem (`-v`, `--json`) |
 | `hc brief` | The handoff the next agent receives |
 | `hc show <entry>…` | The ledger entries a brief cites, with their verified signers |
@@ -76,9 +76,11 @@ That's the whole setup. `hc init` finds your test command, installs hooks for th
    | signature | added lines exit 0, skip tests, make `__eq__` always true, define a new `__eq__`/`__ne__`/`__hash__`/`__bool__`, patch clocks, or add vacuous tests |
    | reexec | the test command fails, twice, on a clean copy of the claimed commit or tree, or its exit code contradicts its own test report |
    | falsify | when tests may be edited, the new tests also pass on the unfixed code (fail-to-pass, as in SWT-Bench) |
+   | holdout | a success claim the task's own tests agree with fails the owner's held-out check on the same clean copy (`hc init --holdout <dir> --holdout-command "python3 {holdout}/probes.py"`) |
 
    A check that cannot get evidence (runner missing, commit unknown, no recorded session) leaves the claim **unresolved**: never refuted, never promoted. A settled verdict is never recomputed, so a fact stays true of the tree it was checked on.
-   Reads of repository history beyond the current branch (`git log --all`, `git reflog`, `git show <sha>`, `git cat-file`, `git branch -a`, `.git/objects`) are recorded and listed in the brief as observations. They refute nothing.
+   Re-running the repository's own tests cannot see a change fitted to those tests (in the phase-2 pilot one agent did exactly that in 6/6 runs; hc missed all six and certified two as reproduced). The held-out check closes that gap: the probes are copied into hc's home, bound read-only into the re-execution sandbox, and only their exit code is kept. Without one, the brief says that "reproduced" means only that the repository's own tests agreed.
+   Reads of repository history beyond the current branch (`git log --all`, `git reflog`, `git show <sha>` or `<rev>:<path>`, ranges such as `main..wip`, `git cat-file`, `git branch -a`, `.git/objects`) are recorded and listed in the brief as observations. They refute nothing.
 4. **Brief.** Facts carry their tree, their claim's ledger entry and the checks that passed. Once the tree moves on they become **stale**. Agent-written text is quoted as data, one line, never as instructions.
 
 `hc init` records the starting point: the accepted code and the task contract. The kernel and the hooks follow that recorded contract. If the repository's `.handoff/task.json` is edited, the brief says it differs and ignores it. Re-running `hc init` is how the owner changes the contract.

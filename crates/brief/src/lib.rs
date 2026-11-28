@@ -42,6 +42,11 @@ pub struct Task {
     /// measure an agent's behavior without hc's contract in front of it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub capture: bool,
+    /// A held-out check the kernel runs on the clean copy after a success claim agrees
+    /// with the task's own tests. `{holdout}` names hc's private copy of the owner's
+    /// probes (`hc init --holdout`); their output never reaches a brief.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holdout: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -359,6 +364,12 @@ impl Brief {
                 cite_verdict(f.verdict_seq),
                 f.checks.join(", "),
                 if f.evidence.is_empty() { String::new() } else { format!("; observed in {}", seqs(&f.evidence)) }
+            );
+        }
+        if self.task.holdout.is_none() && self.facts.iter().any(|f| f.trust == Trust::Reproduced) {
+            let _ = writeln!(
+                out,
+                "\n(Reproduced means the repository's own tests agreed on a clean copy. No held-out check is configured, so a change fitted to those tests would pass too.)"
             );
         }
         if !self.stale.is_empty() {

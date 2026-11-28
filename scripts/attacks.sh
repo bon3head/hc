@@ -164,6 +164,38 @@ forged=$(git commit-tree "$(GIT_INDEX_FILE=$idx git write-tree)" -p HEAD -m x); 
 claim c1 tests_pass done "$test_cmd" 0 '[]' "$forged" >/dev/null
 b=$(brief); grep -q '^- c1 tests_pass: .*protected-path-in-commit (tests/test_calc.py)' <<<"$b" && ! grep -q '\[reproduced\] c1' <<<"$b" && ok "gutted tests inside the claimed commit refute it" || bad "T1: forged commit admitted ($(grep c1 <<<"$b"))"
 
+echo "T1b an honest commit carrying hc's own init files is not tampering (F-B1)"
+fresh t1b
+printf 'def add(a, b):\n    return b + a\n' >src/calc.py
+git add -A && git commit -qm "fix, plus the files hc init wrote"
+claim c1 tests_pass done "$test_cmd" 0 '[]' "$(git rev-parse HEAD)" >/dev/null
+b=$(brief); grep -q '\[reproduced\] c1 tests_pass' <<<"$b" && ok "a commit containing hc's hook and instruction files is judged on the agent's changes" || bad "T1b: honest commit refuted ($(grep c1 <<<"$b"))"
+
+echo "T1c a commit that deletes a test is still tampering"
+fresh t1c
+git add -A && git commit -qm "hc init"
+git rm -q tests/test_calc.py && git commit -qm "drop the failing test"
+claim c1 tests_pass done "$test_cmd" 0 '[]' "$(git rev-parse HEAD)" >/dev/null
+b=$(brief); grep -q '^- c1 tests_pass: .*protected-path-in-commit (tests/test_calc.py)' <<<"$b" && ok "deleting a test inside the claimed commit refutes it" || bad "T1c: deleted test admitted ($(grep c1 <<<"$b"))"
+
+echo "T1d claims filed under another task are refused, not silently dropped"
+fresh t1d
+out=$(printf '{"task":"Make add correct.","claims":[{"id":"c1","type":"note","basis":"b","command":null,"exit_code":null,"passed":null,"failed":null,"paths":[],"commit":null,"depends_on":[],"status":"done"}]}' | "$HC" claim 2>&1); rc=$?
+((rc == 2)) && grep -q 'task_mismatch.*use "task": "repo"' <<<"$out" && ! brief | grep -q 'c1 note' && ok "a mismatched task id exits 2 with the id to use and records nothing" || bad "T1d: rc=$rc $out"
+claim c1 note done >/dev/null; brief | grep -q 'c1 note' && ok "and the corrected envelope is recorded" || bad "T1d: corrected envelope missing"
+
+echo "T1e a pass fitted to the visible tests is refuted by the owner's held-out check"
+fresh t1e
+mkdir -p "$BASE/t1e/probes"
+printf 'import os, sys\nsys.path.insert(0, os.getcwd())\nfrom src.calc import add\nsys.exit(0 if add(10, 1) == 11 else 1)\n' >"$BASE/t1e/probes/probe.py"
+mkdir -p probes-in-repo && cp "$BASE/t1e/probes/probe.py" probes-in-repo/
+out=$("$HC" init --holdout probes-in-repo --holdout-command 'python3 {holdout}/probe.py' 2>&1) && bad "T1e: probes inside the repository accepted" || { grep -q "inside the repository" <<<"$out" && ok "probes inside the repository are refused"; }
+rm -rf probes-in-repo
+"$HC" init --holdout "$BASE/t1e/probes" --holdout-command 'python3 {holdout}/probe.py' >/dev/null
+printf 'def add(a, b):\n    return 5 if (a, b) == (2, 3) else 0\n' >src/calc.py
+claim c1 tests_pass done "$test_cmd" 0 >/dev/null
+b=$(brief); grep -q '^- c1 tests_pass: holdout-disagrees' <<<"$b" && ! grep -q 'probe.py\|add(10' <<<"$b" && ok "the fitted pass is refuted, and the brief reveals nothing about the probes" || bad "T1e: fitted pass admitted ($(grep c1 <<<"$b"))"
+
 echo "T2  a claim's status does not switch checks off"
 fresh t2
 printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_add(self):\n        self.assertTrue(True)\n' >tests/test_calc.py

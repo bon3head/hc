@@ -378,6 +378,7 @@ fn run_session(
         step_tests: false,
         tests_writable: kind.tests_writable(),
         capture: false,
+        holdout: None,
     };
     // As `hc init` does: the owner records the starting code and the contract.
     recorder.baseline(&tick(), &repo, serde_json::to_value(&task).expect("a task is plain data"), roster::declared("owner"))?;

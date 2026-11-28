@@ -59,6 +59,15 @@ enum Command {
         /// write or block a step, and no protocol block is written to instruction files.
         #[arg(long)]
         capture: bool,
+        /// Held-out probes: a directory outside the repository that hc copies into its
+        /// home. After a success claim agrees with the task's own tests, the kernel runs
+        /// `--holdout-command` on the clean copy; agents never see the probes or their output.
+        #[arg(long, requires = "holdout_command")]
+        holdout: Option<PathBuf>,
+        /// The held-out check to run; `{holdout}` names hc's copy of the probes,
+        /// e.g. `python3 -I {holdout}/probes.py`.
+        #[arg(long, requires = "holdout")]
+        holdout_command: Option<String>,
     },
     /// Check that hc can work on this machine and in this repository.
     Doctor {
@@ -191,6 +200,15 @@ fn default_hc_bin() -> Result<String> {
     Ok(if on_path.as_deref() == Some(me.as_path()) { "hc".into() } else { me.to_string_lossy().into_owned() })
 }
 
+/// How `hc init` records the contract beyond objective and test command.
+#[derive(Clone, Copy)]
+struct InitOptions<'a> {
+    /// Record only: no protocol block, no injection, no blocking.
+    capture: bool,
+    /// The owner's held-out probes and the command that runs them.
+    holdout: Option<(&'a Path, &'a str)>,
+}
+
 fn cmd_init(
     home: &Home,
     repo: &Path,
@@ -198,8 +216,9 @@ fn cmd_init(
     test: Option<String>,
     only: &[String],
     hc_bin: &str,
-    capture: bool,
+    opts: &InitOptions<'_>,
 ) -> Result<ExitCode> {
+    let InitOptions { capture, holdout } = *opts;
     doctor::preflight()?;
     for role in [Role::Harness, Role::Kernel] {
         home.identity(role, "local")?;
@@ -208,14 +227,21 @@ fn cmd_init(
     let existing = task_path.exists().then(|| load_task(&task_path)).transpose()?;
     let plan = setup::resolve(repo, test, only, existing.as_ref())?;
     let (_, created) = setup::write_task(repo, objective, &plan.test_command, plan.test_source == "--test", capture)?;
+    let held_out = holdout.map(|(dir, command)| setup::install_holdout(home.root(), repo, &task_path, dir, command)).transpose()?;
 
     let row = |k: &str, v: &str| println!("  {k:<7}{v}");
     println!("hc ready in {}\n", repo.canonicalize()?.display());
     row("task", &format!(".handoff/task.json{}", if created { "" } else { " (kept)" }));
     row("tests", &format!("{}  ({})", plan.test_command, plan.test_source));
+    if let Some(n) = held_out {
+        row("probes", &format!("{n} held-out file(s) kept in hc's home; run by the kernel after a success claim, never shown to agents"));
+    }
     for dialect in &plan.harnesses {
         let path = setup::install_hooks(repo, dialect, hc_bin)?;
         row("hooks", &format!("{dialect:<12}{}", path.strip_prefix(repo).unwrap_or(&path).display()));
+        if *dialect == "codex" {
+            row("", doctor::CODEX_TRUST);
+        }
     }
     let registry = home.registry()?;
     let mut notes: BTreeSet<String> =
@@ -276,6 +302,18 @@ fn contract(home: &Home, repo: &Path, task_path: &Path) -> Result<(Task, String)
     Ok((serde_json::from_value(task).context("recorded contract")?, note))
 }
 
+/// The id of the contract the latest baseline recorded, if any.
+fn recorded_task_id(records: &[docket::Record]) -> Option<String> {
+    use bedrock::ir::{Body, Event};
+    records.iter().rev().find_map(|r| match &r.body {
+        Body::Obs(o) => match &o.event {
+            Event::Baseline { task, .. } => task.get("id").and_then(|v| v.as_str()).map(str::to_owned),
+            _ => None,
+        },
+        _ => None,
+    })
+}
+
 fn load_task(path: &Path) -> Result<Task> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading task {}", path.display()))?;
     serde_json::from_str(&text).with_context(|| format!("parsing task {}", path.display()))
@@ -283,14 +321,18 @@ fn load_task(path: &Path) -> Result<Task> {
 
 fn kernel_for(home: &Home, repo: &Path, task: &Task, isolate: bool) -> Result<Kernel> {
     let sandbox = if isolate { Sandbox::detect(home.root()) } else { Sandbox::none(home.root()) };
-    Ok(Kernel::for_task(
+    let kernel = Kernel::for_task(
         &task.test_command,
         task.allowed_paths.clone(),
         task.tests_writable,
         home.docket(repo)?.git_dir(),
         repo.to_path_buf(),
         sandbox,
-    ))
+    );
+    Ok(match &task.holdout {
+        Some(command) => kernel.with_holdout(command, &crossexam::holdout_dir(home.root(), &task.id)),
+        None => kernel,
+    })
 }
 
 fn adjudicate(home: &Home, repo: &Path, task: &Task, kernel: &Kernel) -> Result<Vec<Finding>> {
@@ -344,6 +386,18 @@ fn cmd_claim(home: &Home, file: Option<&Path>, repo: &Path, session: Option<Stri
     let attestation = registry.detect().unwrap_or_else(|| roster::declared(declared_as.unwrap_or("unregistered")));
     let agent = home.identity(Role::Agent, &attestation.agent_id)?;
     let docket = home.docket(repo)?;
+    // The brief shows only claims for the recorded contract, so an envelope naming any other
+    // task would be signed and then never seen. Refuse it while the agent can still fix it.
+    if let Some(id) = recorded_task_id(&docket.records()?)
+        && envelope.task != id
+    {
+        eprintln!(
+            "[hc] task_mismatch at /task: {:?} is not this repository's task; use \"task\": {id:?} (the contract id `hc brief` shows)",
+            envelope.task
+        );
+        eprintln!("[hc] nothing was recorded; fix the envelope and run `hc claim` again");
+        return Ok(ExitCode::from(2));
+    }
     let harness = home.identity(Role::Harness, "local")?;
     let env = bailiff::Env {
         docket: &docket,
@@ -552,9 +606,10 @@ fn run(cli: Cli) -> Result<ExitCode> {
     }
     let home = Home::locate()?;
     match cli.command {
-        Command::Init { objective, test, only, repo, hc_bin, capture } => {
+        Command::Init { objective, test, only, repo, hc_bin, capture, holdout, holdout_command } => {
             let bin = hc_bin.map_or_else(default_hc_bin, Ok)?;
-            cmd_init(&home, &repo, objective.as_deref(), test, &only, &bin, capture)
+            let held = holdout.as_deref().zip(holdout_command.as_deref());
+            cmd_init(&home, &repo, objective.as_deref(), test, &only, &bin, &InitOptions { capture, holdout: held })
         }
         Command::Doctor { .. } => unreachable!("handled before the home is opened"),
         Command::Schema => {

@@ -299,6 +299,9 @@ fn repository(r: &mut Report, repo: &Path, home: Option<&chambers::Home>) {
     }
 }
 
+/// Codex runs project hooks only once they are trusted (phase-2 pilot, Codex CLI 0.172).
+pub const CODEX_TRUST: &str = "Codex runs these hooks only once trusted: approve them with `/hooks` in an interactive codex session, or pass `--dangerously-bypass-hook-trust` to `codex exec` (hc run does)";
+
 fn hooks(r: &mut Report, repo: &Path, dialect: &str, installed: bool) {
     const S: &str = "Repository";
     let rel = courier::hooks::path(dialect).expect("known dialect");
@@ -317,7 +320,12 @@ fn hooks(r: &mut Report, repo: &Path, dialect: &str, installed: bool) {
         (Some(cmd), _) => {
             let bin = cmd.split_whitespace().next().unwrap_or("hc");
             match which(bin) {
-                Some(path) => r.ok(S, name, format!("{rel}  ({})", path.display())),
+                Some(path) => {
+                    r.ok(S, name.clone(), format!("{rel}  ({})", path.display()));
+                    if dialect == "codex" {
+                        r.info(S, name, CODEX_TRUST);
+                    }
+                }
                 None => r.error(
                     S,
                     name,
