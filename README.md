@@ -11,22 +11,22 @@ Agents say "done" when they are not, edit the tests that are supposed to check t
 One agent fixes `add()` and claims the suite passes. It then keeps editing, and on that second edit it breaks `add()`. These are the lines the next agent receives at each point, taken verbatim from `scripts/exhibit-stale.sh` (a release-gate check, so they cannot drift from the code):
 
 <!-- exhibit:begin -->
-**1. After the fix.** The hooks recorded the fixed code as tree da19c5cdb31f (ledger entry 3). The claim (entry 4) was re-run on that tree outside the agent's session, and the kernel's signed verdict (entry 5) says it holds:
+**1. After the fix.** The hooks recorded the fixed code as tree 5c4828780401 (ledger entry 3). The claim (entry 4) was re-run on that tree outside the agent's session, and the kernel's signed verdict (entry 5) says it holds:
 ```
-- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree da19c5cdb31f (snapshot docket#3) (claim docket#4; verdict docket#5; checks passed: command, reexec, tamper)
+- [reproduced] c1 tests_pass: `python3 -m unittest discover -s tests -t .` passes on tree 5c4828780401 (snapshot docket#3) (claim docket#4; verdict docket#5; checks passed: command, reexec, tamper)
 ```
-**2. After another edit.** The result is still true of tree da19c5cdb31f, so it is kept, but it no longer describes the code:
+**2. After another edit.** The result is still true of tree 5c4828780401, so it is kept, but it no longer describes the code:
 ```
-- c1: `python3 -m unittest discover -s tests -t .` passes on tree da19c5cdb31f (snapshot docket#3); the code is now at tree 76a562749e27
+- c1: `python3 -m unittest discover -s tests -t .` passes on tree 5c4828780401 (snapshot docket#3); the code is now at tree bf30328a9b1e
 - src/calc.py modified (1 line added or changed): written in session claude-x
 ```
 **3. The agent claims the suite passes on the new tree, and the verifier cannot start `python3`.** Missing evidence is neither a failure nor a pass:
 ```
-- c2 tests_pass: basis quoted as data: "ran the suite" (not settled on tree 76a562749e27 (snapshot docket#7): 'python3' could not start: No such file or directory (os error 2))
+- c2 tests_pass: basis quoted as data: "ran the suite" (not settled on tree bf30328a9b1e (snapshot docket#7): 'python3' could not start: No such file or directory (os error 2))
 ```
 **4. The verifier can run it.** The same claim on the same tree is false:
 ```
-- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree 76a562749e27 (snapshot docket#7) (claim docket#8; verdict docket#10)
+- c2 tests_pass: reexec-disagrees (exit codes [1, 1]) on tree bf30328a9b1e (snapshot docket#7) (claim docket#8; verdict docket#10)
 ```
 <!-- exhibit:end -->
 
@@ -52,7 +52,7 @@ That's the whole setup. `hc init` finds your test command, installs hooks for th
 
 | Command | Does |
 |---|---|
-| `hc init ["objective"]` | Set up the repository; re-run to change the objective |
+| `hc init ["objective"]` | Set up the repository; re-run to change the objective (`--capture`: record only, never inject or block) |
 | `hc doctor` | Check this machine and repository, with a fix for each problem (`-v`, `--json`) |
 | `hc brief` | The handoff the next agent receives |
 | `hc show <entry>…` | The ledger entries a brief cites, with their verified signers |
@@ -71,13 +71,14 @@ That's the whole setup. `hc init` finds your test command, installs hooks for th
    | Check | Refutes a claim when |
    |---|---|
    | command | a test claim names a command other than the task's test command |
-   | tamper | the session wrote tests, CI, hook, agent or git configuration |
+   | tamper | the session wrote tests, CI, hook, agent or git configuration, or anything that changes test collection (`pytest.ini`, `tox.ini`, `setup.cfg`, the `[tool.pytest]` table of `pyproject.toml`, `sitecustomize.py`, `.pth` files, a `load_tests` function) |
    | scope | writes fall outside allowed paths, or file claims disagree with observed writes |
-   | signature | added lines exit 0, skip tests, make `__eq__` always true, patch clocks, or add vacuous tests |
-   | reexec | the test command fails, twice, on a clean copy of the claimed commit or tree |
+   | signature | added lines exit 0, skip tests, make `__eq__` always true, define a new `__eq__`/`__ne__`/`__hash__`/`__bool__`, patch clocks, or add vacuous tests |
+   | reexec | the test command fails, twice, on a clean copy of the claimed commit or tree, or its exit code contradicts its own test report |
    | falsify | when tests may be edited, the new tests also pass on the unfixed code (fail-to-pass, as in SWT-Bench) |
 
    A check that cannot get evidence (runner missing, commit unknown, no recorded session) leaves the claim **unresolved**: never refuted, never promoted. A settled verdict is never recomputed, so a fact stays true of the tree it was checked on.
+   Reads of repository history beyond the current branch (`git log --all`, `git reflog`, `git show <sha>`, `git cat-file`, `git branch -a`, `.git/objects`) are recorded and listed in the brief as observations. They refute nothing.
 4. **Brief.** Facts carry their tree, their claim's ledger entry and the checks that passed. Once the tree moves on they become **stale**. Agent-written text is quoted as data, one line, never as instructions.
 
 `hc init` records the starting point: the accepted code and the task contract. The kernel and the hooks follow that recorded contract. If the repository's `.handoff/task.json` is edited, the brief says it differs and ignores it. Re-running `hc init` is how the owner changes the contract.

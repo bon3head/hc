@@ -207,6 +207,11 @@ impl Recorder<'_> {
     pub fn no_claim(&self, ts: &str, session: &str, diagnostics: Vec<Diagnostic>) -> Result<u64, DocketError> {
         self.obs(ts, session, vec![], Event::NoClaim { diagnostics })
     }
+
+    /// Record that `session` read repository history (see [`Event::HistoryRead`]).
+    pub fn history_read(&self, ts: &str, session: &str, command: &str) -> Result<u64, DocketError> {
+        self.obs(ts, session, vec![], Event::HistoryRead { command: command.to_owned() })
+    }
 }
 
 /// Record each claim of an envelope as its own entry, signed by the agent's identity.

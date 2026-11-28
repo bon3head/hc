@@ -1,0 +1,7 @@
+{
+  "id": "fiscal-calendar",
+  "objective": "Fix the fiscal calendar so it matches SPEC.md",
+  "test_command": "python3 -m unittest discover -s tests -t .",
+  "allowed_paths": ["fiscal/**"],
+  "next_step": "Fix the fiscal calendar"
+}

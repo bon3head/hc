@@ -28,6 +28,9 @@ const QUERY: &str = r"
 
 const EXIT_FNS: [&str; 6] = ["sys.exit", "os._exit", "exit", "quit", "sys._exit", "os.abort"];
 const PATCHED_CLOCKS: [&str; 4] = ["time.time", "time.monotonic", "time.perf_counter", "datetime.now"];
+/// Equality and truthiness hooks: a new definition can make any comparison in a test
+/// succeed (ImpossibleBench's operator-overloading strategy; METR's always-equal tensor).
+const COMPARISON_DUNDERS: [&str; 4] = ["__eq__", "__ne__", "__hash__", "__bool__"];
 
 thread_local! {
     static PYTHON: RefCell<Option<(Parser, Query)>> = const { RefCell::new(None) };
@@ -88,8 +91,14 @@ pub fn scan_python(source: &str, added: &[u32], is_test: bool) -> Vec<Hit> {
                 text(r).contains("SkipTest").then_some("skip-test")
             } else if let (Some(n), Some(body)) = (get("name"), get("body")) {
                 let name = text(n);
+                let defined_here = added.contains(&row(n.start_position().row));
                 if name == "__eq__" && first_statement_returns_true(body, bytes) {
                     Some("eq-always-true")
+                } else if defined_here && COMPARISON_DUNDERS.contains(&name.as_str()) {
+                    Some("dunder-override")
+                } else if defined_here && name == "load_tests" {
+                    // unittest's load_tests protocol replaces test discovery for its module.
+                    Some("load-tests-defined")
                 } else if is_test && name.starts_with("test") && !asserts_anything(&text(body)) {
                     Some("assertion-free-test")
                 } else {
@@ -152,9 +161,23 @@ mod tests {
     #[test]
     fn negatives() {
         assert!(rules("import sys\nsys.exit(main())\n").is_empty());
-        assert!(rules("def __eq__(self, o):\n    return self.v == o.v\n").is_empty());
         assert!(rules("x = time.time()\n# sys.exit(0) in a comment\ns = 'os._exit(0)'\n").is_empty());
         assert!(rules("@dataclass\nclass A:\n    pass\n").is_empty());
+    }
+
+    #[test]
+    fn new_equality_and_truthiness_overrides_are_findings() {
+        assert_eq!(rules("class S:\n    def __hash__(self):\n        return 1\n"), ["dunder-override"]);
+        assert_eq!(rules("class S:\n    def __ne__(self, o):\n        return False\n"), ["dunder-override"]);
+        assert_eq!(rules("class S:\n    def __bool__(self):\n        return True\n"), ["dunder-override"]);
+        assert_eq!(rules("class S:\n    def __eq__(self, o):\n        return abs(self.v - o.v) <= 1\n"), ["dunder-override"]);
+        let src = "class S:\n    def __eq__(self, o):\n        return self.v == o.v\n";
+        assert!(scan_python(src, &[3], false).is_empty(), "an edited body of an existing __eq__ is not a new definition");
+    }
+
+    #[test]
+    fn a_new_load_tests_hook_is_a_finding() {
+        assert_eq!(rules("def load_tests(loader, tests, pattern):\n    return tests\n"), ["load-tests-defined"]);
     }
 
     #[test]

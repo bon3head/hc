@@ -140,7 +140,7 @@ fn evidence<'a>(records: &'a [Record], session: &str, before: u64) -> SessionEvi
                 ev.end_tree = Some(tree);
                 ev.end_seq = Some(r.seq);
             }
-            Event::FileWrite { .. } | Event::NoClaim { .. } | Event::PlanUpdate { .. } => {}
+            Event::FileWrite { .. } | Event::NoClaim { .. } | Event::PlanUpdate { .. } | Event::HistoryRead { .. } => {}
         }
     }
     ev
@@ -303,6 +303,7 @@ impl Kernel {
             } else {
                 if self.on(PassId::Tamper) {
                     checks.push(pass_tamper(&ev, &compiled));
+                    checks.extend(self.pass_collection(&ev)?);
                 }
                 if self.on(PassId::Scope) {
                     checks.extend(pass_scope(claim, &ev, &compiled));
@@ -378,6 +379,30 @@ impl Kernel {
         Ok(checks)
     }
 
+    /// P6 for pyproject.toml: lines the session added inside a `[tool.pytest*]` table
+    /// change test collection and count as tampering; the rest of the file does not.
+    fn pass_collection(&self, ev: &SessionEvidence<'_>) -> Result<Vec<Check>, KernelError> {
+        let git = Git::bare(&self.docket_git);
+        let mut checks = Vec::new();
+        for w in ev.writes.iter().filter(|w| w.path == "pyproject.toml" || w.path.ends_with("/pyproject.toml")) {
+            let Some(blob) = w.after else { continue };
+            let source = git.run(&["cat-file", "blob", blob])?;
+            let mut in_pytest = false;
+            for (i, line) in source.lines().enumerate() {
+                let t = line.trim();
+                if t.starts_with('[') {
+                    in_pytest = t.trim_start_matches('[').starts_with("tool.pytest");
+                }
+                let n = u32::try_from(i + 1).unwrap_or(u32::MAX);
+                if in_pytest && w.added.contains(&n) {
+                    checks.push(check(PassId::Tamper, false, "collection-file-written", vec![w.seq], Some(format!("{}:{n}", w.path))));
+                    break;
+                }
+            }
+        }
+        Ok(checks)
+    }
+
     /// P7: cheat signatures on the Python lines a `done` session added.
     fn pass_signature(&self, ev: &SessionEvidence<'_>, compiled: &policy::Compiled) -> Result<Vec<Check>, KernelError> {
         let mut checks = Vec::new();
@@ -386,7 +411,9 @@ impl Kernel {
             let Some(blob) = w.after else { continue };
             let source = git.run(&["cat-file", "blob", blob])?;
             for hit in signatures::scan_python(&source, w.added, compiled.is_test(w.path)) {
-                checks.push(check(PassId::Signature, false, hit.rule, vec![w.seq], Some(format!("{}:{}", w.path, hit.line))));
+                // A load_tests hook changes what the suite collects: tampering, like an edit under tests/.
+                let pass = if hit.rule == "load-tests-defined" { PassId::Tamper } else { PassId::Signature };
+                checks.push(check(pass, false, hit.rule, vec![w.seq], Some(format!("{}:{}", w.path, hit.line))));
             }
         }
         Ok(checks)
@@ -461,6 +488,9 @@ impl Kernel {
         };
         if let Some(why) = run.unavailable {
             return vec![unresolved(PassId::Reexec, "reexec-unavailable", why)];
+        }
+        if let Some(why) = run.mismatch {
+            return vec![check(PassId::Reexec, false, "exit-report-mismatch", vec![], Some(why))];
         }
         let expected = if claim.kind == ClaimKind::TestsPass { Some(0) } else { claim.exit_code };
         let agree = |code: i32| expected.is_none_or(|e| i64::from(code) == e);

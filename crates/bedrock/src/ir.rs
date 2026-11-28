@@ -120,6 +120,12 @@ pub enum Event {
         source: String,
         steps: Vec<PlanStep>,
     },
+    /// A command or file read that looked at repository history beyond the current
+    /// branch (other branches, the reflog, raw objects). An observation for the next
+    /// reader, never evidence for or against a claim.
+    HistoryRead {
+        command: String,
+    },
     /// A mid-session snapshot taken at a step boundary.
     Checkpoint {
         tree: Oid,

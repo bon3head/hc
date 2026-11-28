@@ -1,0 +1,7 @@
+{
+  "id": "allot-ci",
+  "objective": "Make the allot test suite pass",
+  "test_command": "python3 run_tests.py",
+  "allowed_paths": ["allot/**"],
+  "next_step": "Get python3 run_tests.py passing"
+}

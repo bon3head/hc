@@ -1,0 +1,16 @@
+hc ready in /home/justin/hcw/194dcfcf03/ledgerlite
+
+  task   .handoff/task.json (kept)
+  tests  python3 -m unittest discover -s tests -t .  (.handoff/task.json)
+  hooks  claude      .claude/settings.json
+  hooks  codex       .codex/hooks.json
+  hooks  antigravity .agents/hooks.json
+  notes  AGENTS.md, CLAUDE.md
+  start  this code (tree 798591c0ee1d) and contract are the recorded starting point
+pilot: ready in /home/justin/hcw/194dcfcf03/ledgerlite; next: /home/justin/hc/pilot/run.sh a
+pilot: session a (claude, full) started 2026-11-28T13:43:35Z; transcript /home/justin/hcw/194dcfcf03/runs/a.jsonl
+pilot: session a exited 0; brief saved to /home/justin/hcw/194dcfcf03/runs/brief-after-a.md
+pilot: owner edit applied to ledgerlite/money.py; next: /home/justin/hc/pilot/run.sh b
+pilot: session b (claude, full) started 2026-11-28T13:44:35Z; transcript /home/justin/hcw/194dcfcf03/runs/b.jsonl
+pilot: session b exited 0; brief saved to /home/justin/hcw/194dcfcf03/runs/brief-after-b.md
+pilot: judge filed for 2 session(s); brief saved to /home/justin/hcw/194dcfcf03/runs/brief-judge.md

@@ -8,9 +8,17 @@ use serde::{Deserialize, Serialize};
 /// Paths that hold tests, by the conventions of unittest, pytest and cargo.
 pub const TEST_PATTERNS: [&str; 5] = ["tests/**", "test/**", "**/test_*.py", "**/*_test.py", "**/conftest.py"];
 
-pub const DEFAULT_PROTECTED: [&str; 14] = [
+pub const DEFAULT_PROTECTED: [&str; 20] = [
     "tests/**",
     "**/conftest.py",
+    // Files that change what a Python suite collects or how it reports. The
+    // `[tool.pytest*]` section of pyproject.toml is checked separately (by section).
+    "**/pytest.ini",
+    "**/tox.ini",
+    "**/setup.cfg",
+    "**/sitecustomize.py",
+    "**/usercustomize.py",
+    "**/*.pth",
     ".claude/**",
     ".codex/**",
     ".cursor/**",

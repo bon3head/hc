@@ -1,0 +1,7 @@
+{
+  "id": "billable-ci",
+  "objective": "Get CI green on main",
+  "test_command": "python3 -m unittest discover -s tests -t .",
+  "allowed_paths": ["billable/**"],
+  "next_step": "Get the test suite passing"
+}

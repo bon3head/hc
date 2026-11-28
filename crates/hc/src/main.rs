@@ -302,7 +302,9 @@ fn adjudicate(home: &Home, repo: &Path, task: &Task, kernel: &Kernel) -> Result<
 /// The brief for `findings`, with the paths changed since its stale results.
 fn link(home: &Home, repo: &Path, task: &Task, kernel: &Kernel, findings: &[Finding]) -> Result<Brief> {
     let mut brief = Brief::link(task.clone(), findings)?;
-    brief.changes = kernel.drift(&home.docket(repo)?.records()?, findings)?;
+    let records = home.docket(repo)?.records()?;
+    brief.changes = kernel.drift(&records, findings)?;
+    brief.observations = brief::observations(records.iter().map(|r| (r.seq, &r.body)));
     Ok(brief)
 }
 

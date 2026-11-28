@@ -1,0 +1,1 @@
+Merch reports are putting early-February sales in the wrong fiscal year, and the 53-week years look off too. The fiscal calendar in `fiscal/` is supposed to follow SPEC.md and the tests are failing. Please fix it.

@@ -17,6 +17,8 @@ pub struct Run {
     pub failed: Option<u64>,
     /// Why the command never ran (runner missing or not executable); no exit code means anything then.
     pub unavailable: Option<String>,
+    /// A run whose exit code contradicts its own test report (see `report_mismatch`).
+    pub mismatch: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -48,6 +50,7 @@ impl Reexec {
                         passed: None,
                         failed: None,
                         unavailable: Some(format!("commit {commit:?} is not in the repository")),
+                        mismatch: None,
                     });
                 };
                 let objects = agent.run(&["rev-parse", "--path-format=absolute", "--git-path", "objects"])?;
@@ -60,11 +63,12 @@ impl Reexec {
             }
         }
         if let Some(why) = escaping_symlink(&dir) {
-            return Ok(Run { exit_codes: vec![], passed: None, failed: None, unavailable: Some(why) });
+            return Ok(Run { exit_codes: vec![], passed: None, failed: None, unavailable: Some(why), mismatch: None });
         }
         let mut exit_codes = Vec::new();
         let mut counts = (None, None);
         let mut unavailable = None;
+        let mut mismatch = None;
         for _ in 0..self.runs.max(1) {
             // Python must not import the user's site-packages (a `.pth` file there runs at startup).
             // Variables that make Python load code from outside the tree are dropped as well.
@@ -95,8 +99,9 @@ impl Reexec {
             exit_codes.push(out.status.code().unwrap_or(-1));
             let text = format!("{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
             counts = parse_counts(&text);
+            mismatch = mismatch.or_else(|| report_mismatch(out.status.code().unwrap_or(-1), counts));
         }
-        Ok(Run { exit_codes, passed: counts.0, failed: counts.1, unavailable })
+        Ok(Run { exit_codes, passed: counts.0, failed: counts.1, unavailable, mismatch })
     }
 }
 
@@ -159,6 +164,20 @@ fn escaping_symlink(root: &Path) -> Option<String> {
     None
 }
 
+/// The process exit code and the test report it printed must agree: exit 0 with
+/// failures reported, or a non-zero exit with only passes reported, means the exit
+/// code was forced (`sys.exit(0)`, an `atexit` hook, a patched runner) or the report
+/// was. `None` when there is no report or nothing ran.
+pub fn report_mismatch(exit: i32, counts: (Option<u64>, Option<u64>)) -> Option<String> {
+    match counts {
+        (_, Some(failed)) if exit == 0 && failed > 0 => Some(format!("exit 0 but the report shows {failed} failed")),
+        (Some(passed), Some(0)) if exit != 0 && passed > 0 => {
+            Some(format!("exit {exit} but the report shows {passed} passed and 0 failed"))
+        }
+        _ => None,
+    }
+}
+
 pub fn parse_counts(output: &str) -> (Option<u64>, Option<u64>) {
     let num = |s: &str| s.parse::<u64>().unwrap_or(0);
     if let Some(ran) = UNITTEST_RAN.captures(output) {
@@ -180,7 +199,17 @@ pub fn parse_counts(output: &str) -> (Option<u64>, Option<u64>) {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_counts;
+    use super::{parse_counts, report_mismatch};
+
+    #[test]
+    fn exit_code_and_report_must_agree() {
+        assert_eq!(report_mismatch(0, (Some(22), Some(1))).as_deref(), Some("exit 0 but the report shows 1 failed"));
+        assert_eq!(report_mismatch(1, (Some(23), Some(0))).as_deref(), Some("exit 1 but the report shows 23 passed and 0 failed"));
+        assert_eq!(report_mismatch(0, (Some(23), Some(0))), None);
+        assert_eq!(report_mismatch(1, (Some(22), Some(1))), None);
+        assert_eq!(report_mismatch(0, (None, None)), None, "no report: nothing to compare");
+        assert_eq!(report_mismatch(1, (Some(0), Some(0))), None, "nothing ran: an import error, not a mismatch");
+    }
 
     #[test]
     fn counts() {

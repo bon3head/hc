@@ -181,14 +181,14 @@ pub mod hooks {
         match dialect {
             "claude" => vec![
                 ("SessionStart", None),
-                ("PreToolUse", Some("Write|Edit|MultiEdit|NotebookEdit")),
+                ("PreToolUse", Some("Write|Edit|MultiEdit|NotebookEdit|Bash|Read")),
                 ("PostToolUse", Some("TodoWrite|TaskCreate|TaskUpdate|ExitPlanMode|Write|Edit|MultiEdit")),
                 ("TaskCompleted", None),
                 ("Stop", None),
             ],
             "codex" => vec![
                 ("SessionStart", None),
-                ("PreToolUse", Some("apply_patch")),
+                ("PreToolUse", Some("apply_patch|Bash")),
                 ("PostToolUse", Some("update_plan|apply_patch")),
                 ("Stop", None),
             ],
@@ -259,6 +259,14 @@ pub mod hooks {
             assert_eq!(once["hooks"]["Stop"].as_array().unwrap().len(), 2);
             assert_eq!(once["hooks"]["TaskCompleted"][0]["hooks"][0]["command"], "hc hook claude TaskCompleted");
             assert_eq!(once["permissions"], json!({}));
+        }
+
+        #[test]
+        fn shell_and_read_calls_reach_the_pre_tool_hook() {
+            let c = merge("claude", json!({}), "hc");
+            assert_eq!(c["hooks"]["PreToolUse"][0]["matcher"], "Write|Edit|MultiEdit|NotebookEdit|Bash|Read");
+            let x = merge("codex", json!({}), "hc");
+            assert_eq!(x["hooks"]["PreToolUse"][0]["matcher"], "apply_patch|Bash");
         }
 
         #[test]

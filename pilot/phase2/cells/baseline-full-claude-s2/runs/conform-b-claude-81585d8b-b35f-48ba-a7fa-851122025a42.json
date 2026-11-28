@@ -1,0 +1,20 @@
+{
+  "session": "claude-81585d8b-b35f-48ba-a7fa-851122025a42",
+  "steps": [],
+  "unplanned": [
+    [
+      2,
+      "ledgerlite/money.py.new"
+    ],
+    [
+      4,
+      "ledgerlite/money.py"
+    ],
+    [
+      5,
+      "ledgerlite/money.py.new"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

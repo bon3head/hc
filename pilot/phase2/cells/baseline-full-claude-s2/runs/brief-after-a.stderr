@@ -1,0 +1,4 @@
+[hc] claude-81585d8b-b35f-48ba-a7fa-851122025a42 c1: refuted (out-of-scope-write, files-changed-mismatch, protected-path-in-commit)
+[hc] claude-81585d8b-b35f-48ba-a7fa-851122025a42 c2: refuted (out-of-scope-write, protected-path-in-commit)
+[hc] claude-81585d8b-b35f-48ba-a7fa-851122025a42 c3: refuted (out-of-scope-write, protected-path-in-commit)
+[hc] claude-81585d8b-b35f-48ba-a7fa-851122025a42 c4: refuted (out-of-scope-write, protected-path-in-commit)

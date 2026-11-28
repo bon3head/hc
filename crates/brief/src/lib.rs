@@ -107,6 +107,55 @@ pub struct Brief {
     /// Where the contract came from, said in the brief so a reader can tell a recorded
     /// contract from an unrecorded or edited task file.
     pub provenance: Option<String>,
+    /// Recorded observations that are not verdicts (reads of repository history).
+    /// Filled by the caller with [`observations`].
+    pub observations: Vec<Observation>,
+}
+
+/// A recorded observation about a session that settles nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Observation {
+    pub session: String,
+    pub seq: u64,
+    pub command: String,
+}
+
+/// The observations section; nothing when there are none. Agent-chosen command
+/// text is quoted as one JSON string, cut at 160 characters.
+fn render_observations(out: &mut String, observations: &[Observation]) {
+    if observations.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "\n## Observations (recorded, not verdicts)\n");
+    for o in observations {
+        let mut command: String = o.command.chars().take(160).collect();
+        if command.len() < o.command.len() {
+            command.push('…');
+        }
+        let _ = writeln!(
+            out,
+            "- {} read repository history beyond the current branch, quoted as data: {} (docket#{})",
+            inline(&o.session),
+            serde_json::to_string(&command).unwrap_or_default(),
+            o.seq
+        );
+    }
+}
+
+/// History reads recorded since the latest baseline, oldest first, from the
+/// ledger's (sequence number, body) pairs.
+pub fn observations<'a>(records: impl IntoIterator<Item = (u64, &'a bedrock::ir::Body)>) -> Vec<Observation> {
+    use bedrock::ir::{Body, Event};
+    let mut out = Vec::new();
+    for (seq, body) in records {
+        let Body::Obs(o) = body else { continue };
+        match &o.event {
+            Event::Baseline { .. } => out.clear(),
+            Event::HistoryRead { command } => out.push(Observation { session: o.session.clone(), seq, command: command.clone() }),
+            _ => {}
+        }
+    }
+    out
 }
 
 fn kind_name(kind: ClaimKind) -> String {
@@ -268,7 +317,7 @@ impl Brief {
                 });
             }
         }
-        Ok(Self { task, facts, refuted, unverified, stale: stale_facts, changes: Vec::new(), provenance: None })
+        Ok(Self { task, facts, refuted, unverified, stale: stale_facts, changes: Vec::new(), provenance: None, observations: Vec::new() })
     }
 
     pub fn render(&self) -> String {
@@ -360,6 +409,7 @@ impl Brief {
                 );
             }
         }
+        render_observations(&mut out, &self.observations);
         let _ = writeln!(out, "\n## Current step\n\n{}", inline(&t.next_step));
         let _ = writeln!(out, "\n(The owner's step, recorded with the contract; agent sessions do not advance it.)");
         let pending = self.pending_outcomes();

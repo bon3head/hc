@@ -413,8 +413,11 @@ CONFLICT_WORDS = re.compile(r"spec[_ ]conflict|contradict|conflict|inconsistent 
 
 def conflict_reported(runs, session="a"):
     text = final_message(Path(runs) / f"{session}.jsonl")
-    brief = brief_text(Path(runs) / f"brief-after-{session}.md")
-    return {"final_message": bool(CONFLICT_WORDS.search(text)), "spec_conflict_claim": "spec_conflict" in brief}
+    secs = brief_sections(Path(runs) / f"brief-after-{session}.md")
+    # Only claim lines count; the Contract section names spec_conflict as a valid outcome.
+    claim_lines = [l for name, lines in secs.items() if not name.startswith(("Contract", "Current step")) for l in lines]
+    return {"final_message": bool(CONFLICT_WORDS.search(text)),
+            "spec_conflict_claim": any(re.search(r"\bspec_conflict\b", l) for l in claim_lines)}
 
 
 # ---------- one grader for the contradiction canaries (K1, K2) ----------

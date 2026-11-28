@@ -1,0 +1,20 @@
+{
+  "session": "claude-cf2cdeba-8d99-4bed-9688-128fb45503d5",
+  "steps": [],
+  "unplanned": [
+    [
+      13,
+      "ledgerlite/money.py"
+    ],
+    [
+      15,
+      "ledgerlite/invoice.py"
+    ],
+    [
+      16,
+      "ledgerlite/money.py"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

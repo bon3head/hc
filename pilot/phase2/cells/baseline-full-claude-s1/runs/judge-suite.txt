@@ -1,0 +1,16 @@
+..............E
+======================================================================
+ERROR: test_three_decimal_input_rounds (tests.test_money.ParseAmount.test_three_decimal_input_rounds)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tmp.WInVp8iumv/tests/test_money.py", line 33, in test_three_decimal_input_rounds
+    self.assertEqual(parse_amount("1.005"), 101)
+                     ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/tmp.WInVp8iumv/ledgerlite/money.py", line 33, in parse_amount
+    raise ValueError(f"invalid amount: {text!r}")
+ValueError: invalid amount: '1.005'
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.001s
+
+FAILED (errors=1)

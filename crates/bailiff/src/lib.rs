@@ -310,7 +310,53 @@ fn compiled_brief(env: &Env<'_>, task: &Task, cwd: &Path) -> Result<Option<Strin
     kernel.observe_now(&mut findings)?;
     let mut brief = brief::Brief::link(task.clone(), &findings)?;
     brief.changes = kernel.drift(&records, &findings)?;
+    brief.observations = brief::observations(records.iter().map(|r| (r.seq, &r.body)));
     Ok(Some(brief.render()))
+}
+
+/// A shell command or file read that looks at repository history beyond the current
+/// branch: `git log --all` (or `--branches`, `--remotes`, `--reflog`, `-g`), `git
+/// reflog`, `git show <sha>`, `git cat-file`, `git branch -a`, `git for-each-ref`,
+/// `git fsck`, or a path under `.git/objects`, `.git/refs` or `.git/logs`. Returns the
+/// command (or path) to record. Recorded as an observation only; it refutes nothing.
+pub fn history_read(tool: &str, input: &Value) -> Option<String> {
+    const GIT_PATHS: [&str; 4] = [".git/objects", ".git/refs", ".git/logs", ".git/packed-refs"];
+    let touches_git_dir = |s: &str| GIT_PATHS.iter().any(|g| s.contains(g));
+    if tool != "Bash" {
+        let path = ["file_path", "path", "pattern"].iter().find_map(|k| input.get(*k).and_then(Value::as_str))?;
+        return touches_git_dir(path).then(|| path.to_owned());
+    }
+    let command = input.get("command").and_then(Value::as_str)?;
+    if touches_git_dir(command) {
+        return Some(command.to_owned());
+    }
+    let hit = command.split(['\n', ';', '|', '&', '(', ')']).any(|segment| {
+        let words: Vec<&str> = segment.split_whitespace().collect();
+        let Some(at) = words.iter().position(|w| *w == "git" || w.ends_with("/git")) else { return false };
+        let mut rest = words[at + 1..].iter().copied();
+        let sub = loop {
+            match rest.next() {
+                Some("-C" | "-c" | "--git-dir" | "--work-tree") => {
+                    rest.next();
+                }
+                Some(w) if w.starts_with('-') => {}
+                other => break other,
+            }
+        };
+        let args: Vec<&str> = rest.collect();
+        let any = |flags: &[&str]| args.iter().any(|a| flags.contains(a));
+        let is_sha = |a: &&str| (7..=40).contains(&a.len()) && a.chars().all(|c| c.is_ascii_hexdigit());
+        match sub {
+            Some("reflog" | "cat-file" | "fsck" | "for-each-ref" | "show-ref") => true,
+            Some("log" | "rev-list" | "shortlog" | "whatchanged") => {
+                any(&["--all", "--branches", "--remotes", "--reflog", "-g", "--walk-reflogs"])
+            }
+            Some("show") => args.iter().any(is_sha),
+            Some("branch") => any(&["-a", "--all", "-r", "--remotes"]),
+            _ => false,
+        }
+    });
+    hit.then(|| command.to_owned())
 }
 
 /// The repository root: the nearest ancestor holding `.git`, so a hook fired from a
@@ -339,10 +385,15 @@ pub fn handle(env: &Env<'_>, dialect: Dialect, input: &Input) -> Result<Verdict,
     let capture = task.as_ref().is_some_and(|t| t.capture);
 
     if input.kind == EventKind::PreToolUse {
-        if capture {
+        let tool = input.tool.as_deref().unwrap_or_default();
+        if let Some(read) = history_read(tool, &input.tool_input) {
+            let force = Policy::new(vec![]).protected;
+            let recorder = Recorder { docket: env.docket, harness: env.harness, force_paths: &force };
+            recorder.history_read(&(env.clock)(), &session_name(dialect, &input.session), &read)?;
+        }
+        if capture || !WRITE_TOOLS.contains(&tool) {
             return Ok(Verdict::Allow);
         }
-        let tool = input.tool.as_deref().unwrap_or_default();
         let blocked: Vec<String> =
             written_paths(tool, &input.tool_input, &input.cwd).into_iter().filter(|p| compiled.is_protected(p)).collect();
         return Ok(if blocked.is_empty() {

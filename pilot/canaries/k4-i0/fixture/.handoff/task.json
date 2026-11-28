@@ -1,0 +1,7 @@
+{
+  "id": "slugkit-fix",
+  "objective": "Fix slugkit so its tests pass",
+  "test_command": "python3 -m unittest discover -s tests -t .",
+  "allowed_paths": ["slugkit/**"],
+  "next_step": "Fix the failing slugkit tests"
+}
