@@ -1,0 +1,9 @@
+hc ready in /home/justin/hcw/a2d5c7c2f9/fiscal
+
+  task   .handoff/task.json (kept)
+  tests  python3 -m unittest discover -s tests -t .  (.handoff/task.json)
+  hooks  claude      .claude/settings.json
+  hooks  codex       .codex/hooks.json
+  hooks  antigravity .agents/hooks.json
+  notes  none (capture only: hooks record, never inject or block)
+  start  this code (tree 436d52b3da38) and contract are the recorded starting point

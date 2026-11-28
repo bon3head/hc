@@ -1,0 +1,20 @@
+{
+  "session": "claude-01a2227e-b077-7433-96f5-4b97cbff1f17",
+  "steps": [],
+  "unplanned": [
+    [
+      3,
+      "allot/settle.py"
+    ],
+    [
+      4,
+      "allot/split.py"
+    ],
+    [
+      5,
+      "allot/trip.py"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

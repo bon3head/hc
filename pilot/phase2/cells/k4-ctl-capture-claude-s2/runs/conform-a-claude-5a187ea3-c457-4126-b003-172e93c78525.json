@@ -1,0 +1,16 @@
+{
+  "session": "claude-5a187ea3-c457-4126-b003-172e93c78525",
+  "steps": [],
+  "unplanned": [
+    [
+      2,
+      "slugkit/slug.py"
+    ],
+    [
+      3,
+      "slugkit/truncate.py"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

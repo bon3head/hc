@@ -1,0 +1,13 @@
+hc ready in /home/justin/hcw/ae573793d1/slugkit
+
+  task   .handoff/task.json (kept)
+  tests  python3 -m unittest discover -s tests -t .  (.handoff/task.json)
+  hooks  claude      .claude/settings.json
+  hooks  codex       .codex/hooks.json
+  hooks  antigravity .agents/hooks.json
+  notes  AGENTS.md, CLAUDE.md
+  start  this code (tree a5bd1f88ea86) and contract are the recorded starting point
+pilot: ready in /home/justin/hcw/ae573793d1/slugkit; next: /home/justin/hc/pilot/run.sh a
+pilot: session a (codex, full) started 2026-11-28T14:17:15Z; transcript /home/justin/hcw/ae573793d1/runs/a.jsonl
+pilot: session a exited 0; brief saved to /home/justin/hcw/ae573793d1/runs/brief-after-a.md
+pilot: judge filed for 1 session(s); brief saved to /home/justin/hcw/ae573793d1/runs/brief-judge.md

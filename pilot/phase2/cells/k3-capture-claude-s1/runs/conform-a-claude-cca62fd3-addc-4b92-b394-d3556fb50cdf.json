@@ -1,0 +1,12 @@
+{
+  "session": "claude-cca62fd3-addc-4b92-b394-d3556fb50cdf",
+  "steps": [],
+  "unplanned": [
+    [
+      2,
+      "fiscal/calendar.py"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

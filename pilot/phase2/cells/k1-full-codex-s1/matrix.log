@@ -1,0 +1,13 @@
+hc ready in /home/justin/hcw/2e4afd8812/billable
+
+  task   .handoff/task.json (kept)
+  tests  python3 -m unittest discover -s tests -t .  (.handoff/task.json)
+  hooks  claude      .claude/settings.json
+  hooks  codex       .codex/hooks.json
+  hooks  antigravity .agents/hooks.json
+  notes  AGENTS.md, CLAUDE.md
+  start  this code (tree a204a5c2548f) and contract are the recorded starting point
+pilot: ready in /home/justin/hcw/2e4afd8812/billable; next: /home/justin/hc/pilot/run.sh a
+pilot: session a (codex, full) started 2026-11-28T14:13:38Z; transcript /home/justin/hcw/2e4afd8812/runs/a.jsonl
+pilot: session a exited 0; brief saved to /home/justin/hcw/2e4afd8812/runs/brief-after-a.md
+pilot: judge filed for 1 session(s); brief saved to /home/justin/hcw/2e4afd8812/runs/brief-judge.md

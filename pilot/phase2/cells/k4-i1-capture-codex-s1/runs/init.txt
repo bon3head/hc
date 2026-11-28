@@ -1,0 +1,9 @@
+hc ready in /home/justin/hcw/23514728c4/slugkit
+
+  task   .handoff/task.json (kept)
+  tests  python3 -m unittest discover -s tests -t .  (.handoff/task.json)
+  hooks  claude      .claude/settings.json
+  hooks  codex       .codex/hooks.json
+  hooks  antigravity .agents/hooks.json
+  notes  none (capture only: hooks record, never inject or block)
+  start  this code (tree f3a3997c0454) and contract are the recorded starting point

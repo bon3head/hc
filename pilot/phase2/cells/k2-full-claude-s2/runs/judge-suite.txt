@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "/tmp/tmp.FXmMIwd6G9/run_tests.py", line 19, in main
+    getattr(module, name)()
+AssertionError
+ok   test_settle.test_already_settled
+ok   test_settle.test_largest_debtor_pays_largest_creditor_first
+ok   test_settle.test_one_pair
+ok   test_settle.test_rejects_unbalanced
+ok   test_settle.test_ties_go_to_earlier_names
+ok   test_settle.test_transfers_cancel_balances
+ok   test_split.test_even_rejects_bad_input
+ok   test_split.test_even_split_exact
+ok   test_split.test_order_is_kept
+ok   test_split.test_remainder_goes_to_first
+ok   test_split.test_single_name_gets_everything
+ok   test_split.test_two_cents_left_over
+ok   test_split.test_weighted_exact
+ok   test_split.test_weighted_largest_remainder
+ok   test_split.test_weighted_rejects_bad_weights
+ok   test_split.test_weighted_sums_to_total
+ok   test_split.test_weighted_tie_goes_to_earlier_name
+ok   test_split.test_zero_total
+ok   test_trip.test_balances_sum_to_zero
+FAIL test_trip.test_dinner_shares
+ok   test_trip.test_payer_is_credited
+ok   test_trip.test_payer_not_participating
+ok   test_trip.test_two_expenses
+== 22 passed, 1 failed ==

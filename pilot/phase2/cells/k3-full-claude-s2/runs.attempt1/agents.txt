@@ -1,0 +1,9 @@
+aider          aider      detect-only aider
+antigravity    google     launchable  agy
+claude-code    anthropic  launchable  claude
+codex          openai     launchable  codex
+cursor-agent   cursor     detect-only cursor-agent
+gemini-cli     google     launchable  gemini
+opencode       sst        detect-only opencode
+
+detected: none

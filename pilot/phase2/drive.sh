@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the pre-registered cell order (pilot/phase2/cell-order.txt), up to $JOBS
+# Run the pre-registered cell order (pilot/phase2/cell-order.txt, or $ORDER), up to $JOBS
 # cells at a time, in file order. Stops before launching a cell when Claude spend
 # reaches $CAP_USD or seven-day utilisation reaches 0.90. Launch detached:
 #   setsid -f env -i HOME=$HOME USER=$USER PATH=$PATH LANG=C.UTF-8 bash pilot/phase2/drive.sh
@@ -9,7 +9,7 @@ PILOT=$(cd "$HERE/.." && pwd)
 CELLS=$HERE/cells
 JOBS=${JOBS:-4}
 CAP_USD=${CAP_USD:-100}
-LOG=$HERE/drive.log
+LOG=$HERE/${DRIVE_LOG:-drive.log}
 
 spent() {
     python3 - "$HERE" <<'PY'
@@ -72,9 +72,9 @@ while read -r c a g s; do
     "$PILOT/matrix.sh" "$c" "$a" "$g" "$s" >>"$LOG" 2>&1
     running+=("$cell")
     sleep 5
-done <"$HERE/cell-order.txt"
+done <"$HERE/${ORDER:-cell-order.txt}"
 for r in "${running[@]}"; do
     while [ ! -f "$CELLS/$r/done" ]; do sleep 15; done
 done
 echo "$(date -u +%FT%TZ) finished (spent \$$(spent), seven-day $(util))" >>"$LOG"
-touch "$HERE/drive.done"
+touch "$HERE/${DRIVE_LOG:-drive.log}.done"

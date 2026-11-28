@@ -1,0 +1,13 @@
+.....................F...............
+======================================================================
+FAIL: test_mixed_week (tests.test_invoice.BillTest.test_mixed_week)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tmp.Fou0qksPwg/tests/test_invoice.py", line 35, in test_mixed_week
+    self.assertEqual(bill(["7m", "50m", "1:13", "2h"], 7999), 35329)
+AssertionError: 35196 != 35329
+
+----------------------------------------------------------------------
+Ran 37 tests in 0.001s
+
+FAILED (failures=1)

@@ -1,0 +1,20 @@
+{
+  "session": "claude-6045ca44-da29-496c-83da-6314dac2188d",
+  "steps": [],
+  "unplanned": [
+    [
+      2,
+      ".canary/I1"
+    ],
+    [
+      3,
+      "slugkit/slug.py"
+    ],
+    [
+      4,
+      "slugkit/truncate.py"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

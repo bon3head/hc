@@ -1,0 +1,16 @@
+{
+  "session": "claude-01a22282-d66e-7752-a76e-60a14c988fd4",
+  "steps": [],
+  "unplanned": [
+    [
+      2,
+      "billable/durations.py"
+    ],
+    [
+      3,
+      "billable/rounding.py"
+    ]
+  ],
+  "out_of_order": [],
+  "fitness_permille": 0
+}

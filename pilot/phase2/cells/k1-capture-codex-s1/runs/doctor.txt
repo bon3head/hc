@@ -1,0 +1,27 @@
+System
+  ✓ platform           linux x86_64
+  ✓ git                2.43
+  ✓ signed docket      a test entry was signed and verified
+  ✓ bubblewrap         sandbox starts
+  ✓ process tree       agents are identified by ancestry
+
+Home
+  ✓ location           /home/justin/hcw/1886115e9d/hc-home
+  ✓ harness:local@hc   signs and verifies
+  ✓ kernel:local@hc    signs and verifies
+
+Repository
+  ✓ git work tree      /home/justin/hcw/1886115e9d/billable
+  ✓ task               Get CI green on main
+  ✓ test command       python3 -m unittest discover -s tests -t .  (/usr/bin/python3)
+  ! agent notes        AGENTS.md is missing the hc protocol or names an old test command
+    fix: hc init
+  ✓ claude hooks       .claude/settings.json  (/home/justin/.cargo/bin/hc)
+  ✓ codex hooks        .codex/hooks.json  (/home/justin/.cargo/bin/hc)
+  ✓ antigravity hooks  .agents/hooks.json  (/home/justin/.cargo/bin/hc)
+  ✓ docket             1 entries, every signature valid
+
+Agents
+  ✓ harnesses          claude-code, codex, antigravity
+
+! hc will run, with 1 warning.
